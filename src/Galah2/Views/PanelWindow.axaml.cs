@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Galah2.Services;
 using Galah2.ViewModels;
 
 namespace Galah2.Views;
@@ -23,6 +24,11 @@ public partial class PanelWindow : Window
         // Keyboard navigation: Escape hides, arrows move the category, Ctrl+1..9 selects one.
         KeyDown += OnKeyDown;
         AddHandler(PointerWheelChangedEvent, OnWheel, RoutingStrategies.Tunnel);
+
+        // Record what transparency level actually got applied: the request can be downgraded by
+        // the compositor, and a panel that silently falls back to opaque looks like a bug.
+        // Logged here, not on a later Opened subscription: the event has already fired by now.
+        DiagnosticsLog.Line("material", "requested=Mica actual=" + ActualTransparencyLevel);
 
         // Dropping files or a URL onto the panel adds them to the active category.
         DragDrop.SetAllowDrop(this, true);

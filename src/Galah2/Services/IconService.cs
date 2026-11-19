@@ -28,6 +28,9 @@ public static class IconService
     private const uint DiNormal = 0x0003;
     private const uint ShgfiIcon = 0x000000100;
 
+    /// <summary>Cap on a shell-handler extraction before falling back to the generic route.</summary>
+    private static readonly TimeSpan ShellHandlerTimeout = TimeSpan.FromSeconds(4);
+
     private static AppDataPaths? _paths;
 
     /// <summary>Point the service at a data root (boot calls this once; tests use a scratch dir).</summary>
@@ -95,6 +98,15 @@ public static class IconService
             if (byIndex is not null) return byIndex;
         }
 
+        // A .msc snap-in keeps its icon as a compressed PNG resource that none of the plain
+        // shell APIs can read; only the handler Explorer itself uses can. Try it first, and fall
+        // back to the generic route if it declines.
+        if (osPath.EndsWith(".msc", StringComparison.OrdinalIgnoreCase))
+        {
+            var viaHandler = ExtractViaShellHandler(osPath, size);
+            if (viaHandler is not null) return viaHandler;
+        }
+
         return ExtractShellIcon(osPath, size);
     }
 
@@ -118,6 +130,35 @@ public static class IconService
             return Bitmap.DecodeToWidth(stream, size);
         }
         catch (Exception) { return null; }
+    }
+
+    /// <summary>
+    /// Run the shell icon handler on a dedicated STA worker.
+    ///
+    /// The handler's IExtractIconW is only reachable from an STA apartment: on an MTA thread
+    /// QueryInterface answers E_NOINTERFACE. Extraction runs on the thread pool (MTA), so the
+    /// whole COM conversation is handed to a worker with the right apartment. The wait is bounded
+    /// because a stuck shell handler must never hold up a panel.
+    /// </summary>
+    private static Bitmap? ExtractViaShellHandler(string osPath, int size)
+    {
+        IntPtr handle = IntPtr.Zero;
+        using var done = new ManualResetEventSlim(false);
+        var worker = new Thread(() =>
+        {
+            try { handle = ShellIconHandler.Extract(osPath, large: true); }
+            catch (Exception) { handle = IntPtr.Zero; }
+            finally { done.Set(); }
+        })
+        { IsBackground = true };                 // abandoned workers never block shutdown
+        worker.SetApartmentState(ApartmentState.STA);
+        worker.Start();
+
+        if (!done.Wait(ShellHandlerTimeout)) return null;   // fall back to the legacy routes
+        if (handle == IntPtr.Zero) return null;
+
+        try { return FromIconHandle(handle, size); }
+        finally { Win32.DestroyIcon(handle); }
     }
 
     /// <summary>Ask the shell for the icon it would show for this path.</summary>

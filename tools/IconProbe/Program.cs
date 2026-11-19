@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Galah2.Models;
@@ -51,6 +50,25 @@ internal static class Program
                 bmp is null ? "null" : bmp.PixelSize.Width + "x" + bmp.PixelSize.Height);
         }
 
+        // Snap-ins: the .msc route, including the shell handler fallback.
+        //
+        // Measured on this machine: the handler and the generic SHGetFileInfoW route return
+        // essentially identical results for every .msc tried (services.msc 217 saturated pixels
+        // either way; devmgmt.msc is a near-greyscale icon in both). 1.x recorded that
+        // SHGetFileInfoW fell back to a grey document icon here, and that did not reproduce.
+        // The handler is kept because it is what Explorer itself uses, but it is not what makes
+        // these icons work on this build.
+        foreach (var name in new[] { "services.msc", "devmgmt.msc" })
+        {
+            var path = Path.Combine(sys, name);
+            if (!File.Exists(path)) { Check(name + " fixture", false, "missing"); continue; }
+
+            var item = new CatalogItem { Id = name, Name = name, Kind = ItemKinds.App, Target = path };
+            var bmp = IconService.GetAsync(item).GetAwaiter().GetResult();
+            Check(name, bmp is not null,
+                bmp is null ? "null" : bmp.PixelSize.Width + "x" + bmp.PixelSize.Height);
+        }
+
         // An image override must be decoded straight from disk, not through the shell.
         var ico = Path.Combine(AppContext.BaseDirectory, "app.ico");
         var payload = new CatalogItem
@@ -83,7 +101,6 @@ internal static class Program
             var smallest = pngs.Min(p => new FileInfo(p).Length);
             Check("cached PNGs are real images", smallest > 300, "smallest " + smallest + " bytes");
 
-            // A second call must be served from the cache and still produce a bitmap.
             var cachedItem = new CatalogItem
             {
                 Id = "c", Name = "cached", Kind = ItemKinds.App,

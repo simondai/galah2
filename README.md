@@ -23,7 +23,7 @@ A launcher for Windows, rewritten on **Avalonia 11 + NativeAOT**.
 | Reads 1.x `GalahData/catalog.json` unchanged | working |
 | Item launch (exe / lnk / url / protocol) | working |
 | Shell link (.lnk) create + read, **without `ComImport`** | working, 11/11 probes |
-| Icon extraction + PNG cache | working, 10/10 probes |
+| Icon extraction + PNG cache, incl. .msc | working, 12/12 probes |
 | Settings window (hotkey, icon size, interaction toggles) | working, 9/9 probes |
 | Add-picker (4 sources, filter, multi-select) | working |
 | Edit dialog with commit gate | working |
@@ -33,7 +33,7 @@ A launcher for Windows, rewritten on **Avalonia 11 + NativeAOT**.
 | Drag and drop of files, pasted URLs | working |
 | Panel command surface | working, 40/40 probes |
 | NativeAOT publish | working (26.4 MB) |
-| Material effects (Mica/acrylic) | set but unverified |
+| Material (Mica) | working, verified as `actual=Mica` + pixel tint |
 
 ---
 
