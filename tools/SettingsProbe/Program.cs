@@ -1,0 +1,91 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Galah2.Models;
+using Galah2.Persistence;
+using Galah2.Services;
+using Galah2.ViewModels;
+using Galah2.Views;
+
+/// <summary>
+/// Settings window probes: it must construct, render, and commit an edit to disk.
+/// </summary>
+internal static class Program
+{
+    private static int _fail;
+    private static void Check(string name, bool ok, string detail = "")
+    {
+        Console.WriteLine((ok ? "PASS  " : "FAIL  ") + name + (detail.Length > 0 ? "  [" + detail + "]" : ""));
+        if (!ok) _fail++;
+    }
+
+    private static string _root = "";
+
+    [STAThread]
+    public static int Main(string[] args)
+    {
+        AppBuilder.Configure<ProbeApp>().UsePlatformDetect().StartWithClassicDesktopLifetime(args);
+        Console.WriteLine(_fail == 0 ? "=== ALL PASS ===" : "=== " + _fail + " FAILED ===");
+        return _fail == 0 ? 0 : 1;
+    }
+
+    public static void RunChecks()
+    {
+        _root = Path.Combine(Path.GetTempPath(), "settingsprobe-" + Guid.NewGuid().ToString("N")[..8]);
+        var paths = new AppDataPaths(_root).EnsureCreated();
+        var store = new SettingsStore(paths);
+        store.Load();
+
+        SettingsDocument? applied = null;
+        var vm = new SettingsViewModel(store, paths.Root, s => applied = s);
+        Check("view model loads current values", vm.DataFolder == paths.Root, vm.DataFolder);
+        Check("hotkey hint populated", vm.HotkeyHint.Length > 0, vm.HotkeyHint);
+
+        var window = new SettingsWindow { DataContext = vm };
+        window.Show();
+        Check("window opened", window.IsVisible);
+        var size = window.Bounds.Size;
+        Check("window has layout", size.Width > 100 && size.Height > 100,
+            $"{size.Width}x{size.Height}");
+
+        // An edit must reach the document, the disk, and the restart callback.
+        vm.HideOnLaunch = !vm.HideOnLaunch;
+        Check("edit applied to callback", applied is not null);
+        Check("edit written to disk", File.ReadAllText(paths.SettingsFile).Contains("hideOnLaunch"),
+            "settings.json");
+
+        // A malformed hotkey must not overwrite the working one.
+        var before = store.Current.Hotkey;
+        vm.HotkeyText = "not-a-hotkey";
+        Check("malformed hotkey rejected", store.Current.Hotkey == before, store.Current.Hotkey);
+        // The hint must explain the refusal, not merely echo the rejected text.
+        Check("rejection explained", vm.HotkeyHint.Length > 0 && vm.HotkeyHint != "not-a-hotkey",
+            vm.HotkeyHint);
+
+        // A valid one must take effect and fire the re-register callback.
+        HotkeySpec? registered = null;
+        vm.HotkeyChanged += s => registered = s;
+        vm.HotkeyText = "ctrl+shift+F9";
+        Check("valid hotkey accepted", registered is not null, store.Current.Hotkey);
+
+        window.Close();
+        try { Directory.Delete(_root, true); } catch { }
+    }
+}
+
+internal sealed class ProbeApp : Application
+{
+    public override void OnFrameworkInitializationCompleted()
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnExplicitShutdown;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                try { Program.RunChecks(); }
+                finally { desktop.Shutdown(); }
+            });
+        }
+        base.OnFrameworkInitializationCompleted();
+    }
+}

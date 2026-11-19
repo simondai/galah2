@@ -1,0 +1,79 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Galah2.ViewModels"
+        x:Class="Galah2.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Title="设置"
+        Width="420" Height="520"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        Background="#1B1B1F">
+  <Window.Styles>
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="#8A8A93" />
+      <Setter Property="Margin" Value="0,14,0,6" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="#8A8A93" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="CheckBox">
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+  </Window.Styles>
+
+  <DockPanel Margin="20,16,20,16">
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right"
+                Margin="0,12,0,0">
+      <Button Content="关闭" Command="{Binding CloseCommand}" />
+    </StackPanel>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel>
+        <TextBlock Classes="section" Text="全局快捷键" />
+        <TextBox Text="{Binding HotkeyText, Mode=TwoWay}" FontSize="13" />
+        <TextBlock Classes="hint" Text="{Binding HotkeyHint}" Margin="0,6,0,0" />
+
+        <TextBlock Classes="section" Text="外观" />
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="110,*">
+            <TextBlock Grid.Column="0" Classes="label" Text="图标大小" />
+            <ComboBox Grid.Column="1" SelectedIndex="{Binding IconSizeIndex, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch">
+              <ComboBoxItem Content="小" />
+              <ComboBoxItem Content="中" />
+              <ComboBoxItem Content="大" />
+            </ComboBox>
+          </Grid>
+        </StackPanel>
+
+        <TextBlock Classes="section" Text="交互" />
+        <StackPanel Spacing="8">
+          <CheckBox IsChecked="{Binding HideOnLaunch, Mode=TwoWay}" Content="启动条目后收起面板" />
+          <CheckBox IsChecked="{Binding WheelSwitchTab, Mode=TwoWay}" Content="滚轮切换分类" />
+          <CheckBox IsChecked="{Binding NumberKeysSwitchTab, Mode=TwoWay}" Content="Ctrl+数字切换分类" />
+        </StackPanel>
+
+        <TextBlock Classes="section" Text="系统" />
+        <StackPanel Spacing="8">
+          <CheckBox IsChecked="{Binding AutoStart, Mode=TwoWay}" Content="开机自动启动" />
+          <StackPanel>
+            <TextBlock Classes="hint" Text="数据目录" />
+            <SelectableTextBlock Text="{Binding DataFolder}" FontSize="11"
+                                 Foreground="#B9B9C0" TextWrapping="Wrap" Margin="0,2,0,0" />
+          </StackPanel>
+        </StackPanel>
+
+        <TextBlock Classes="section" Text="尚未迁移" />
+        <TextBlock Classes="hint"
+                   Text="库维护（清理失效/重复项、排序、重建图标缓存、导出导入）在 2.0 中还没有界面。" />
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

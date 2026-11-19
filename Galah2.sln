@@ -6,6 +6,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Galah2", "src\Galah2\Galah2
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ComProbe", "tools\ComProbe\ComProbe.csproj", "{A1B2C3D4-0002-0000-0000-000000000002}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IconProbe", "tools\IconProbe\IconProbe.csproj", "{A1B2C3D4-0003-0000-0000-000000000003}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SettingsProbe", "tools\SettingsProbe\SettingsProbe.csproj", "{A1B2C3D4-0004-0000-0000-000000000004}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -20,5 +24,13 @@ Global
 		{A1B2C3D4-0002-0000-0000-000000000002}.Debug|x64.Build.0 = Debug|x64
 		{A1B2C3D4-0002-0000-0000-000000000002}.Release|x64.ActiveCfg = Release|x64
 		{A1B2C3D4-0002-0000-0000-000000000002}.Release|x64.Build.0 = Release|x64
+		{A1B2C3D4-0003-0000-0000-000000000003}.Debug|x64.ActiveCfg = Debug|x64
+		{A1B2C3D4-0003-0000-0000-000000000003}.Debug|x64.Build.0 = Debug|x64
+		{A1B2C3D4-0003-0000-0000-000000000003}.Release|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-0003-0000-0000-000000000003}.Release|x64.Build.0 = Release|x64
+		{A1B2C3D4-0004-0000-0000-000000000004}.Debug|x64.ActiveCfg = Debug|x64
+		{A1B2C3D4-0004-0000-0000-000000000004}.Debug|x64.Build.0 = Debug|x64
+		{A1B2C3D4-0004-0000-0000-000000000004}.Release|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-0004-0000-0000-000000000004}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 EndGlobal

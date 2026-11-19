@@ -23,8 +23,9 @@ A launcher for Windows, rewritten on **Avalonia 11 + NativeAOT**.
 | Item launch (exe / lnk / url / protocol) | working |
 | Shell link (.lnk) create + read, **without `ComImport`** | working, 11/11 probes |
 | NativeAOT publish | working (23.8 MB) |
-| Icon extraction | **not ported** (1.x `IconService`) |
-| Settings / add-picker / maintenance windows | **not ported** |
+| Icon extraction + PNG cache | working, 10/10 probes |
+| Settings window (hotkey, icon size, interaction toggles) | working, 9/9 probes |
+| Add-picker / maintenance windows | **not ported** |
 | Drag and drop, material effects | **not ported** |
 
 ---
@@ -93,6 +94,8 @@ src/Galah2/
   Views/ ViewModels/                 Avalonia UI
   Styles/Baseline.axaml              the entire visual theme of 2.0
 tools/ComProbe/                      COM round-trip probes
+tools/IconProbe/                     icon extraction probes
+tools/SettingsProbe/                 settings window probes
 tools/perf/measure.ps1               memory measurement
 ```
 

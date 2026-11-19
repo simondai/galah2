@@ -26,6 +26,20 @@ jobs:
       - name: COM round-trip probes
         run: dotnet run --project tools/ComProbe -c Release --no-build
 
+      # These probes open real windows (WriteableBitmap needs a render backend), so they only
+      # pass on a runner that has an interactive desktop session.
+      - name: Icon probes
+        shell: pwsh
+        run: |
+          dotnet run --project tools/IconProbe -c Release --no-build
+          if ($LASTEXITCODE -ne 0) { throw "icon probes failed" }
+
+      - name: Settings window probes
+        shell: pwsh
+        run: |
+          dotnet run --project tools/SettingsProbe -c Release --no-build
+          if ($LASTEXITCODE -ne 0) { throw "settings probes failed" }
+
       # NativeAOT needs the MSVC linker; windows-latest ships VS with the C++ workload.
       - name: Publish (NativeAOT)
         run: >

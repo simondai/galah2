@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
+using Galah2.Models;
 using Galah2.Persistence;
 using Galah2.ViewModels;
 using Galah2.Views;
@@ -23,6 +24,7 @@ public sealed class AppRuntime : IDisposable
     private readonly TrayService _tray;
     private readonly HotkeyService _hotkey;
     private PanelWindow? _panel;
+    private SettingsWindow? _settingsWindow;
     private PanelViewModel? _viewModel;
 
     public AppRuntime(AppDataPaths paths)
@@ -48,7 +50,7 @@ public sealed class AppRuntime : IDisposable
             ? File.OpenRead(iconPath)
             : OpenEmbeddedIcon();
 
-        _tray = new TrayService(iconStream, Toggle, ShowSettingsPlaceholder, RequestExit);
+        _tray = new TrayService(iconStream, Toggle, ShowSettings, RequestExit);
 
         if (HotkeyParser.TryParse(_settings.Current.Hotkey, out var spec, out _) && spec is not null)
             _hotkey.Register(spec);
@@ -106,8 +108,29 @@ public sealed class AppRuntime : IDisposable
         return result.Status == LaunchStatus.Ok;
     }
 
-    private void ShowSettingsPlaceholder() =>
-        DiagnosticsLog.Line("settings", "设置窗口尚未迁移到 2.0（Sprint 3）");
+    /// <summary>Settings is a single reusable window: opening it twice must not stack copies.
+    /// </summary>
+    private void ShowSettings()
+    {
+        if (_settingsWindow is not null)
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+
+        var vm = new SettingsViewModel(_settings, _paths.Root, ApplySettings);
+        vm.HotkeyChanged += spec => _hotkey.Register(spec);
+
+        _settingsWindow = new SettingsWindow { DataContext = vm };
+        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow.Show();
+    }
+
+    /// <summary>Apply a settings change to the live UI (the store has already persisted it).</summary>
+    private void ApplySettings(SettingsDocument settings)
+    {
+        _viewModel?.ApplyIconSize(settings.IconSize);
+    }
 
     private void RequestExit()
     {

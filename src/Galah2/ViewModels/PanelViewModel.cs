@@ -12,7 +12,7 @@ public sealed class ItemViewModel : ObservableObject
 {
     private Bitmap? _icon;
 
-    public ItemViewModel(CatalogItem item)
+    public ItemViewModel(CatalogItem item, int iconEdge)
     {
         Id = item.Id;
         Name = item.Name;
@@ -20,7 +20,7 @@ public sealed class ItemViewModel : ObservableObject
 
         // The tile paints the letter immediately and swaps in the real icon when it arrives:
         // shell extraction can take tens of milliseconds and must never block a panel open.
-        _ = LoadIconAsync(item);
+        _ = LoadIconAsync(item, iconEdge);
     }
 
     public string Id { get; }
@@ -38,11 +38,11 @@ public sealed class ItemViewModel : ObservableObject
 
     public bool HasIcon => _icon is not null;
 
-    private async Task LoadIconAsync(CatalogItem item)
+    private async Task LoadIconAsync(CatalogItem item, int iconEdge)
     {
         try
         {
-            var bitmap = await IconService.GetAsync(item).ConfigureAwait(true);
+            var bitmap = await IconService.GetAsync(item, iconEdge).ConfigureAwait(true);
             if (bitmap is not null) Icon = bitmap;
         }
         catch (Exception) { }
@@ -79,6 +79,7 @@ public sealed class PanelViewModel : ObservableObject
     private readonly CatalogStore _catalog;
     private readonly Func<string, bool> _launch;
     private TabViewModel? _selectedTab;
+    private int _iconEdge = 32;
 
     public PanelViewModel(CatalogStore catalog, Func<string, bool> launch)
     {
@@ -94,6 +95,15 @@ public sealed class PanelViewModel : ObservableObject
 
     public ICommand SelectTabCommand { get; }
     public ICommand LaunchCommand { get; }
+
+    /// <summary>Live icon-size change: rebuild tiles so each asks for the new edge length.</summary>
+    public void ApplyIconSize(string? size)
+    {
+        var edge = (int)IconSizes.IconEdge(size);
+        if (edge == _iconEdge) return;
+        _iconEdge = edge;
+        SelectTab(Tabs.FirstOrDefault(t => t.IsActive));
+    }
 
     /// <summary>Re-project the whole panel from the catalog document.</summary>
     public void Refresh()
@@ -122,7 +132,7 @@ public sealed class PanelViewModel : ObservableObject
         if (source is null) return;
 
         foreach (var item in source.Items.OrderBy(i => i.Order).ThenBy(i => i.Id, StringComparer.Ordinal))
-            Items.Add(new ItemViewModel(item));
+            Items.Add(new ItemViewModel(item, _iconEdge));
     }
 
     private void Launch(ItemViewModel item) => _launch(item.Id);
