@@ -80,6 +80,7 @@ Services/CatalogSources/ (五个源)
 ---
 
 
+
 ## 3.1 本轮完成 — 功能面基本对齐 1.x
 
 | 功能 | 状态 |
@@ -94,9 +95,11 @@ Services/CatalogSources/ (五个源)
 | 提示与确认对话框 | 完成 |
 | 拖放文件、粘贴 URL | 完成 |
 | 设置窗口（快捷键/图标大小/交互开关/自启/数据目录） | 完成 |
+| 分类竖排布局（top / left） | 完成，已实测 |
+| 图标尺寸三档（24 / 40 / 56 DIP） | 完成，已实测 |
 
-验收：ComProbe 11/11、IconProbe 10/10、SettingsProbe 9/9、PanelProbe 34/34。
-AOT：26.4 MB，待机 18.6 MB，面板 71.8 MB。
+验收：ComProbe 11/11、IconProbe 10/10、SettingsProbe 9/9、PanelProbe 40/40。
+AOT：26.4 MB，待机 18.6 MB，面板 71.8 MB（大图标 + 竖排实测 82 MB）。
 
 ## 3.2 仍与 1.x 有差距
 
@@ -105,18 +108,6 @@ AOT：26.4 MB，待机 18.6 MB，面板 71.8 MB。
 2. **材质效果（Mica/亚克力）** — `TransparencyLevelHint="Mica"` 已设但未验证是否生效。
 3. **`.msc` 图标的 COM handler 路径** — 1.x 有专门的 STA handler，2.0 只走通用 shell 图标，
    这类管理单元会拿到灰白占位图。
-4. **分类竖排布局** — 设置项 `tabPosition` 存在，2.0 只有横排一种。
-5. **图标大小** — 设置值已保存并会重建瓦片，但面板瓦片固定 32px，未随设置缩放。
-
-按依赖排序：
-
-1. **编辑 / 添加选择器** — 内容库现在只读：能读 1.x 数据，但 2.0 内不能增删改。
-2. **库维护 / 导入导出** — 后端服务（`MaintenanceService` / `MigrationService`）已搬，缺 UI。
-3. **UI 级验收工具** — Avalonia 的 UIA 暴露度弱于 WPF，需要新的验证策略。
-4. **drag & drop、材质效果** — 1.x 有，2.0 未做。
-5. **`.msc` 图标的 COM handler 路径** — 1.x 有一整套专门处理，2.0 只走了通用 shell 图标。
-
----
 
 ## 4. 已确认必须遵守的技术约束
 

@@ -205,16 +205,36 @@ public sealed class PanelViewModel : ObservableObject
         SelectTab(Tabs.FirstOrDefault(t => t.Id == previous) ?? Tabs.FirstOrDefault());
         CheckSaveState();
     }
+    /// <summary>True when the category strip is a left rail instead of a top row.</summary>
+    public bool IsVerticalTabs { get; private set; }
 
-    /// <summary>Live icon-size change: rebuild tiles so each asks for the new edge length.</summary>
-    public void ApplyIconSize(string? size)
+    /// <summary>Icon edge in DIPs for the current size step.</summary>
+    public double IconEdge => _iconEdge > 0 ? _iconEdge : 32;
+
+    /// <summary>Tile width: icon plus padding, so a bigger icon never clips its label.</summary>
+    public double TileWidth => Math.Max(76, IconEdge + 44);
+
+    /// <summary>Apply layout-affecting settings (icon size, strip position).</summary>
+    public void ApplyLayout(SettingsDocument settings)
     {
-        var edge = (int)IconSizes.IconEdge(size);
-        if (edge == _iconEdge) return;
+        var edge = (int)IconSizes.IconEdge(settings.IconSize);
+        var vertical = settings.TabPosition == TabPositions.Left;
+
+        if (edge == _iconEdge && vertical == IsVerticalTabs) return;
+
         _iconEdge = edge;
+        IsVerticalTabs = vertical;
+
+        // Re-project so each tile asks for the new edge length.
         SelectTab(_selectedTab);
+
+        foreach (var n in new[] { nameof(IconEdge), nameof(TileWidth), nameof(IsVerticalTabs) })
+            Raise(n);
     }
 
+    /// <summary>Live icon-size change: rebuild tiles so each asks for the new edge length.</summary>
+    public void ApplyIconSize(string? size) =>
+        ApplyLayout(new SettingsDocument { IconSize = size ?? IconSizes.Medium, TabPosition = IsVerticalTabs ? TabPositions.Left : TabPositions.Top });
     /// <summary>Cycle categories with the wheel or Ctrl+number (1.x's tab navigation).</summary>
     public void SwitchTabRelative(int delta)
     {

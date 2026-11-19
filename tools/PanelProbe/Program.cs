@@ -146,6 +146,18 @@ internal static class Program
         vm.ShowMaintenanceCommand.Execute(null);
         Check("maintenance routed", host.MaintenanceCalled);
 
+        // ---- layout: vertical rail and icon size ----
+        vm.ApplyLayout(new SettingsDocument { IconSize = IconSizes.Large, TabPosition = TabPositions.Left });
+        Check("vertical rail enabled", vm.IsVerticalTabs);
+        Check("large icon edge", vm.IconEdge == IconSizes.IconEdge(IconSizes.Large),
+            vm.IconEdge.ToString());
+        Check("tile widens for a big icon", vm.TileWidth > 76, vm.TileWidth.ToString());
+
+        vm.ApplyLayout(new SettingsDocument { IconSize = IconSizes.Small, TabPosition = TabPositions.Top });
+        Check("rail turned off", !vm.IsVerticalTabs);
+        Check("small icon edge", vm.IconEdge == IconSizes.IconEdge(IconSizes.Small),
+            vm.IconEdge.ToString());
+
         // ---- window construction ----
         var window = new PanelWindow { DataContext = vm };
         window.Show();

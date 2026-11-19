@@ -7,7 +7,7 @@ A launcher for Windows, rewritten on **Avalonia 11 + NativeAOT**.
 > **Read [FINDINGS-2.0.md](FINDINGS-2.0.md) before assuming this rewrite saves memory.**
 > Measured on real hardware, the memory picture is not what the rewrite was started for:
 > idle usage is *higher* than 1.x, and the panel saves only 5–13%. What 2.0 does deliver is a
-> **65% smaller artifact** (68.6 MB → 23.8 MB), no .NET runtime dependency, and native startup.
+> **65% smaller artifact** (68.6 MB → 26.4 MB), no .NET runtime dependency, and native startup.
 
 ---
 
@@ -18,20 +18,22 @@ A launcher for Windows, rewritten on **Avalonia 11 + NativeAOT**.
 | Tray icon, left-click activate, native right-click menu | working |
 | Global hotkey (message-only sink, survives a never-shown panel) | working |
 | Single instance + forward toggle | working |
-| Panel: category chips + item grid, dark surface | working |
+| Panel: chrome, hamburger menu, item grid, context menu, drag to move | working |
+| Category strip on top or as a left rail, three icon sizes | working |
 | Reads 1.x `GalahData/catalog.json` unchanged | working |
 | Item launch (exe / lnk / url / protocol) | working |
 | Shell link (.lnk) create + read, **without `ComImport`** | working, 11/11 probes |
-| NativeAOT publish | working (23.8 MB) |
 | Icon extraction + PNG cache | working, 10/10 probes |
 | Settings window (hotkey, icon size, interaction toggles) | working, 9/9 probes |
-| Add-picker (4 sources, filter, multi-select) | working, 28/28 panel probes |
+| Add-picker (4 sources, filter, multi-select) | working |
 | Edit dialog with commit gate | working |
-| Maintenance: scan, clean invalid, dedupe, sort, rebuild cache, export | working |
+| Maintenance: scan, clean invalid, dedupe, sort, rebuild cache | working |
+| Export and import of the whole library | working |
 | Prompt / confirm dialogs | working |
 | Drag and drop of files, pasted URLs | working |
-| Import from a bundle | **not ported** (backend ready, no UI) |
-| Material effects (Mica/acrylic) | **not ported** |
+| Panel command surface | working, 40/40 probes |
+| NativeAOT publish | working (26.4 MB) |
+| Material effects (Mica/acrylic) | set but unverified |
 
 ---
 

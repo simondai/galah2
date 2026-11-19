@@ -59,8 +59,11 @@
         </Grid>
       </Border>
 
-      <!-- ===== category strip ===== -->
-      <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Tabs}" Margin="14,10,14,6">
+      <!-- ===== category strip: a top row, or a left rail =====
+           Two instances rather than one control with a switched DockPanel.Dock: Dock is applied
+           once at layout time, so flipping it on a live control would not re-dock reliably. -->
+      <ItemsControl ItemsSource="{Binding Tabs}" Margin="14,10,14,6"
+                    DockPanel.Dock="Top" IsVisible="{Binding !IsVerticalTabs}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
             <StackPanel Orientation="Horizontal" Spacing="6" />
@@ -70,6 +73,24 @@
           <DataTemplate x:DataType="vm:TabViewModel">
             <Button Classes="chip" Content="{Binding Name}"
                     Classes.active="{Binding IsActive}"
+                    Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
+                    CommandParameter="{Binding}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <ItemsControl ItemsSource="{Binding Tabs}" Margin="10,10,8,10" Width="96"
+                    DockPanel.Dock="Left" IsVisible="{Binding IsVerticalTabs}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Vertical" Spacing="4" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:TabViewModel">
+            <Button Classes="chip" Content="{Binding Name}"
+                    Classes.active="{Binding IsActive}"
+                    HorizontalAlignment="Left"
                     Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
                     CommandParameter="{Binding}" />
           </DataTemplate>
@@ -110,15 +131,19 @@
                               CommandParameter="{Binding}" />
                   </ContextMenu>
                 </Button.ContextMenu>
-                <StackPanel Width="76" Spacing="6">
-                  <Panel Width="32" Height="32" HorizontalAlignment="Center">
+                <StackPanel Width="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).TileWidth}" Spacing="6">
+                  <Panel Width="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).IconEdge}"
+                         Height="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).IconEdge}"
+                         HorizontalAlignment="Center">
                     <!-- The letter shows while the shell icon is extracted, then hides. -->
                     <Border CornerRadius="6" Background="#2A2A2E"
                             IsVisible="{Binding !HasIcon}">
                       <TextBlock Text="{Binding Initial}" FontSize="14" Foreground="#F2F2F5"
                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
-                    <Image Source="{Binding Icon}" Width="32" Height="32"
+                    <Image Source="{Binding Icon}"
+                           Width="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).IconEdge}"
+                           Height="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).IconEdge}"
                            IsVisible="{Binding HasIcon}" />
                   </Panel>
                   <TextBlock Text="{Binding Name}" FontSize="11" TextAlignment="Center"

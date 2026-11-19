@@ -65,6 +65,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         {
             _viewModel = new PanelViewModel(_catalog, this);
             _viewModel.ExitRequested += RequestExit;
+            _viewModel.ApplyLayout(_settings.Current);
             _viewModel.ApplySettings(_settings.Current);
             _panel = new PanelWindow { DataContext = _viewModel };
             _panel.Closed += (_, _) => _panel.Hide();
@@ -131,7 +132,8 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     /// <summary>Apply a settings change to the live UI (the store has already persisted it).</summary>
     private void ApplySettings(SettingsDocument settings)
     {
-        _viewModel?.ApplyIconSize(settings.IconSize);
+        _viewModel?.ApplyLayout(settings);
+        _viewModel?.ApplySettings(settings);
     }
 
 
