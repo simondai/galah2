@@ -29,6 +29,7 @@ public sealed class AppRuntime : IDisposable
     {
         _paths = paths.EnsureCreated();
         DiagnosticsLog.Initialize(_paths);
+        IconService.Initialize(_paths);
 
         _settings = new SettingsStore(_paths);
         _settings.Load();

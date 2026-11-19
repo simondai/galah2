@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using Avalonia.Media.Imaging;
 using Galah2.Models;
 using Galah2.Persistence;
 using Galah2.Services;
@@ -7,18 +8,45 @@ using Galah2.Services;
 namespace Galah2.ViewModels;
 
 /// <summary>One tile in the panel.</summary>
-public sealed class ItemViewModel
+public sealed class ItemViewModel : ObservableObject
 {
+    private Bitmap? _icon;
+
     public ItemViewModel(CatalogItem item)
     {
         Id = item.Id;
         Name = item.Name;
         Initial = string.IsNullOrWhiteSpace(item.Name) ? "?" : item.Name[..1].ToUpperInvariant();
+
+        // The tile paints the letter immediately and swaps in the real icon when it arrives:
+        // shell extraction can take tens of milliseconds and must never block a panel open.
+        _ = LoadIconAsync(item);
     }
 
     public string Id { get; }
     public string Name { get; }
     public string Initial { get; }
+
+    public Bitmap? Icon
+    {
+        get => _icon;
+        private set
+        {
+            if (Set(ref _icon, value)) Raise(nameof(HasIcon));
+        }
+    }
+
+    public bool HasIcon => _icon is not null;
+
+    private async Task LoadIconAsync(CatalogItem item)
+    {
+        try
+        {
+            var bitmap = await IconService.GetAsync(item).ConfigureAwait(true);
+            if (bitmap is not null) Icon = bitmap;
+        }
+        catch (Exception) { }
+    }
 }
 
 /// <summary>One category chip.</summary>

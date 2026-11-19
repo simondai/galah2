@@ -351,6 +351,34 @@ internal static class Win32
     [DllImport("gdi32.dll")]
     public static extern IntPtr SelectObject(IntPtr hdc, IntPtr obj);
 
+    /// <summary>Split an HICON into its colour and AND-mask bitmaps.</summary>
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool GetIconInfo(IntPtr hIcon, out ICONINFO piconinfo);
+
+    /// <summary>Read a GDI object's metrics into a caller buffer (used to size icon bitmaps).</summary>
+    [DllImport("gdi32.dll", SetLastError = true)]
+    public static extern int GetObject(IntPtr hgdiobj, int cbBuffer, out BITMAP bm);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct BITMAP
+    {
+        public int bmType;
+        public int bmWidth;
+        public int bmHeight;
+        public int bmWidthBytes;
+        public ushort bmPlanes;
+        public ushort bmBitsPixel;
+        public IntPtr bmBits;
+    }
+
+    /// <summary>Extract an icon by index from an executable/dll. Returns the number extracted.</summary>
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    public static extern uint ExtractIconExW(string file, int index, IntPtr[]? large, IntPtr[]? small, uint nIcons);
+
+    /// <summary>Extract a high-resolution icon (up to 256px) straight from a modern resource.</summary>
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    public static extern uint PrivateExtractIconsW(string file, int index, int cx, int cy,
+        IntPtr[] phicon, uint[] piconid, uint nIcons, uint flags);
     [DllImport("gdi32.dll")]
     public static extern bool DeleteDC(IntPtr hdc);
 }

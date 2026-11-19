@@ -43,11 +43,16 @@
                       Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).LaunchCommand}"
                       CommandParameter="{Binding}" ToolTip.Tip="{Binding Name}">
                 <StackPanel Width="76" Spacing="6">
-                  <Border Width="32" Height="32" CornerRadius="6" Background="#2A2A2E"
-                          HorizontalAlignment="Center">
-                    <TextBlock Text="{Binding Initial}" FontSize="14" Foreground="#F2F2F5"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                  </Border>
+                  <Panel Width="32" Height="32" HorizontalAlignment="Center">
+                    <!-- The letter shows while the shell icon is being extracted, then hides. -->
+                    <Border CornerRadius="6" Background="#2A2A2E"
+                            IsVisible="{Binding !HasIcon}">
+                      <TextBlock Text="{Binding Initial}" FontSize="14" Foreground="#F2F2F5"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Image Source="{Binding Icon}" Width="32" Height="32"
+                           IsVisible="{Binding HasIcon}" />
+                  </Panel>
                   <TextBlock Text="{Binding Name}" FontSize="11" TextAlignment="Center"
                              Foreground="#C8C8CE"
                              TextTrimming="CharacterEllipsis" MaxLines="2" />
