@@ -83,14 +83,11 @@ Services/CatalogSources/ (五个源)
 
 按依赖排序：
 
-1. **图标提取**（`IconService`）— 面板现在显示的是文字首字母占位，
-   没有真实图标。含 `.msc` 的 COM handler 路径，需再次验证 AOT 下可行。
-2. **设置窗口** — 目前托盘菜单里的"设置…"只写日志。
-3. **编辑 / 添加选择器** — 内容库现在只读（能读 1.x 数据，但 2.0 内不能增删改）。
-4. **库维护 / 导入导出** — 后端服务（`MaintenanceService` / `MigrationService`）已搬，
-   缺 UI。
-5. **UI 级验收工具** — Avalonia 的 UIA 暴露度弱于 WPF，需要新的验证策略。
-6. **drag & drop、材质效果** — 1.x 有，2.0 未做。
+1. **编辑 / 添加选择器** — 内容库现在只读：能读 1.x 数据，但 2.0 内不能增删改。
+2. **库维护 / 导入导出** — 后端服务（`MaintenanceService` / `MigrationService`）已搬，缺 UI。
+3. **UI 级验收工具** — Avalonia 的 UIA 暴露度弱于 WPF，需要新的验证策略。
+4. **drag & drop、材质效果** — 1.x 有，2.0 未做。
+5. **`.msc` 图标的 COM handler 路径** — 1.x 有一整套专门处理，2.0 只走了通用 shell 图标。
 
 ---
 
