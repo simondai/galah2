@@ -30,8 +30,11 @@ public partial class App : Application
         {
             SingleInstance.SignalPrimary();
             _instance.Dispose();
-            desktop.Shutdown();
-            return;
+            // Exit immediately rather than calling desktop.Shutdown(): this callback runs while the
+            // lifetime is still starting up, so Shutdown here leaves the main loop to throw
+            // "the Dispatcher shut down". The process has nothing to clean up - it never created a
+            // window, a tray icon or a hotkey.
+            Environment.Exit(0);
         }
 
         var paths = AppDataPaths.ForExecutable();

@@ -101,14 +101,30 @@ Services/CatalogSources/ (五个源)
 验收：ComProbe 11/11、IconProbe 10/10、SettingsProbe 9/9、PanelProbe 40/40。
 AOT：26.4 MB，待机 18.6 MB，面板 71.8 MB（大图标 + 竖排实测 82 MB）。
 
-## 3.2 仍与 1.x 有差距
+## 3.2 与 1.x 的覆盖对照
 
-只剩一项：
+功能面已对齐，验收方式不同：
 
-1. **UI 级验收** — 1.x 有 25 条 UIA 驱动的进程级验收；2.0 目前是命令面探针加像素断言，
-   缺真实鼠标/键盘的端到端覆盖。这是唯一的结构性缺口。
+| 1.x 验收 | 2.0 对应 | 状态 |
+|---|---|---|
+| 托盘消息窗存在、左键激活面板 | UiAcceptance：toggle 后窗口出现且尺寸正确 | 完成 |
+| 首次启动留可达入口 | UiAcceptance：托盘常驻 + 关闭后仍存活 | 完成 |
+| 右键菜单弹出 | 未覆盖（需要真实鼠标点击托盘） | 缺 |
+| 设置窗/选择器/维护窗可打开 | SettingsProbe + PanelProbe 走命令面 | 完成 |
+| 真实鼠标退出链 | 未覆盖 | 缺 |
+| 面板位置切换 | PanelProbe 验证放置函数 | 完成 |
 
-材质与 `.msc` 图标本轮查实后已不在差距清单里，结论见 3.3。
+五个验收工具的断言数：ComProbe 11、IconProbe 12、SettingsProbe 9、PanelProbe 40、
+UiAcceptance 11。
+
+**本轮 UiAcceptance 抓到的两个真实进程边界 bug**（探针层面看不到）：
+
+1. 第二实例转发 toggle 后走 `desktop.Shutdown()`，此时生命周期还在启动中，
+   主循环随即抛 `the Dispatcher shut down`。改为直接退出进程。
+2. 面板点 ✕ 后 `Closed` 里 `Hide()` 太晚——Avalonia 的窗口一旦真正关闭就不能再显示，
+   下一次热键抛 `Cannot re-show a closed window`，表现为"程序还在但叫不出来"，
+   正是 1.x 那个死程序 bug 换了个形态。改为在 `Closing` 里取消关闭并隐藏。
+
 
 ## 3.3 本轮收尾：材质与 .msc 的实测结论
 

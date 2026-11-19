@@ -46,6 +46,15 @@ jobs:
           dotnet run --project tools/PanelProbe -c Release --no-build
           if ($LASTEXITCODE -ne 0) { throw "panel probes failed" }
 
+      # Drives the real executable across the process boundary: tray residency, toggle
+      # forwarding, panel appearance, close-to-hide, and that the panel can be summoned again.
+      - name: Process-level acceptance
+        shell: pwsh
+        run: |
+          dotnet run --project tools/UiAcceptance -c Release --no-build -- 
+            "src/Galah2/bin/Release/net8.0/Galah2.exe"
+          if ($LASTEXITCODE -ne 0) { throw "process acceptance failed" }
+
       # NativeAOT needs the MSVC linker; windows-latest ships VS with the C++ workload.
       - name: Publish (NativeAOT)
         run: >

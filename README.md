@@ -32,6 +32,7 @@ A launcher for Windows, rewritten on **Avalonia 11 + NativeAOT**.
 | Prompt / confirm dialogs | working |
 | Drag and drop of files, pasted URLs | working |
 | Panel command surface | working, 40/40 probes |
+| Process-level acceptance (tray, toggle, close/reopen) | working, 11/11 checks |
 | NativeAOT publish | working (26.4 MB) |
 | Material (Mica) | working, verified as `actual=Mica` + pixel tint |
 
@@ -103,6 +104,7 @@ src/Galah2/
 tools/ComProbe/                      COM round-trip probes
 tools/IconProbe/                     icon extraction probes
 tools/SettingsProbe/                 settings window probes
+tools/UiAcceptance/                  process-level acceptance
 tools/perf/measure.ps1               memory measurement
 ```
 

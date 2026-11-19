@@ -24,6 +24,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     private readonly TrayService _tray;
     private readonly HotkeyService _hotkey;
     private PanelWindow? _panel;
+    private bool _shuttingDown;
     private SettingsWindow? _settingsWindow;
     private PanelViewModel? _viewModel;
 
@@ -68,7 +69,18 @@ public sealed class AppRuntime : IDisposable, IPanelHost
             _viewModel.ApplyLayout(_settings.Current);
             _viewModel.ApplySettings(_settings.Current);
             _panel = new PanelWindow { DataContext = _viewModel };
-            _panel.Closed += (_, _) => _panel.Hide();
+
+            // A close request on the panel means "hide", never "destroy": an Avalonia window that
+            // actually closes cannot be shown again, so cancelling here is what keeps the hotkey
+            // working after the user clicks the ✕. Hiding in the Closed handler is too late - the
+            // window is already marked closed and the next Toggle throws "Cannot re-show a closed
+            // window", which is 1.x's unreachable-app bug in a new dress.
+            _panel.Closing += (_, e) =>
+            {
+                if (_shuttingDown) return;
+                e.Cancel = true;
+                _panel.Hide();
+            };
         }
 
         if (_panel.IsVisible)
@@ -236,6 +248,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
 
     public void Dispose()
     {
+        _shuttingDown = true;      // let the panel close for real on the way out
         _tray.Dispose();
         _hotkey.Dispose();
         _panel?.Close();
