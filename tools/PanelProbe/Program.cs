@@ -158,6 +158,30 @@ internal static class Program
         Check("small icon edge", vm.IconEdge == IconSizes.IconEdge(IconSizes.Small),
             vm.IconEdge.ToString());
 
+        // ---- click mode decides whether a single click acts ----
+        vm.ApplySettings(new SettingsDocument { ClickMode = ClickModes.Double, HideOnLaunch = false });
+        var clickedTile = vm.Items[0];
+        var launchedBefore = host.LaunchCount;
+        vm.LaunchTile(clickedTile, clickCount: 1);
+        Check("single click selects in double mode", host.LaunchCount == launchedBefore,
+            host.LaunchCount + " launch(es)");
+        vm.LaunchTile(clickedTile, clickCount: 2);
+        Check("double click launches in double mode", host.LaunchCount == launchedBefore + 1);
+
+        vm.ApplySettings(new SettingsDocument { ClickMode = ClickModes.Single, HideOnLaunch = false });
+        launchedBefore = host.LaunchCount;
+        vm.LaunchTile(clickedTile, clickCount: 1);
+        Check("single click launches in single mode", host.LaunchCount == launchedBefore + 1);
+
+        // ---- material and blur flags reach the view model ----
+        vm.ApplySettings(new SettingsDocument
+        {
+            PanelMaterial = PanelMaterials.Translucent, HideOnBlur = true
+        });
+        Check("material reaches the panel", vm.PanelMaterial == PanelMaterials.Translucent,
+            vm.PanelMaterial);
+        Check("hide-on-blur reaches the panel", vm.HideOnBlur);
+
         // ---- window construction ----
         var window = new PanelWindow { DataContext = vm };
         window.Show();

@@ -4,30 +4,12 @@
         x:Class="Galah2.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
         Title="设置"
-        Width="420" Height="520"
+        Width="440" Height="600"
         CanResize="False"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource WindowBrush}">
-  <Window.Styles>
-    <Style Selector="TextBlock.section">
-      <Setter Property="FontSize" Value="11" />
-      <Setter Property="Foreground" Value="{DynamicResource TextFaintBrush}" />
-      <Setter Property="Margin" Value="0,14,0,6" />
-    </Style>
-    <Style Selector="TextBlock.label">
-      <Setter Property="FontSize" Value="13" />
-      <Setter Property="VerticalAlignment" Value="Center" />
-    </Style>
-    <Style Selector="TextBlock.hint">
-      <Setter Property="FontSize" Value="11" />
-      <Setter Property="Foreground" Value="{DynamicResource TextFaintBrush}" />
-      <Setter Property="TextWrapping" Value="Wrap" />
-    </Style>
-    <Style Selector="CheckBox">
-      <Setter Property="FontSize" Value="13" />
-    </Style>
-  </Window.Styles>
-
+  <!-- The combos bind ItemsSource to the view model's option arrays, so the label order and the
+       index mapping live in one place and cannot drift apart. -->
   <DockPanel Margin="20,16,20,16">
     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right"
                 Margin="0,12,0,0">
@@ -44,27 +26,46 @@
         <StackPanel Spacing="10">
           <Grid ColumnDefinitions="110,*">
             <TextBlock Grid.Column="0" Classes="label" Text="主题色" />
-            <ComboBox Grid.Column="1" SelectedIndex="{Binding ThemeIndex, Mode=TwoWay}"
-                      HorizontalAlignment="Stretch">
-              <ComboBoxItem Content="跟随系统" />
-              <ComboBoxItem Content="浅色" />
-              <ComboBoxItem Content="深色" />
-            </ComboBox>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding ThemeOptions}"
+                      SelectedIndex="{Binding ThemeIndex, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch" />
           </Grid>
           <Grid ColumnDefinitions="110,*">
             <TextBlock Grid.Column="0" Classes="label" Text="图标大小" />
-            <ComboBox Grid.Column="1" SelectedIndex="{Binding IconSizeIndex, Mode=TwoWay}"
-                      HorizontalAlignment="Stretch">
-              <ComboBoxItem Content="小" />
-              <ComboBoxItem Content="中" />
-              <ComboBoxItem Content="大" />
-            </ComboBox>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding IconSizeOptions}"
+                      SelectedIndex="{Binding IconSizeIndex, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch" />
+          </Grid>
+          <Grid ColumnDefinitions="110,*">
+            <TextBlock Grid.Column="0" Classes="label" Text="分类位置" />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding TabPositionOptions}"
+                      SelectedIndex="{Binding TabPositionIndex, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch" />
+          </Grid>
+          <Grid ColumnDefinitions="110,*">
+            <TextBlock Grid.Column="0" Classes="label" Text="面板材质" />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding MaterialOptions}"
+                      SelectedIndex="{Binding MaterialIndex, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch" />
           </Grid>
         </StackPanel>
 
         <TextBlock Classes="section" Text="交互" />
-        <StackPanel Spacing="8">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="110,*">
+            <TextBlock Grid.Column="0" Classes="label" Text="点击方式" />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding ClickModeOptions}"
+                      SelectedIndex="{Binding ClickModeIndex, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch" />
+          </Grid>
+          <Grid ColumnDefinitions="110,*">
+            <TextBlock Grid.Column="0" Classes="label" Text="面板位置" />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding PlacementOptions}"
+                      SelectedIndex="{Binding PlacementIndex, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch" />
+          </Grid>
           <CheckBox IsChecked="{Binding HideOnLaunch, Mode=TwoWay}" Content="启动条目后收起面板" />
+          <CheckBox IsChecked="{Binding HideOnBlur, Mode=TwoWay}" Content="面板失焦时自动收起" />
           <CheckBox IsChecked="{Binding WheelSwitchTab, Mode=TwoWay}" Content="滚轮切换分类" />
           <CheckBox IsChecked="{Binding NumberKeysSwitchTab, Mode=TwoWay}" Content="Ctrl+数字切换分类" />
         </StackPanel>
@@ -72,16 +73,17 @@
         <TextBlock Classes="section" Text="系统" />
         <StackPanel Spacing="8">
           <CheckBox IsChecked="{Binding AutoStart, Mode=TwoWay}" Content="开机自动启动" />
-          <StackPanel>
+          <TextBlock Classes="hint" Text="{Binding AutoStartMessage}" />
+          <Button Content="创建桌面快捷方式" Command="{Binding CreateShortcutCommand}"
+                  HorizontalAlignment="Left" />
+          <TextBlock Classes="hint" Text="{Binding ShortcutMessage}" />
+          <StackPanel Margin="0,6,0,0">
             <TextBlock Classes="hint" Text="数据目录" />
             <SelectableTextBlock Text="{Binding DataFolder}" FontSize="11"
-                                 Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                 Foreground="{DynamicResource TextMutedBrush}"
+                                 TextWrapping="Wrap" Margin="0,2,0,0" />
           </StackPanel>
         </StackPanel>
-
-        <TextBlock Classes="section" Text="尚未迁移" />
-        <TextBlock Classes="hint"
-                   Text="库维护（清理失效/重复项、排序、重建图标缓存、导出导入）在 2.0 中还没有界面。" />
       </StackPanel>
     </ScrollViewer>
   </DockPanel>

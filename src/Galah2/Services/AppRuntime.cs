@@ -26,6 +26,10 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     private readonly ThemeService _theme = new();
     private PanelWindow? _panel;
     private bool _shuttingDown;
+
+    /// <summary>Absolute path of this build, used by autostart and the desktop shortcut.</summary>
+    private static string ExePath =>
+        Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "Galah2.exe");
     private SettingsWindow? _settingsWindow;
     private PanelViewModel? _viewModel;
 
@@ -41,6 +45,15 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         // Apply the stored preference before any window exists, so the first frame is already
         // painted in the right palette instead of flashing the wrong one.
         _theme.Apply(_settings.Current.Theme);
+
+        // Re-assert autostart on boot without rewriting settings.json: after the exe is moved or
+        // the Run value is edited by hand, the preference and the registry can disagree. This is
+        // what 1.x did, and it is also how a user notices the path went stale.
+        if (_settings.Current.AutoStart && !AutoStartService.IsEnabled(ExePath))
+        {
+            if (!AutoStartService.SetEnabled(true, ExePath, out var autoError))
+                DiagnosticsLog.Line("autostart", autoError ?? "同步失败");
+        }
 
         _uiState = new UiStateStore(_paths);
         _uiState.Load();
@@ -138,7 +151,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
             return;
         }
 
-        var vm = new SettingsViewModel(_settings, _paths.Root, ApplySettings);
+        var vm = new SettingsViewModel(_settings, _paths.Root, ExePath, ApplySettings);
         vm.HotkeyChanged += spec => _hotkey.Register(spec);
 
         _settingsWindow = new SettingsWindow { DataContext = vm };
@@ -152,6 +165,10 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         _theme.Apply(settings.Theme);
         _viewModel?.ApplyLayout(settings);
         _viewModel?.ApplySettings(settings);
+
+        // Layout and material are window state, not view-model state: re-apply them here so a
+        // change takes effect on the panel that is already open.
+        _panel?.ApplyMaterial();
     }
 
 

@@ -5,7 +5,7 @@
         x:DataType="vm:PanelViewModel"
         Width="720" Height="460"
         SystemDecorations="None"
-        TransparencyLevelHint="Mica"
+        TransparencyLevelHint="None"
         Background="Transparent"
         ShowInTaskbar="False"
         CanResize="False">
@@ -118,9 +118,10 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:ItemViewModel">
-              <Button Classes="tile"
-                      Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).LaunchCommand}"
-                      CommandParameter="{Binding}" ToolTip.Tip="{Binding Name}">
+              <!-- Click and DoubleTapped both route to LaunchTile, which decides from the click mode
+                   whether this gesture is an action. Binding Command would lose the click count. -->
+              <Button Classes="tile" Tag="{Binding}" ToolTip.Tip="{Binding Name}"
+                      Click="Tile_Click" DoubleTapped="Tile_DoubleTapped">
                 <Button.ContextMenu>
                   <ContextMenu>
                     <MenuItem Header="打开"

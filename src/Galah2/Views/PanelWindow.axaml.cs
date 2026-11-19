@@ -25,10 +25,19 @@ public partial class PanelWindow : Window
         KeyDown += OnKeyDown;
         AddHandler(PointerWheelChangedEvent, OnWheel, RoutingStrategies.Tunnel);
 
-        // Record what transparency level actually got applied: the request can be downgraded by
-        // the compositor, and a panel that silently falls back to opaque looks like a bug.
-        // Logged here, not on a later Opened subscription: the event has already fired by now.
-        DiagnosticsLog.Line("material", "requested=Mica actual=" + ActualTransparencyLevel);
+        // Material follows the user's choice: translucent asks the compositor for Mica, opaque asks
+        // for nothing. The applied level is recorded because the compositor can downgrade the
+        // request, and a panel that quietly fell back to opaque would look like a bug.
+        ApplyMaterial();
+        DiagnosticsLog.Line("material",
+            "requested=" + RequestedMaterial + " actual=" + ActualTransparencyLevel);
+
+        // Hide when focus leaves, if the user asked for it. Worth knowing: a frameless panel can
+        // deactivate when its own context menu opens, so this is opt-in and never the default.
+        Deactivated += (_, _) =>
+        {
+            if (DataContext is PanelViewModel { HideOnBlur: true }) Hide();
+        };
 
         // Dropping files or a URL onto the panel adds them to the active category.
         DragDrop.SetAllowDrop(this, true);
@@ -72,6 +81,39 @@ public partial class PanelWindow : Window
 
         vm.SwitchTabRelative(e.Delta.Y > 0 ? -1 : 1);
         e.Handled = true;
+    }
+
+    /// <summary>The material asked for, resolved from the panel view model.</summary>
+    private string RequestedMaterial =>
+        (DataContext as PanelViewModel)?.PanelMaterial ?? Galah2.Models.PanelMaterials.None;
+
+    /// <summary>Ask the compositor for the transparency level the material setting implies.</summary>
+    public void ApplyMaterial()
+    {
+        TransparencyLevelHint = RequestedMaterial == Galah2.Models.PanelMaterials.Translucent
+            ? new[] { Avalonia.Controls.WindowTransparencyLevel.Mica,
+                      Avalonia.Controls.WindowTransparencyLevel.AcrylicBlur,
+                      Avalonia.Controls.WindowTransparencyLevel.None }
+            : new[] { Avalonia.Controls.WindowTransparencyLevel.None };
+    }
+
+    /// <summary>Single click. In double-click mode this only selects the tile.</summary>
+    private void Tile_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not PanelViewModel vm) return;
+        if (sender is not Button { Tag: ItemViewModel tile }) return;
+
+        vm.LaunchTile(tile, clickCount: 1);
+    }
+
+    /// <summary>Double click always launches, whichever mode is configured.</summary>
+    private void Tile_DoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is not PanelViewModel vm) return;
+        if (sender is not Button { Tag: ItemViewModel tile }) return;
+
+        vm.LaunchTile(tile, clickCount: 2);
+        e.Handled = true;   // stop the Click that follows from re-launching it
     }
 
     private void OnDragOver(object? sender, DragEventArgs e)

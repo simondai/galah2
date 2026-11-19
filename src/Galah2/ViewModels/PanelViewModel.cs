@@ -280,11 +280,18 @@ public sealed class PanelViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Launch a tile. The click mode decides whether a single click or a double click runs it;
-    /// the view forwards the click count so both work without duplicating the handler.
+    /// Launch a tile when the click count matches the configured click mode. Returns false when this
+    /// click was only a selection, so the view knows not to treat it as an action.
     /// </summary>
-    public void LaunchTile(ItemViewModel tile, int clickCount = 2)
+    public bool LaunchTile(ItemViewModel tile, int clickCount = 2)
     {
+        var wanted = ClickMode == ClickModes.Double ? 2 : 1;
+        if (clickCount < wanted)
+        {
+            SelectedItem = tile;   // a single click in double-click mode only selects
+            return false;
+        }
+
         var ok = _host.Launch(tile.Item);
         if (ok)
         {
@@ -295,12 +302,35 @@ public sealed class PanelViewModel : ObservableObject
         {
             SaveProblem = "无法启动：" + tile.Name + "（目标可能已失效）";
         }
+
+        return ok;
     }
 
     private bool _hideOnLaunch = true;
+    private string _clickMode = ClickModes.Single;
+    private string _panelMaterial = PanelMaterials.None;
 
     /// <summary>Reflect a settings change (called by the shell after the store commits).</summary>
-    public void ApplySettings(SettingsDocument settings) => _hideOnLaunch = settings.HideOnLaunch;
+    public void ApplySettings(SettingsDocument settings)
+    {
+        _hideOnLaunch = settings.HideOnLaunch;
+        _clickMode = settings.ClickMode;
+        _panelMaterial = settings.PanelMaterial;
+        _hideOnBlur = settings.HideOnBlur;
+
+        foreach (var n in new[] { nameof(HideOnBlur), nameof(PanelMaterial) }) Raise(n);
+    }
+
+    /// <summary>Current click semantics ("single" | "double").</summary>
+    public string ClickMode => _clickMode;
+
+    /// <summary>True when the panel should hide as soon as it loses focus.</summary>
+    public bool HideOnBlur => _hideOnBlur;
+
+    private bool _hideOnBlur;
+
+    /// <summary>Current material token, so the window can pick its transparency level.</summary>
+    public string PanelMaterial => _panelMaterial;
 
     private void EditItem(ItemViewModel? tile)
     {

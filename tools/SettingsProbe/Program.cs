@@ -24,6 +24,31 @@ internal static class Program
     /// <summary>Theme mapping and the system-dark read. The watcher itself is a poll loop, so
     /// what is testable without a desktop is that the preference maps to the right variant and
     /// that a bad stored value falls back to following the system rather than guessing.</summary>
+    /// <summary>
+    /// Autostart is the one setting with a side effect outside the app: it writes HKCURun. It must
+    /// (a) actually write, (b) report the truth on read, and (c) remove only its own value.
+    /// </summary>
+    private static void CheckAutoStart()
+    {
+        var exe = Path.Combine(Path.GetTempPath(), "galah2-autostart-probe", "Galah2.exe");
+        Directory.CreateDirectory(Path.GetDirectoryName(exe)!);
+
+        // Start from a known state in case a previous run left a value behind.
+        Galah2.Services.AutoStartService.SetEnabled(false, exe, out _);
+        Check("autostart off reads off", !Galah2.Services.AutoStartService.IsEnabled(exe));
+
+        var written = Galah2.Services.AutoStartService.SetEnabled(true, exe, out var error);
+        Check("autostart write succeeds", written, error ?? "no error");
+        Check("autostart reads back on", Galah2.Services.AutoStartService.IsEnabled(exe),
+            // The registry stores the path quoted; IsEnabled must match through the quotes.
+            "path round trip");
+
+        Galah2.Services.AutoStartService.SetEnabled(false, exe, out _);
+        Check("autostart removal works", !Galah2.Services.AutoStartService.IsEnabled(exe));
+
+        try { Directory.Delete(Path.GetDirectoryName(exe)!, true); } catch { }
+    }
+
     private static void CheckThemeService()
     {
         using var service = new Galah2.Services.ThemeService();
@@ -55,6 +80,7 @@ internal static class Program
 
     public static void RunChecks()
     {
+        CheckAutoStart();
         CheckThemeService();
         _root = Path.Combine(Path.GetTempPath(), "settingsprobe-" + Guid.NewGuid().ToString("N")[..8]);
         var paths = new AppDataPaths(_root).EnsureCreated();
@@ -62,7 +88,11 @@ internal static class Program
         store.Load();
 
         SettingsDocument? applied = null;
-        var vm = new SettingsViewModel(store, paths.Root, s => applied = s);
+        // The exe path is what autostart and the shortcut act on; point it at a scratch file so the
+        // probe never registers the real build.
+        var fakeExe = Path.Combine(_root, "Galah2.exe");
+        File.WriteAllText(fakeExe, "x");
+        var vm = new SettingsViewModel(store, paths.Root, fakeExe, s => applied = s);
         Check("view model loads current values", vm.DataFolder == paths.Root, vm.DataFolder);
         Check("hotkey hint populated", vm.HotkeyHint.Length > 0, vm.HotkeyHint);
 

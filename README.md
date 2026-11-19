@@ -24,7 +24,9 @@ A launcher for Windows, rewritten on **Avalonia 11 + NativeAOT**.
 | Item launch (exe / lnk / url / protocol) | working |
 | Shell link (.lnk) create + read, **without `ComImport`** | working, 11/11 probes |
 | Icon extraction + PNG cache, incl. .msc | working, 12/12 probes |
-| Settings window (hotkey, icon size, interaction toggles) | working, 9/9 probes |
+| Settings (theme, icon size, category position, material, click mode, placement, hotkey, autostart, shortcut) | working, 17/17 probes |
+| Autostart writes HKCU Run and re-asserts on boot | working |
+| Desktop shortcut via COM vtable | working |
 | Add-picker (4 sources, filter, multi-select) | working |
 | Edit dialog with commit gate | working |
 | Maintenance: scan, clean invalid, dedupe, sort, rebuild cache | working |
