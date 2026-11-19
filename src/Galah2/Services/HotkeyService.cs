@@ -1,0 +1,152 @@
+using System.Runtime.InteropServices;
+using Avalonia.Threading;
+
+namespace Galah2.Services;
+
+/// <summary>
+/// Global hotkey via a message-only window.
+///
+/// 1.0's version owned a full WPF <c>HwndSource</c>; here the sink is a bare Win32 window whose
+/// only job is to receive <c>WM_HOTKEY</c>. Registering against a message-only window keeps the
+/// hotkey alive even when the panel has never been created — the same reachability rule as 1.0
+/// (a hidden app must still be summonable).
+/// </summary>
+public sealed class HotkeyService : IDisposable
+{
+    private const int WmHotkey = 0x0312;
+    private const int HwndMessage = -3;
+
+    private readonly Thread _thread;
+    private readonly ManualResetEventSlim _ready = new(false);
+    private readonly ManualResetEventSlim _stop = new(false);
+    private uint _window;
+    private bool _registered;
+
+    public HotkeyService()
+    {
+        // The delegate must be rooted for the lifetime of the class: the OS holds the raw
+        // function pointer, and a collected delegate would be a dangling callback.
+        _wndProc = WndProcCallback;
+        _thread = new Thread(MessageLoop) { IsBackground = true, Name = "galah2-hotkey" };
+        _thread.SetApartmentState(ApartmentState.STA);
+        _thread.Start();
+        _ready.Wait(TimeSpan.FromSeconds(2));
+    }
+
+    /// <summary>Raised on the hotkey thread; marshal to the UI thread before touching UI.</summary>
+    public event Action? Triggered;
+
+    /// <summary>Register (or replace) the global hotkey. Returns false when the OS refuses it.</summary>
+    public bool Register(HotkeySpec spec)
+    {
+        var ok = false;
+        RunOnLoop(() =>
+        {
+            if (_registered) { UnregisterHotKey((IntPtr)_window, 1); _registered = false; }
+            ok = RegisterHotKey((IntPtr)_window, 1, spec.Modifiers, spec.VirtualKey);
+            _registered = ok;
+        });
+        return ok;
+    }
+
+    private readonly System.Collections.Concurrent.ConcurrentQueue<Action> _work = new();
+    private const int WmRunWork = 0x0400 + 1;   // WM_APP + 1: private to this window class
+
+    private void RunOnLoop(Action action)
+    {
+        if (Thread.CurrentThread.ManagedThreadId == _thread.ManagedThreadId) { action(); return; }
+        _work.Enqueue(action);
+        PostMessage((IntPtr)_window, WmRunWork, IntPtr.Zero, IntPtr.Zero);
+    }
+
+    private void MessageLoop()
+    {
+        var cls = new WindowClassEx
+        {
+            cbSize = (uint)Marshal.SizeOf<WindowClassEx>(),
+            lpfnWndProc = _wndProc,
+            lpszClassName = "Galah2HotkeySink",
+            hInstance = GetModuleHandle(null)
+        };
+        RegisterClassEx(ref cls);
+
+        _window = (uint)CreateWindowEx(0, "Galah2HotkeySink", "", 0, 0, 0, 0, 0,
+            (IntPtr)HwndMessage, IntPtr.Zero, cls.hInstance, IntPtr.Zero);
+        _ready.Set();
+        if (_window == 0) return;
+
+        while (!_stop.IsSet)
+        {
+            if (GetMessage(out var msg, IntPtr.Zero, 0, 0) <= 0) break;
+            TranslateMessage(ref msg);
+            DispatchMessage(ref msg);
+        }
+    }
+
+    private readonly WndProc _wndProc;
+
+    private IntPtr WndProcCallback(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
+    {
+        if (msg == WmRunWork)
+        {
+            while (_work.TryDequeue(out var work)) work();
+            return IntPtr.Zero;
+        }
+        if (msg == WmHotkey && wParam == (IntPtr)1) Triggered?.Invoke();
+        return DefWindowProc(hWnd, msg, wParam, lParam);
+    }
+
+    public void Dispose()
+    {
+        _stop.Set();
+        if (_window != 0) PostMessage((IntPtr)_window, 0x0012 /*WM_QUIT*/, IntPtr.Zero, IntPtr.Zero);
+        _thread.Join(1000);
+    }
+
+    private delegate IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct WindowClassEx
+    {
+        public uint cbSize;
+        public uint style;
+        public WndProc lpfnWndProc;
+        public int cbClsExtra;
+        public int cbWndExtra;
+        public IntPtr hInstance;
+        public IntPtr hIcon;
+        public IntPtr hCursor;
+        public IntPtr hbrBackground;
+        public string? lpszMenuName;
+        public string lpszClassName;
+        public IntPtr hIconSm;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Msg
+    {
+        public IntPtr hwnd;
+        public uint message;
+        public IntPtr wParam;
+        public IntPtr lParam;
+        public uint time;
+        public int ptX;
+        public int ptY;
+    }
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern ushort RegisterClassEx(ref WindowClassEx lpwcx);
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern IntPtr CreateWindowEx(uint exStyle, string className, string windowName,
+        uint style, int x, int y, int width, int height, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
+
+    [DllImport("user32.dll")] private static extern IntPtr DefWindowProc(IntPtr h, uint m, IntPtr w, IntPtr l);
+    [DllImport("user32.dll")] private static extern bool RegisterHotKey(IntPtr h, int id, uint mods, uint vk);
+    [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr h, int id);
+    [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
+    [DllImport("user32.dll")] private static extern int GetMessage(out Msg msg, IntPtr h, uint min, uint max);
+    [DllImport("user32.dll")] private static extern bool TranslateMessage(ref Msg msg);
+    [DllImport("user32.dll")] private static extern IntPtr DispatchMessage(ref Msg msg);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandle(string? name);
+}

@@ -1,0 +1,21 @@
+# build outputs
+[Bb]in/
+[Oo]bj/
+publish/
+artifacts/
+
+# user data lives beside the exe at runtime - never commit it
+GalahData/
+
+# probe scratch output
+**/TestResults/
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# OS
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,52 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    The whole theme of 2.0: a dark surface, a light foreground, and a chip/tile look.
+    Colours come from 1.0's DESIGN-uber dark language (#232327 canvas / #3A3A3F hairlines).
+
+    Buttons keep the platform default template (Avalonia supplies a templated ContentPresenter
+    without any theme package) and only override background/foreground, so no control template
+    has to be maintained here.
+  -->
+  <Style Selector="Window">
+    <Setter Property="Background" Value="#1B1B1F" />
+  </Style>
+
+  <Style Selector="TextBlock">
+    <Setter Property="Foreground" Value="#E8E8EC" />
+  </Style>
+
+  <Style Selector="Button">
+    <Setter Property="Foreground" Value="#E8E8EC" />
+    <Setter Property="Background" Value="#2A2A2E" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Padding" Value="10,4" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+
+  <Style Selector="Button:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="#35353A" />
+  </Style>
+
+  <Style Selector="Button:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="#3F3F45" />
+  </Style>
+
+  <Style Selector="Button.chip">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="#B9B9C0" />
+  </Style>
+
+  <Style Selector="Button.chip.active">
+    <Setter Property="Background" Value="#35353A" />
+    <Setter Property="Foreground" Value="#F5F5F7" />
+  </Style>
+
+  <Style Selector="Button.tile">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="6" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+</Styles>

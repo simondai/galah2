@@ -1,0 +1,17 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Galah2.App"
+             RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <!--
+      FluentTheme is required, not optional: without a theme package Avalonia's ItemsControl
+      never generates item containers, so every list in this app renders as an empty box.
+      Measured (see FINDINGS-2.0.md): the theme costs ~12.6 MB of private working set.
+
+      Everything visual on top of it is in Styles/Baseline.axaml, which only overrides colours
+      and metrics — no control templates are duplicated here.
+    -->
+    <FluentTheme />
+    <StyleInclude Source="avares://Galah2/Styles/Baseline.axaml" />
+  </Application.Styles>
+</Application>
