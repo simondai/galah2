@@ -25,8 +25,13 @@ A launcher for Windows, rewritten on **Avalonia 11 + NativeAOT**.
 | NativeAOT publish | working (23.8 MB) |
 | Icon extraction + PNG cache | working, 10/10 probes |
 | Settings window (hotkey, icon size, interaction toggles) | working, 9/9 probes |
-| Add-picker / maintenance windows | **not ported** |
-| Drag and drop, material effects | **not ported** |
+| Add-picker (4 sources, filter, multi-select) | working, 28/28 panel probes |
+| Edit dialog with commit gate | working |
+| Maintenance: scan, clean invalid, dedupe, sort, rebuild cache, export | working |
+| Prompt / confirm dialogs | working |
+| Drag and drop of files, pasted URLs | working |
+| Import from a bundle | **not ported** (backend ready, no UI) |
+| Material effects (Mica/acrylic) | **not ported** |
 
 ---
 

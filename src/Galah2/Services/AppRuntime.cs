@@ -15,7 +15,7 @@ namespace Galah2.Services;
 /// pays the whole UI cost while sitting in the tray, which is exactly the memory behaviour this
 /// rewrite exists to remove.
 /// </summary>
-public sealed class AppRuntime : IDisposable
+public sealed class AppRuntime : IDisposable, IPanelHost
 {
     private readonly AppDataPaths _paths;
     private readonly CatalogStore _catalog;
@@ -63,7 +63,9 @@ public sealed class AppRuntime : IDisposable
     {
         if (_panel is null)
         {
-            _viewModel = new PanelViewModel(_catalog, Launch);
+            _viewModel = new PanelViewModel(_catalog, this);
+            _viewModel.ExitRequested += RequestExit;
+            _viewModel.ApplySettings(_settings.Current);
             _panel = new PanelWindow { DataContext = _viewModel };
             _panel.Closed += (_, _) => _panel.Hide();
         }
@@ -132,6 +134,7 @@ public sealed class AppRuntime : IDisposable
         _viewModel?.ApplyIconSize(settings.IconSize);
     }
 
+
     private void RequestExit()
     {
         Dispose();
@@ -140,6 +143,89 @@ public sealed class AppRuntime : IDisposable
             desktop.Shutdown();
     }
 
+    // ---- IPanelHost ---------------------------------------------------------
+    // The panel never touches a window or a dialog directly: it asks the shell. That keeps the
+    // view model testable and gives every dialog one owner.
+
+    void IPanelHost.HidePanel() => _panel?.Hide();
+
+    bool IPanelHost.Launch(CatalogItem item)
+    {
+        var result = LauncherService.Launch(LaunchRequest.From(item));
+        if (result.Status != LaunchStatus.Ok)
+            DiagnosticsLog.Line("launch", item.Name + ": " + result.Message);
+        return result.Status == LaunchStatus.Ok;
+    }
+
+    void IPanelHost.ShowAddPicker(string tabId)
+    {
+        var vm = new AddPickerViewModel(_catalog, tabId);
+        var window = new AddPickerWindow { DataContext = vm };
+        vm.CloseRequested += () =>
+        {
+            window.Close();
+            _viewModel?.Refresh();   // the picker commits in one action, so one re-project
+        };
+        window.Show(_panel);
+    }
+
+    /// <summary>
+    /// Add/edit dialog. The store write happens inside the dialog's own commit path, so the panel
+    /// only needs to know WHEN to re-project. Returning early here is deliberate: ShowDialog would
+    /// block the UI thread that the dialog itself needs to run on.
+    /// </summary>
+    CatalogItem? IPanelHost.ShowEditItem(string tabId, CatalogItem? existing)
+    {
+        var isNew = existing is null || existing.Id is "draft";
+        var vm = new EditItemViewModel(_catalog, tabId, isNew ? null : existing);
+        var window = new EditItemWindow { DataContext = vm };
+        vm.CloseRequested += () =>
+        {
+            window.Close();
+            if (vm.Completed) _viewModel?.Refresh();
+        };
+        window.Show(_panel);
+        return null;
+    }
+
+    string? IPanelHost.Prompt(string title, string initial) =>
+        PromptWindow.Ask(_panel, title, initial);
+
+    bool IPanelHost.Confirm(string title, string message) =>
+        ConfirmWindow.Ask(_panel, title, message);
+
+    void IPanelHost.ShowMaintenance()
+    {
+        var vm = new MaintenanceViewModel(_catalog, _settings, _paths)
+        {
+            // Import needs a picker, which is a window capability: hand it down instead of
+            // letting the view model reach for a window it does not own.
+            PickImportFile = async () =>
+            {
+                var picker = _panel?.StorageProvider ?? _settingsWindow?.StorageProvider;
+                if (picker is null) return null;
+                var files = await picker.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+                {
+                    Title = "选择 Galah 备份文件",
+                    AllowMultiple = false,
+                    FileTypeFilter = new[]
+                    {
+                        new Avalonia.Platform.Storage.FilePickerFileType("Galah 备份")
+                        {
+                            Patterns = new[] { "*.json" }
+                        }
+                    }
+                });
+                return files.Count > 0 ? files[0].Path.LocalPath : null;
+            }
+        };
+        var window = new MaintenanceWindow { DataContext = vm };
+        vm.CloseRequested += window.Close;
+        vm.CatalogChanged += () => _viewModel?.Refresh();
+        window.Show(_panel);
+    }
+
+    void IPanelHost.ShowSettings() => ShowSettings();
     private static Stream OpenEmbeddedIcon()
     {
         var uri = new Uri("avares://Galah2/Assets/galah.ico");

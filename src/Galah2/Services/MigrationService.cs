@@ -45,10 +45,14 @@ public sealed record ImportOutcome(int Tabs, int ItemsAdded, int ItemsDropped, b
 /// </summary>
 public static class MigrationService
 {
+    // TypeInfoResolver points at the source-generated context: reflection-based serialization
+    // throws JsonSerializerIsReflectionDisabled under NativeAOT, and import runs before any UI
+    // exists, so the failure would look like the app refusing to start.
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        TypeInfoResolver = JsonContext.Default,
     };
 
     /// <summary>Default export drop folder (portable: it travels with GalahData).</summary>
@@ -77,7 +81,7 @@ public static class MigrationService
             Catalog = catalog.CloneTabs(),
             Settings = settings.Clone(),
         };
-        File.WriteAllText(file, JsonSerializer.Serialize(bundle, JsonOptions));
+        File.WriteAllText(file, JsonSerializer.Serialize(bundle, JsonContext.Default.MigrationBundle));
         return file;
     }
 
@@ -93,7 +97,8 @@ public static class MigrationService
         MigrationBundle? bundle;
         try
         {
-            bundle = JsonSerializer.Deserialize<MigrationBundle>(File.ReadAllText(file));
+            bundle = JsonSerializer.Deserialize<MigrationBundle>(
+                File.ReadAllText(file), JsonContext.Default.MigrationBundle);
         }
         catch (Exception ex)
         {

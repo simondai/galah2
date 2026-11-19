@@ -9,12 +9,58 @@
         Background="Transparent"
         ShowInTaskbar="False"
         CanResize="False">
-  <Border Background="#232327"
-          CornerRadius="10"
-          BorderBrush="#3A3A3F"
-          BorderThickness="1">
+  <Border Background="#232327" CornerRadius="10"
+          BorderBrush="#3A3A3F" BorderThickness="1">
     <DockPanel>
-      <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Tabs}" Margin="14,12,14,8">
+
+      <!-- ===== custom chrome: drag area, menu, close ===== -->
+      <Border DockPanel.Dock="Top" Background="#2A2A2E" CornerRadius="10,10,0,0" Height="34"
+              PointerPressed="Chrome_PointerPressed">
+        <Grid ColumnDefinitions="*,Auto,Auto">
+          <TextBlock Grid.Column="0" Text="{Binding ActiveTabName}" FontSize="12"
+                     Foreground="#B9B9C0" VerticalAlignment="Center" Margin="12,0,0,0" />
+
+          <Button Grid.Column="1" Classes="chip" Content="☰" FontSize="15" Padding="8,0"
+                  VerticalAlignment="Center">
+            <Button.Flyout>
+              <MenuFlyout Placement="BottomEdgeAlignedRight">
+                <MenuItem Header="添加快捷方式…" Command="{Binding AddPickerCommand}" />
+                <MenuItem Header="添加文件…" Command="{Binding AddFileCommand}" />
+                <MenuItem Header="添加文件夹…" Command="{Binding AddFolderCommand}" />
+                <MenuItem Header="添加网址…" Command="{Binding AddUrlCommand}" />
+                <Separator />
+                <MenuItem Header="新建分类" Command="{Binding NewTabCommand}" />
+                <MenuItem Header="重命名分类" Command="{Binding RenameTabCommand}" />
+                <MenuItem Header="删除分类" Command="{Binding DeleteTabCommand}" />
+                <Separator />
+                <MenuItem Header="维护与迁移…" Command="{Binding ShowMaintenanceCommand}" />
+                <MenuItem Header="设置…" Command="{Binding ShowSettingsCommand}" />
+                <Separator />
+                <MenuItem Header="收起面板" Command="{Binding HideCommand}" />
+                <MenuItem Header="退出程序" Command="{Binding ExitCommand}" />
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
+
+          <Button Grid.Column="2" Classes="chip" Content="✕" FontSize="13" Padding="8,0"
+                  VerticalAlignment="Center" Margin="2,0,6,0"
+                  Command="{Binding HideCommand}" />
+        </Grid>
+      </Border>
+
+      <!-- ===== save-failure banner (INV-9) ===== -->
+      <Border DockPanel.Dock="Top" Background="#4A2326" Padding="12,7"
+              IsVisible="{Binding HasSaveProblem}">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Text="{Binding SaveProblem}" FontSize="11.5"
+                     Foreground="#FFB4B4" TextWrapping="Wrap" VerticalAlignment="Center" />
+          <Button Grid.Column="1" Content="重试" Command="{Binding RetrySaveCommand}"
+                  FontSize="11" Padding="10,3" Margin="10,0,0,0" />
+        </Grid>
+      </Border>
+
+      <!-- ===== category strip ===== -->
+      <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Tabs}" Margin="14,10,14,6">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
             <StackPanel Orientation="Horizontal" Spacing="6" />
@@ -30,6 +76,7 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
+      <!-- ===== items ===== -->
       <ScrollViewer HorizontalScrollBarVisibility="Disabled">
         <ItemsControl ItemsSource="{Binding Items}" Margin="10,0,10,12">
           <ItemsControl.ItemsPanel>
@@ -42,9 +89,30 @@
               <Button Classes="tile"
                       Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).LaunchCommand}"
                       CommandParameter="{Binding}" ToolTip.Tip="{Binding Name}">
+                <Button.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="打开"
+                              Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).LaunchCommand}"
+                              CommandParameter="{Binding}" />
+                    <MenuItem Header="编辑…"
+                              Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).EditItemCommand}"
+                              CommandParameter="{Binding}" />
+                    <Separator />
+                    <MenuItem Header="左移"
+                              Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).MoveItemLeftCommand}"
+                              CommandParameter="{Binding}" />
+                    <MenuItem Header="右移"
+                              Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).MoveItemRightCommand}"
+                              CommandParameter="{Binding}" />
+                    <Separator />
+                    <MenuItem Header="删除"
+                              Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).DeleteItemCommand}"
+                              CommandParameter="{Binding}" />
+                  </ContextMenu>
+                </Button.ContextMenu>
                 <StackPanel Width="76" Spacing="6">
                   <Panel Width="32" Height="32" HorizontalAlignment="Center">
-                    <!-- The letter shows while the shell icon is being extracted, then hides. -->
+                    <!-- The letter shows while the shell icon is extracted, then hides. -->
                     <Border CornerRadius="6" Background="#2A2A2E"
                             IsVisible="{Binding !HasIcon}">
                       <TextBlock Text="{Binding Initial}" FontSize="14" Foreground="#F2F2F5"

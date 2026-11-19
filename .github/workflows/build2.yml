@@ -40,6 +40,12 @@ jobs:
           dotnet run --project tools/SettingsProbe -c Release --no-build
           if ($LASTEXITCODE -ne 0) { throw "settings probes failed" }
 
+      - name: Panel command-surface probes
+        shell: pwsh
+        run: |
+          dotnet run --project tools/PanelProbe -c Release --no-build
+          if ($LASTEXITCODE -ne 0) { throw "panel probes failed" }
+
       # NativeAOT needs the MSVC linker; windows-latest ships VS with the C++ workload.
       - name: Publish (NativeAOT)
         run: >

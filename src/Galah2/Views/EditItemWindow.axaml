@@ -1,0 +1,89 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Galah2.ViewModels"
+        x:Class="Galah2.Views.EditItemWindow"
+        x:DataType="vm:EditItemViewModel"
+        Title="{Binding Title}"
+        Width="460" Height="500"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        Background="#1B1B1F">
+  <Window.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="#A8A8B0" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+    <Style Selector="TextBlock.error">
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="Foreground" Value="#FF8A8A" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+  </Window.Styles>
+
+  <DockPanel Margin="20,16,20,16">
+    <!-- Actions on the left, dismiss on the right: 1.x's button-order rule. -->
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right"
+                Spacing="8" Margin="0,14,0,0">
+      <Button Content="取消" Command="{Binding CancelCommand}" />
+      <Button Content="保存" Command="{Binding SaveCommand}" IsEnabled="{Binding CanSave}"
+              Background="#F5F5F7" Foreground="#1B1B1F" />
+    </StackPanel>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="12">
+        <Grid ColumnDefinitions="64,*">
+          <Border Grid.Column="0" Width="56" Height="56" CornerRadius="10" Background="#2A2A2E">
+            <Image Source="{Binding IconPreview}" Width="48" Height="48" Stretch="Uniform" />
+          </Border>
+          <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+            <TextBlock Classes="label" Text="图标" />
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Button Content="选择图片…" Command="{Binding PickIconCommand}" FontSize="11" />
+              <Button Content="从目标抓取" Command="{Binding FetchIconCommand}" FontSize="11" />
+              <Button Content="重置" Command="{Binding ResetIconCommand}" FontSize="11" />
+            </StackPanel>
+          </StackPanel>
+        </Grid>
+
+        <StackPanel>
+          <TextBlock Classes="label" Text="名称" />
+          <TextBox Text="{Binding Name, Mode=TwoWay}" FontSize="13" />
+        </StackPanel>
+
+        <StackPanel>
+          <TextBlock Classes="label" Text="目标" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox Grid.Column="0" Text="{Binding TargetText, Mode=TwoWay}" FontSize="13" />
+            <Button Grid.Column="1" Content="浏览…" Command="{Binding BrowseTargetCommand}"
+                    FontSize="11" Margin="6,0,0,0" />
+          </Grid>
+        </StackPanel>
+
+        <StackPanel IsVisible="{Binding SuggestKind}">
+          <Button Command="{Binding ApplySuggestedKindCommand}" FontSize="11"
+                  HorizontalAlignment="Left" Content="看起来是别的类型，改用建议类型" />
+        </StackPanel>
+
+        <StackPanel>
+          <TextBlock Classes="label" Text="启动参数（可选）" />
+          <TextBox Text="{Binding Arguments, Mode=TwoWay}" FontSize="13" />
+        </StackPanel>
+
+        <StackPanel>
+          <TextBlock Classes="label" Text="工作目录（可选）" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox Grid.Column="0" Text="{Binding WorkingDirectory, Mode=TwoWay}" FontSize="13" />
+            <Button Grid.Column="1" Content="浏览…" Command="{Binding BrowseWorkdirCommand}"
+                    FontSize="11" Margin="6,0,0,0" />
+          </Grid>
+        </StackPanel>
+
+        <CheckBox IsChecked="{Binding RunAsAdmin, Mode=TwoWay}" Content="以管理员身份运行"
+                  FontSize="13" />
+
+        <TextBlock Classes="error" Text="{Binding ErrorText}" IsVisible="{Binding HasErrors}" />
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

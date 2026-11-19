@@ -10,6 +10,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IconProbe", "tools\IconProb
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SettingsProbe", "tools\SettingsProbe\SettingsProbe.csproj", "{A1B2C3D4-0004-0000-0000-000000000004}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PanelProbe", "tools\PanelProbe\PanelProbe.csproj", "{A1B2C3D4-0005-0000-0000-000000000005}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -32,5 +34,9 @@ Global
 		{A1B2C3D4-0004-0000-0000-000000000004}.Debug|x64.Build.0 = Debug|x64
 		{A1B2C3D4-0004-0000-0000-000000000004}.Release|x64.ActiveCfg = Release|x64
 		{A1B2C3D4-0004-0000-0000-000000000004}.Release|x64.Build.0 = Release|x64
+		{A1B2C3D4-0005-0000-0000-000000000005}.Debug|x64.ActiveCfg = Debug|x64
+		{A1B2C3D4-0005-0000-0000-000000000005}.Debug|x64.Build.0 = Debug|x64
+		{A1B2C3D4-0005-0000-0000-000000000005}.Release|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-0005-0000-0000-000000000005}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 EndGlobal

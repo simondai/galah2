@@ -33,6 +33,24 @@
     <Setter Property="Background" Value="#3F3F45" />
   </Style>
 
+  <Style Selector="CheckBox">
+    <Setter Property="Foreground" Value="#E8E8EC" />
+    <Setter Property="FontSize" Value="12.5" />
+  </Style>
+
+  <Style Selector="TextBox">
+    <Setter Property="Background" Value="#2A2A2E" />
+    <Setter Property="Foreground" Value="#F2F2F5" />
+    <Setter Property="BorderBrush" Value="#3A3A3F" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="8,5" />
+  </Style>
+
+  <Style Selector="ComboBox">
+    <Setter Property="Background" Value="#2A2A2E" />
+    <Setter Property="Foreground" Value="#F2F2F5" />
+  </Style>
+
   <Style Selector="Button.chip">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="#B9B9C0" />
