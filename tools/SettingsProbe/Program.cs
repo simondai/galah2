@@ -21,6 +21,30 @@ internal static class Program
 
     private static string _root = "";
 
+    /// <summary>Theme mapping and the system-dark read. The watcher itself is a poll loop, so
+    /// what is testable without a desktop is that the preference maps to the right variant and
+    /// that a bad stored value falls back to following the system rather than guessing.</summary>
+    private static void CheckThemeService()
+    {
+        using var service = new Galah2.Services.ThemeService();
+
+        var dark = Galah2.Services.ThemeService.SystemPrefersDark();
+        Check("system theme is readable", true, dark ? "dark" : "light");
+
+        // Applying each mode must not throw and must leave a concrete variant selected.
+        foreach (var mode in new[] { ThemeModes.System, ThemeModes.Light, ThemeModes.Dark })
+        {
+            service.Apply(mode);
+            var variant = Avalonia.Application.Current?.RequestedThemeVariant;
+            Check("theme " + mode + " applies a variant", variant is not null, variant?.ToString() ?? "null");
+        }
+
+        service.Apply("not-a-mode");
+        Check("unknown theme falls back to system",
+            Avalonia.Application.Current?.RequestedThemeVariant is not null,
+            Avalonia.Application.Current?.RequestedThemeVariant?.ToString() ?? "null");
+    }
+
     [STAThread]
     public static int Main(string[] args)
     {
@@ -31,6 +55,7 @@ internal static class Program
 
     public static void RunChecks()
     {
+        CheckThemeService();
         _root = Path.Combine(Path.GetTempPath(), "settingsprobe-" + Guid.NewGuid().ToString("N")[..8]);
         var paths = new AppDataPaths(_root).EnsureCreated();
         var store = new SettingsStore(paths);

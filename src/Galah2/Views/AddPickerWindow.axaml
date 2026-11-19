@@ -7,14 +7,14 @@
         Width="520" Height="480"
         CanResize="False"
         WindowStartupLocation="CenterScreen"
-        Background="#1B1B1F">
+        Background="{DynamicResource WindowBrush}">
   <DockPanel Margin="18,14,18,14">
     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right"
                 Spacing="8" Margin="0,12,0,0">
       <Button Content="取消" Command="{Binding CancelCommand}" />
       <Button Content="{Binding CommitLabel}" Command="{Binding CommitCommand}"
               IsEnabled="{Binding HasSelection}"
-              Background="#F5F5F7" Foreground="#1B1B1F" />
+              Background="{DynamicResource AccentSurfaceBrush}" Foreground="{DynamicResource WindowBrush}" />
     </StackPanel>
 
     <!-- category chips -->
@@ -40,14 +40,14 @@
       <Button Grid.Column="1" Content="全选/全不选" Command="{Binding ToggleAllCommand}"
               FontSize="11" Margin="6,0,0,0" />
       <TextBlock Grid.Column="2" Text="{Binding CountLabel}" FontSize="11"
-                 Foreground="#8A8A93" VerticalAlignment="Center" Margin="10,0,0,0" />
+                 Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
     </Grid>
 
     <Panel>
-      <TextBlock Text="正在枚举…" Foreground="#8A8A93" FontSize="12"
+      <TextBlock Text="正在枚举…" Foreground="{DynamicResource TextFaintBrush}" FontSize="12"
                  HorizontalAlignment="Center" VerticalAlignment="Center"
                  IsVisible="{Binding IsBusy}" />
-      <TextBlock Text="这个分类没有可用项" Foreground="#8A8A93" FontSize="12"
+      <TextBlock Text="这个分类没有可用项" Foreground="{DynamicResource TextFaintBrush}" FontSize="12"
                  HorizontalAlignment="Center" VerticalAlignment="Center"
                  IsVisible="{Binding HasNothing}" />
 
@@ -58,7 +58,7 @@
               <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,2,0,2">
                 <StackPanel Spacing="1">
                   <TextBlock Text="{Binding Name}" FontSize="12.5" />
-                  <TextBlock Text="{Binding Note}" FontSize="10.5" Foreground="#8A8A93"
+                  <TextBlock Text="{Binding Note}" FontSize="10.5" Foreground="{DynamicResource TextFaintBrush}"
                              TextTrimming="CharacterEllipsis" MaxLines="1" />
                 </StackPanel>
               </CheckBox>

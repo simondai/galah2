@@ -182,6 +182,9 @@ public sealed class PanelViewModel : ObservableObject
         set => Set(ref _selectedItem, value);
     }
 
+    /// <summary>Product name shown in the panel corner (never the active category).</summary>
+    public string AppTitle => "Galah";
+
     public string ActiveTabName => _selectedTab?.Name ?? "";
 
     /// <summary>Non-empty when the last commit failed; the banner offers a retry (INV-9).</summary>

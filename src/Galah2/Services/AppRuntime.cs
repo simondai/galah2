@@ -23,6 +23,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     private readonly UiStateStore _uiState;
     private readonly TrayService _tray;
     private readonly HotkeyService _hotkey;
+    private readonly ThemeService _theme = new();
     private PanelWindow? _panel;
     private bool _shuttingDown;
     private SettingsWindow? _settingsWindow;
@@ -36,6 +37,10 @@ public sealed class AppRuntime : IDisposable, IPanelHost
 
         _settings = new SettingsStore(_paths);
         _settings.Load();
+
+        // Apply the stored preference before any window exists, so the first frame is already
+        // painted in the right palette instead of flashing the wrong one.
+        _theme.Apply(_settings.Current.Theme);
 
         _uiState = new UiStateStore(_paths);
         _uiState.Load();
@@ -144,6 +149,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     /// <summary>Apply a settings change to the live UI (the store has already persisted it).</summary>
     private void ApplySettings(SettingsDocument settings)
     {
+        _theme.Apply(settings.Theme);
         _viewModel?.ApplyLayout(settings);
         _viewModel?.ApplySettings(settings);
     }
@@ -251,6 +257,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         _shuttingDown = true;      // let the panel close for real on the way out
         _tray.Dispose();
         _hotkey.Dispose();
+        _theme.Dispose();
         _panel?.Close();
     }
 }

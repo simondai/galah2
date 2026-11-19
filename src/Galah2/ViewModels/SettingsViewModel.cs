@@ -18,6 +18,7 @@ public sealed class SettingsViewModel : ObservableObject
     private string _hotkeyText = "";
     private string _hotkeyHint = "";
     private int _iconSizeIndex;
+    private int _themeIndex;
     private bool _hideOnLaunch;
     private bool _autoStart;
     private bool _wheelSwitchTab;
@@ -67,6 +68,23 @@ public sealed class SettingsViewModel : ObservableObject
     public event Action<HotkeySpec>? HotkeyChanged;
 
     /// <summary>0 = small, 1 = medium, 2 = large (mirrors 1.x's two-step icon sizing).</summary>
+    /// <summary>0 = follow system, 1 = light, 2 = dark (the order the combo shows).</summary>
+    public int ThemeIndex
+    {
+        get => _themeIndex;
+        set
+        {
+            if (!Set(ref _themeIndex, value)) return;
+            _store.Current.Theme = value switch
+            {
+                1 => ThemeModes.Light,
+                2 => ThemeModes.Dark,
+                _ => ThemeModes.System
+            };
+            Commit();
+        }
+    }
+
     public int IconSizeIndex
     {
         get => _iconSizeIndex;
@@ -115,6 +133,12 @@ public sealed class SettingsViewModel : ObservableObject
         var s = _store.Current;
         _hotkeyText = s.Hotkey;
         HotkeyHint = "当前：" + s.Hotkey;
+        _themeIndex = s.Theme switch
+        {
+            ThemeModes.Light => 1,
+            ThemeModes.Dark => 2,
+            _ => 0
+        };
         _iconSizeIndex = s.IconSize switch
         {
             IconSizes.Small => 0,
@@ -128,7 +152,8 @@ public sealed class SettingsViewModel : ObservableObject
 
         foreach (var name in new[]
                  {
-                     nameof(HotkeyText), nameof(HotkeyHint), nameof(IconSizeIndex),
+                     nameof(HotkeyText), nameof(HotkeyHint), nameof(ThemeIndex),
+                     nameof(IconSizeIndex),
                      nameof(HideOnLaunch), nameof(AutoStart),
                      nameof(WheelSwitchTab), nameof(NumberKeysSwitchTab), nameof(DataFolder)
                  })

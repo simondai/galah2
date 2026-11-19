@@ -12,16 +12,24 @@
   <!-- Semi-transparent so the Mica backdrop shows through. An opaque fill makes the material
        request pointless; the first screenshot check showed three different corner colours only
        because the DWM tint bled past the rounded corners. -->
-  <Border Background="#E6232327" CornerRadius="10"
-          BorderBrush="#3A3A3F" BorderThickness="1">
+  <Border Background="{DynamicResource PanelFillBrush}" CornerRadius="10"
+          BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1">
     <DockPanel>
 
       <!-- ===== custom chrome: drag area, menu, close ===== -->
-      <Border DockPanel.Dock="Top" Background="#2A2A2E" CornerRadius="10,10,0,0" Height="34"
+      <Border DockPanel.Dock="Top" Background="{DynamicResource ElevatedBrush}" CornerRadius="10,10,0,0" Height="34"
               PointerPressed="Chrome_PointerPressed">
         <Grid ColumnDefinitions="*,Auto,Auto">
-          <TextBlock Grid.Column="0" Text="{Binding ActiveTabName}" FontSize="12"
-                     Foreground="#B9B9C0" VerticalAlignment="Center" Margin="12,0,0,0" />
+          <!-- The corner shows the product name, not the active category: the chip row already
+               says which category is open, and a title that changes with it reads like a document
+               name. 1.x drew "Galah · 启动器" here for the same reason. -->
+          <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
+                      Margin="12,0,0,0">
+            <TextBlock Text="{Binding AppTitle}" FontSize="13" FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextStrongBrush}" />
+            <TextBlock Text="· 启动器" FontSize="11" Margin="6,1,0,0" VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextFaintBrush}" />
+          </StackPanel>
 
           <Button Grid.Column="1" Classes="chip" Content="☰" FontSize="15" Padding="8,0"
                   VerticalAlignment="Center">
@@ -52,11 +60,11 @@
       </Border>
 
       <!-- ===== save-failure banner (INV-9) ===== -->
-      <Border DockPanel.Dock="Top" Background="#4A2326" Padding="12,7"
+      <Border DockPanel.Dock="Top" Background="{DynamicResource DangerSurfaceBrush}" Padding="12,7"
               IsVisible="{Binding HasSaveProblem}">
         <Grid ColumnDefinitions="*,Auto">
           <TextBlock Grid.Column="0" Text="{Binding SaveProblem}" FontSize="11.5"
-                     Foreground="#FFB4B4" TextWrapping="Wrap" VerticalAlignment="Center" />
+                     Foreground="{DynamicResource DangerTextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
           <Button Grid.Column="1" Content="重试" Command="{Binding RetrySaveCommand}"
                   FontSize="11" Padding="10,3" Margin="10,0,0,0" />
         </Grid>
@@ -139,9 +147,9 @@
                          Height="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).IconEdge}"
                          HorizontalAlignment="Center">
                     <!-- The letter shows while the shell icon is extracted, then hides. -->
-                    <Border CornerRadius="6" Background="#2A2A2E"
+                    <Border CornerRadius="6" Background="{DynamicResource ElevatedBrush}"
                             IsVisible="{Binding !HasIcon}">
-                      <TextBlock Text="{Binding Initial}" FontSize="14" Foreground="#F2F2F5"
+                      <TextBlock Text="{Binding Initial}" FontSize="14" Foreground="{DynamicResource TextStrongBrush}"
                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <Image Source="{Binding Icon}"
@@ -150,7 +158,7 @@
                            IsVisible="{Binding HasIcon}" />
                   </Panel>
                   <TextBlock Text="{Binding Name}" FontSize="11" TextAlignment="Center"
-                             Foreground="#C8C8CE"
+                             Foreground="{DynamicResource TextMutedBrush}"
                              TextTrimming="CharacterEllipsis" MaxLines="2" />
                 </StackPanel>
               </Button>

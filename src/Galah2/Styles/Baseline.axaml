@@ -1,24 +1,23 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <!--
-    The whole theme of 2.0: a dark surface, a light foreground, and a chip/tile look.
-    Colours come from 1.0's DESIGN-uber dark language (#232327 canvas / #3A3A3F hairlines).
+    Control styles for 2.0. Every colour comes from Styles/Tokens.axaml through DynamicResource,
+    so both palettes work and a theme switch needs no code here.
 
-    Buttons keep the platform default template (Avalonia supplies a templated ContentPresenter
-    without any theme package) and only override background/foreground, so no control template
-    has to be maintained here.
+    Buttons keep the platform template and only override background/foreground: no control
+    template is duplicated, which is why this file stays small enough to read.
   -->
   <Style Selector="Window">
-    <Setter Property="Background" Value="#1B1B1F" />
+    <Setter Property="Background" Value="{DynamicResource WindowBrush}" />
   </Style>
 
   <Style Selector="TextBlock">
-    <Setter Property="Foreground" Value="#E8E8EC" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
   </Style>
 
   <Style Selector="Button">
-    <Setter Property="Foreground" Value="#E8E8EC" />
-    <Setter Property="Background" Value="#2A2A2E" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ElevatedBrush}" />
     <Setter Property="CornerRadius" Value="14" />
     <Setter Property="Padding" Value="10,4" />
     <Setter Property="BorderThickness" Value="0" />
@@ -26,39 +25,50 @@
   </Style>
 
   <Style Selector="Button:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="#35353A" />
+    <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
   </Style>
 
   <Style Selector="Button:pressed /template/ ContentPresenter">
-    <Setter Property="Background" Value="#3F3F45" />
+    <Setter Property="Background" Value="{DynamicResource PressedBrush}" />
+  </Style>
+
+  <!-- Primary action: the inverted pill 1.0 used for "save". -->
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{DynamicResource AccentSurfaceBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AccentSurfaceBrush}" />
+    <Setter Property="Opacity" Value="0.88" />
   </Style>
 
   <Style Selector="CheckBox">
-    <Setter Property="Foreground" Value="#E8E8EC" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     <Setter Property="FontSize" Value="12.5" />
   </Style>
 
   <Style Selector="TextBox">
-    <Setter Property="Background" Value="#2A2A2E" />
-    <Setter Property="Foreground" Value="#F2F2F5" />
-    <Setter Property="BorderBrush" Value="#3A3A3F" />
+    <Setter Property="Background" Value="{DynamicResource ElevatedBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextStrongBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource HairlineBrush}" />
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Padding" Value="8,5" />
   </Style>
 
   <Style Selector="ComboBox">
-    <Setter Property="Background" Value="#2A2A2E" />
-    <Setter Property="Foreground" Value="#F2F2F5" />
+    <Setter Property="Background" Value="{DynamicResource ElevatedBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextStrongBrush}" />
   </Style>
 
   <Style Selector="Button.chip">
     <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Foreground" Value="#B9B9C0" />
+    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
   </Style>
 
   <Style Selector="Button.chip.active">
-    <Setter Property="Background" Value="#35353A" />
-    <Setter Property="Foreground" Value="#F5F5F7" />
+    <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextStrongBrush}" />
   </Style>
 
   <Style Selector="Button.tile">
@@ -66,5 +76,29 @@
     <Setter Property="CornerRadius" Value="8" />
     <Setter Property="Padding" Value="6" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="TextBlock.section">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFaintBrush}" />
+    <Setter Property="Margin" Value="0,14,0,6" />
+  </Style>
+
+  <Style Selector="TextBlock.hint">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFaintBrush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <Style Selector="TextBlock.label">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFaintBrush}" />
+    <Setter Property="Margin" Value="0,0,0,4" />
+  </Style>
+
+  <Style Selector="TextBlock.error">
+    <Setter Property="FontSize" Value="11.5" />
+    <Setter Property="Foreground" Value="{DynamicResource ErrorTextBrush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
   </Style>
 </Styles>

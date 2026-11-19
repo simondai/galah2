@@ -7,16 +7,16 @@
         Width="460" Height="500"
         CanResize="False"
         WindowStartupLocation="CenterScreen"
-        Background="#1B1B1F">
+        Background="{DynamicResource WindowBrush}">
   <Window.Styles>
     <Style Selector="TextBlock.label">
       <Setter Property="FontSize" Value="12" />
-      <Setter Property="Foreground" Value="#A8A8B0" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
       <Setter Property="Margin" Value="0,0,0,4" />
     </Style>
     <Style Selector="TextBlock.error">
       <Setter Property="FontSize" Value="11.5" />
-      <Setter Property="Foreground" Value="#FF8A8A" />
+      <Setter Property="Foreground" Value="{DynamicResource ErrorTextBrush}" />
       <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
   </Window.Styles>
@@ -27,13 +27,13 @@
                 Spacing="8" Margin="0,14,0,0">
       <Button Content="取消" Command="{Binding CancelCommand}" />
       <Button Content="保存" Command="{Binding SaveCommand}" IsEnabled="{Binding CanSave}"
-              Background="#F5F5F7" Foreground="#1B1B1F" />
+              Background="{DynamicResource AccentSurfaceBrush}" Foreground="{DynamicResource WindowBrush}" />
     </StackPanel>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="12">
         <Grid ColumnDefinitions="64,*">
-          <Border Grid.Column="0" Width="56" Height="56" CornerRadius="10" Background="#2A2A2E">
+          <Border Grid.Column="0" Width="56" Height="56" CornerRadius="10" Background="{DynamicResource ElevatedBrush}">
             <Image Source="{Binding IconPreview}" Width="48" Height="48" Stretch="Uniform" />
           </Border>
           <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">

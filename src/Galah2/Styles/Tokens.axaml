@@ -1,0 +1,77 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    Colour tokens for 2.0. Every control style and every view references these by DynamicResource,
+    so switching the palette is a dictionary swap and nothing else has to know about it.
+
+    Dark values are 1.0's DESIGN-uber language (charcoal steps, white as the only highlight);
+    light values mirror that hierarchy on parchment so the two read as the same product.
+  -->
+  <ResourceDictionary.ThemeDictionaries>
+    <ResourceDictionary x:Key="Dark">
+      <Color x:Key="PaletteCanvas">#232327</Color>
+      <Color x:Key="PaletteChrome">#2A2A2E</Color>
+      <Color x:Key="PaletteElevated">#2A2A2E</Color>
+      <Color x:Key="PaletteHover">#35353A</Color>
+      <Color x:Key="PalettePressed">#3F3F45</Color>
+      <Color x:Key="PaletteHairline">#3A3A3F</Color>
+      <Color x:Key="PaletteTextStrong">#F5F5F7</Color>
+      <Color x:Key="PaletteTextPrimary">#E8E8EC</Color>
+      <Color x:Key="PaletteTextMuted">#B9B9C0</Color>
+      <Color x:Key="PaletteTextFaint">#8A8A93</Color>
+      <Color x:Key="PaletteWindow">#1B1B1F</Color>
+      <Color x:Key="PaletteAccentSurface">#F5F5F7</Color>
+      <Color x:Key="PaletteAccentForeground">#1B1B1F</Color>
+      <Color x:Key="PaletteDangerSurface">#4A2326</Color>
+      <Color x:Key="PaletteDangerText">#FFB4B4</Color>
+      <Color x:Key="PaletteErrorText">#FF8A8A</Color>
+      <Color x:Key="PaletteTilePlaceholder">#2A2A2E</Color>
+      <Color x:Key="PaletteIconPlate">#2A2A2E</Color>
+      <!-- The panel fill is deliberately translucent so the Mica backdrop shows through. -->
+      <Color x:Key="PalettePanelFill">#E6232327</Color>
+    </ResourceDictionary>
+
+    <ResourceDictionary x:Key="Light">
+      <Color x:Key="PaletteCanvas">#F7F7F8</Color>
+      <Color x:Key="PaletteChrome">#EDEDEF</Color>
+      <Color x:Key="PaletteElevated">#FFFFFF</Color>
+      <Color x:Key="PaletteHover">#E4E4E7</Color>
+      <Color x:Key="PalettePressed">#D8D8DC</Color>
+      <Color x:Key="PaletteHairline">#D6D6DA</Color>
+      <Color x:Key="PaletteTextStrong">#141417</Color>
+      <Color x:Key="PaletteTextPrimary">#26262B</Color>
+      <Color x:Key="PaletteTextMuted">#5C5C64</Color>
+      <Color x:Key="PaletteTextFaint">#8A8A93</Color>
+      <Color x:Key="PaletteWindow">#FFFFFF</Color>
+      <Color x:Key="PaletteAccentSurface">#1B1B1F</Color>
+      <Color x:Key="PaletteAccentForeground">#FFFFFF</Color>
+      <Color x:Key="PaletteDangerSurface">#FDECEC</Color>
+      <Color x:Key="PaletteDangerText">#8C2B2B</Color>
+      <Color x:Key="PaletteErrorText">#B3261E</Color>
+      <Color x:Key="PaletteTilePlaceholder">#E9E9EC</Color>
+      <Color x:Key="PaletteIconPlate">#E9E9EC</Color>
+      <Color x:Key="PalettePanelFill">#F2F7F7F8</Color>
+    </ResourceDictionary>
+  </ResourceDictionary.ThemeDictionaries>
+
+  <!-- Brushes over the tokens: styles bind to brushes, not colours. -->
+  <SolidColorBrush x:Key="CanvasBrush" Color="{DynamicResource PaletteCanvas}" />
+  <SolidColorBrush x:Key="ChromeBrush" Color="{DynamicResource PaletteChrome}" />
+  <SolidColorBrush x:Key="ElevatedBrush" Color="{DynamicResource PaletteElevated}" />
+  <SolidColorBrush x:Key="HoverBrush" Color="{DynamicResource PaletteHover}" />
+  <SolidColorBrush x:Key="PressedBrush" Color="{DynamicResource PalettePressed}" />
+  <SolidColorBrush x:Key="HairlineBrush" Color="{DynamicResource PaletteHairline}" />
+  <SolidColorBrush x:Key="TextStrongBrush" Color="{DynamicResource PaletteTextStrong}" />
+  <SolidColorBrush x:Key="TextPrimaryBrush" Color="{DynamicResource PaletteTextPrimary}" />
+  <SolidColorBrush x:Key="TextMutedBrush" Color="{DynamicResource PaletteTextMuted}" />
+  <SolidColorBrush x:Key="TextFaintBrush" Color="{DynamicResource PaletteTextFaint}" />
+  <SolidColorBrush x:Key="WindowBrush" Color="{DynamicResource PaletteWindow}" />
+  <SolidColorBrush x:Key="AccentSurfaceBrush" Color="{DynamicResource PaletteAccentSurface}" />
+  <SolidColorBrush x:Key="AccentForegroundBrush" Color="{DynamicResource PaletteAccentForeground}" />
+  <SolidColorBrush x:Key="DangerSurfaceBrush" Color="{DynamicResource PaletteDangerSurface}" />
+  <SolidColorBrush x:Key="DangerTextBrush" Color="{DynamicResource PaletteDangerText}" />
+  <SolidColorBrush x:Key="ErrorTextBrush" Color="{DynamicResource PaletteErrorText}" />
+  <SolidColorBrush x:Key="TilePlaceholderBrush" Color="{DynamicResource PaletteTilePlaceholder}" />
+  <SolidColorBrush x:Key="IconPlateBrush" Color="{DynamicResource PaletteIconPlate}" />
+  <SolidColorBrush x:Key="PanelFillBrush" Color="{DynamicResource PalettePanelFill}" />
+</ResourceDictionary>
