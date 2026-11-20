@@ -45,6 +45,8 @@ jobs:
         run: |
           dotnet run --project tools/GeometryProbe -c Release
           if ($LASTEXITCODE -ne 0) { throw "geometry probes failed" }
+          dotnet run --project tools/MaterialProbe -c Release
+          if ($LASTEXITCODE -ne 0) { throw "material probes failed" }
 
       - name: Dialog probes
         shell: pwsh

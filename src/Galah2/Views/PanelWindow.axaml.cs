@@ -98,19 +98,31 @@ public partial class PanelWindow : Window
         (DataContext as PanelViewModel)?.PanelMaterial ?? Galah2.Models.PanelMaterials.None;
 
     /// <summary>
-    /// Ask the compositor for the transparency level the material setting implies.
+    /// Apply the material setting to both the window and its fill.
     ///
-    /// "None" is not an option even for an opaque panel: a window without an alpha channel cannot
-    /// clip its content, so the rounded corners render square. Transparent keeps the corners, and
-    /// an opaque Border fill is what makes it look solid.
+    /// Applying it to only one of the two is why the two options used to look identical: the
+    /// window was made transparent for Mica, but the Border kept a 90%-opaque fill either way, so
+    /// the backdrop never showed and "不透明" also looked see-through. The window level and the
+    /// fill have to move together.
     /// </summary>
     public void ApplyMaterial()
     {
-        TransparencyLevelHint = RequestedMaterial == Galah2.Models.PanelMaterials.Translucent
+        var translucent = RequestedMaterial == Galah2.Models.PanelMaterials.Translucent;
+
+        // "None" is never used, even for an opaque panel: a window with no alpha channel cannot
+        // clip its content, so the rounded corners would render square.
+        TransparencyLevelHint = translucent
             ? new[] { Avalonia.Controls.WindowTransparencyLevel.Mica,
                       Avalonia.Controls.WindowTransparencyLevel.AcrylicBlur,
                       Avalonia.Controls.WindowTransparencyLevel.Transparent }
             : new[] { Avalonia.Controls.WindowTransparencyLevel.Transparent };
+
+        if (this.FindControl<Border>("RootBorder") is { } border)
+        {
+            border.Background = this.FindResource(translucent
+                    ? "PanelFillBrush"
+                    : "PanelFillOpaqueBrush") as Avalonia.Media.IBrush;
+        }
     }
 
     private ItemViewModel? _dragTile;

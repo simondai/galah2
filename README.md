@@ -69,6 +69,7 @@ powershell -ExecutionPolicy Bypass -File tools/publish-aot.ps1
 | 回滚兼容性（1.x ↔ 2.0 数据） | 可用，9/9 |
 | 对话框（提示、确认） | 可用，8/8 探针 |
 | 面板可缩放、位置与尺寸记忆 | 可用，7/7 探针 |
+| 面板材质：不透明 / 半透明 | 可用，3/3 探针 |
 | 添加选择器列表带图标 | 可用 |
 | Ctrl+1..9 直达分类，滚轮切分类 | 可用 |
 | 跨分类拖动条目（把瓦片拖到分类标签上） | 可用 |
@@ -151,6 +152,7 @@ tools/UiAcceptance/                    进程级验收
 tools/PortableCheck/                   绿色版验证
 tools/DialogProbe/                     对话框探针
 tools/GeometryProbe/                   几何与选择器图标探针
+tools/MaterialProbe/                   面板材质探针
 tools/rollback-check.ps1             1.x <-> 2.0 数据兼容
 docs/PROCESS-AUDIT.md                流程自查（缺口诚实记录）
 docs/specs/                          需求规格（每轮开发前写）

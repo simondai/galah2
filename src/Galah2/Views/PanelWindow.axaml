@@ -13,7 +13,8 @@
   <!-- Semi-transparent so the Mica backdrop shows through. An opaque fill makes the material
        request pointless; the first screenshot check showed three different corner colours only
        because the DWM tint bled past the rounded corners. -->
-  <Border Background="{DynamicResource PanelFillBrush}" CornerRadius="10"
+  <Border x:Name="RootBorder"
+          Background="{DynamicResource PanelFillBrush}" CornerRadius="10"
           BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1">
     <DockPanel>
 

@@ -29,6 +29,8 @@
       <Color x:Key="PaletteIconPlate">#2A2A2E</Color>
       <!-- The panel fill is deliberately translucent so the Mica backdrop shows through. -->
       <Color x:Key="PalettePanelFill">#E6232327</Color>
+      <!-- Fully opaque variant: the "不透明" material must actually look solid. -->
+      <Color x:Key="PalettePanelFillOpaque">#FF232327</Color>
     </ResourceDictionary>
 
     <ResourceDictionary x:Key="Light">
@@ -51,6 +53,7 @@
       <Color x:Key="PaletteTilePlaceholder">#E9E9EC</Color>
       <Color x:Key="PaletteIconPlate">#E9E9EC</Color>
       <Color x:Key="PalettePanelFill">#F2F7F7F8</Color>
+      <Color x:Key="PalettePanelFillOpaque">#FFF7F7F8</Color>
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
 
@@ -74,4 +77,5 @@
   <SolidColorBrush x:Key="TilePlaceholderBrush" Color="{DynamicResource PaletteTilePlaceholder}" />
   <SolidColorBrush x:Key="IconPlateBrush" Color="{DynamicResource PaletteIconPlate}" />
   <SolidColorBrush x:Key="PanelFillBrush" Color="{DynamicResource PalettePanelFill}" />
+  <SolidColorBrush x:Key="PanelFillOpaqueBrush" Color="{DynamicResource PalettePanelFillOpaque}" />
 </ResourceDictionary>
