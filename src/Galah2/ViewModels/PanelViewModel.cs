@@ -437,6 +437,14 @@ public sealed class PanelViewModel : ObservableObject
         });
     }
 
+    /// <summary>Move an item into another category (drag a tile onto a chip).</summary>
+    public void MoveItemToTab(string itemId, string targetTabId)
+    {
+        _catalog.MoveItemToTab(itemId, targetTabId);
+        Refresh();
+        CheckSaveState();
+    }
+
     private void MoveTab(TabViewModel? tab, int delta)
     {
         if (tab is null) return;

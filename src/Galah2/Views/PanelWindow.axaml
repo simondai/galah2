@@ -83,8 +83,11 @@
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:TabViewModel">
-            <Button Classes="chip" Content="{Binding Name}"
+            <!-- A drop target: dragging a tile onto a category moves the item there. -->
+            <Button Classes="chip" Content="{Binding Name}" Tag="{Binding}"
                     Classes.active="{Binding IsActive}"
+                    DragDrop.AllowDrop="True"
+                    DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
                     Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
                     CommandParameter="{Binding}" />
           </DataTemplate>
@@ -100,9 +103,11 @@
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:TabViewModel">
-            <Button Classes="chip" Content="{Binding Name}"
+            <Button Classes="chip" Content="{Binding Name}" Tag="{Binding}"
                     Classes.active="{Binding IsActive}"
                     HorizontalAlignment="Left"
+                    DragDrop.AllowDrop="True"
+                    DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
                     Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
                     CommandParameter="{Binding}" />
           </DataTemplate>
@@ -130,7 +135,8 @@
               <!-- Click and DoubleTapped both route to LaunchTile, which decides from the click mode
                    whether this gesture is an action. Binding Command would lose the click count. -->
               <Button Classes="tile" Tag="{Binding}" ToolTip.Tip="{Binding Name}"
-                      Click="Tile_Click" DoubleTapped="Tile_DoubleTapped">
+                      Click="Tile_Click" DoubleTapped="Tile_DoubleTapped"
+                      PointerPressed="Tile_PointerPressed" PointerMoved="Tile_PointerMoved">
                 <Button.ContextMenu>
                   <ContextMenu>
                     <MenuItem Header="打开"

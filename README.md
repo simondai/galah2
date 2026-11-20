@@ -1,8 +1,21 @@
 # Galah 2.0
 
-Windows 启动器，用 **Avalonia 11 + NativeAOT** 重写。
+Windows 桌面启动器（launcher），以作者家的宠物凤头鹦鹉命名。绿色免安装，数据就在 exe 旁边。
 
-1.x 在另一个仓库 `simondai/galah`（WPF）；本仓库是 2.0 重写。
+用 **Avalonia 11 + NativeAOT** 重写；1.x 是 WPF 版本，在另一个仓库 [simondai/galah](https://github.com/simondai/galah)。
+
+![平台](https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-Windows-blue) ![产物](https://img.shields.io/badge/%E4%BA%A7%E7%89%A9-43.2%20MB-success) ![运行时](https://img.shields.io/badge/%E8%BF%90%E8%A1%8C%E6%97%B6-%E6%97%A0%E9%9C%80%E5%AE%89%E8%A3%85-success)
+
+## 它是什么
+
+把常用的程序、文件、文件夹、网址、系统设置页收进一个面板：分类页签 + 图标磁贴网格，
+单击/双击启动，托盘常驻后台，全局热键（Alt+Space）随时唤出。
+所有数据（分类、条目、设置、窗口状态）都落在 exe 同目录的 `GalahData/` 文件夹，随文件夹一起搬走。
+
+- **绿色免安装**：4 个文件共 43.2 MB，原生编译，不装 .NET 运行时、不写注册表、不留后台服务
+- **默认不联网**：没有任何自动网络行为；唯一的联网操作是你在编辑网址条目时手动点"获取网站图标"，且只访问该站点本身
+- **持久可靠**：写盘原子替换 + 双备份轮换（`.bak.1`/`.bak.2`），损坏自动隔离，一次用户动作一次写盘
+- **可直接读 1.x 数据**：`GalahData/` 格式未变，两个版本可以互相读对方的数据
 
 > **先读 [FINDINGS-2.0.md](FINDINGS-2.0.md)，别默认这次重写省内存。**
 > 实测下来内存并不是立项时想的那样：**待机反而比 1.x 更费**，面板只省 5~13%。
@@ -11,9 +24,14 @@ Windows 启动器，用 **Avalonia 11 + NativeAOT** 重写。
 
 ---
 
+## 快速开始
+
+拿到产物后，直接双击 `artifact/Galah2.exe` 即可。启动后驻留托盘（不弹面板），
+按 **Alt+Space** 或点托盘图标唤出。
+
 ## 产物与发布
 
-本地发布产物在仓库根目录的 **`artifact/`**（4 个文件，43.2 MB）：
+自己构建的话，产物在仓库根目录的 **`artifact/`**（4 个文件，43.2 MB）：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/publish-aot.ps1
@@ -52,6 +70,10 @@ powershell -ExecutionPolicy Bypass -File tools/publish-aot.ps1
 | 对话框（提示、确认） | 可用，8/8 探针 |
 | 面板可缩放、位置与尺寸记忆 | 可用，7/7 探针 |
 | 添加选择器列表带图标 | 可用 |
+| Ctrl+1..9 直达分类，滚轮切分类 | 可用 |
+| 跨分类拖动条目（把瓦片拖到分类标签上） | 可用 |
+| Ctrl+Tab / Ctrl+Shift+Tab 循环切换分类 | 可用 |
+| **最大化状态记忆** | **不适用**（无边框面板不提供最大化） |
 | NativeAOT 发布 | 可用，见 [PORTABLE.md](PORTABLE.md) |
 
 ---
@@ -136,6 +158,57 @@ CONTRIBUTING.md                      九步开发流程
 tools/perf/measure.ps1                 内存测量
 tools/publish-aot.ps1                  AOT 发布
 ```
+
+## 系统要求
+
+- Windows 10 1709+ / Windows 11（x64）
+- 运行时自包含，无需安装 .NET
+
+## 二次开发
+
+### 开发环境
+
+- [Visual Studio 2022](https://visualstudio.microsoft.com/)（或任意顺手的 C# IDE / VS Code）
+- **.NET SDK 8.0+**
+- **VS 2022 Build Tools 的「使用 C++ 的桌面开发」工作负载 + Windows SDK** ——
+  NativeAOT 用 MSVC 的 `link.exe` 链接，缺了只能编译不能发布
+- Git
+
+克隆后两条命令验证环境：
+
+    dotnet build Galah2.sln -c Release
+    dotnet run --project tools/PanelProbe -c Release
+
+只想跑起来不改 AOT，`dotnet run --project src/Galah2 -c Release` 就行（JIT 模式，启动慢些）。
+
+### 本项目的开发工具链
+
+- **Alma**（AI 结对编程）：需求拆解、实现、测试与调试的主力
+- **Git + GitHub Actions**：版本管理；CI 自动跑构建、七个探针、AOT 发布与绿色版校验
+- **dotnet CLI**：构建、测试、AOT 发布，不依赖 IDE
+- **PowerShell + Win32/UIA**：进程级验收脚本与诊断
+
+### 代码地图
+
+| 你要改的东西 | 去哪 |
+|---|---|
+| 面板长什么样、交互 | `src/Galah2/Views/PanelWindow.axaml` + `.axaml.cs` |
+| 颜色、深浅主题 | `src/Galah2/Styles/Tokens.axaml`（两套配色）+ `Baseline.axaml`（控件样式） |
+| 面板命令、分类与条目逻辑 | `src/Galah2/ViewModels/PanelViewModel.cs` |
+| 启动流程、托盘、热键、几何记忆 | `src/Galah2/Services/AppRuntime.cs` |
+| 图标提取（含 .msc 的 COM 路径） | `src/Galah2/Services/IconService.cs` |
+| JSON 存储与源生成器 | `src/Galah2/Persistence/` |
+| 手写 COM vtable（AOT 必需） | `src/Galah2/Services/Interop/` |
+
+改完按 [CONTRIBUTING.md](CONTRIBUTING.md) 的九步流程走：先写 `docs/specs/`，再动代码，
+跑全套探针，最后提交。
+
+## 名字与致敬
+
+Galah（凤头鹦鹉）是作者家的宠物。粉红凤头鹦鹉聪明、话多、精力旺盛——大概也是一个好启动器的样子。
+
+本项目致敬 [Rolan](https://getrolan.com/) 的作者。作者本人是 Rolan 2 近十年的老用户；Galah 的
+功能原型参考自 Rolan，但全部代码从零实现，不含任何 Rolan 的代码、图标或素材。
 
 ## 许可证
 

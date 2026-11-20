@@ -67,6 +67,14 @@ public partial class PanelWindow : Window
                 vm.MoveTabRightCommand.Execute(null);
                 e.Handled = true;
                 return;
+
+            // Ctrl+Tab cycles forward, Ctrl+Shift+Tab backward - 1.x navigation that a user
+            // reaching for "next category" tries before anything else.
+            case Key.Tab when e.KeyModifiers.HasFlag(KeyModifiers.Control):
+                var backward = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+                vm.SwitchTabRelative(backward ? -1 : 1);
+                e.Handled = true;
+                return;
         }
 
         if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.Key >= Key.D1 && e.Key <= Key.D9)
@@ -103,6 +111,55 @@ public partial class PanelWindow : Window
                       Avalonia.Controls.WindowTransparencyLevel.AcrylicBlur,
                       Avalonia.Controls.WindowTransparencyLevel.Transparent }
             : new[] { Avalonia.Controls.WindowTransparencyLevel.Transparent };
+    }
+
+    private ItemViewModel? _dragTile;
+    private Point _dragTileOrigin;
+
+    /// <summary>Remember which tile a press started on, in case it becomes a drag.</summary>
+    private void Tile_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Button { Tag: ItemViewModel tile }) { _dragTile = null; return; }
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) { _dragTile = null; return; }
+
+        _dragTile = tile;
+        _dragTileOrigin = e.GetPosition(this);
+    }
+
+    /// <summary>
+    /// Start a drag once the pointer has moved far enough to mean it. Without the threshold every
+    /// click would begin a drag and the tile could never be clicked.
+    /// </summary>
+    private async void Tile_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_dragTile is null) return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) { _dragTile = null; return; }
+
+        var now = e.GetPosition(this);
+        if (Math.Abs(now.X - _dragTileOrigin.X) + Math.Abs(now.Y - _dragTileOrigin.Y) < 8) return;
+
+        var tile = _dragTile;
+        _dragTile = null;   // one drag per press
+
+        var data = new DataObject();
+        data.Set("galah/item-id", tile.Id);
+        await DragDrop.DoDragDrop(e, data, DragDropEffects.Move);
+    }
+
+    private void TabChip_DragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = e.Data.Contains("galah/item-id") ? DragDropEffects.Move : DragDropEffects.None;
+    }
+
+    /// <summary>Move the dragged item into the category it was dropped on.</summary>
+    private void TabChip_Drop(object? sender, DragEventArgs e)
+    {
+        if (DataContext is not PanelViewModel vm) return;
+        if (sender is not Button { Tag: TabViewModel tab }) return;
+        if (e.Data.Get("galah/item-id") is not string itemId || string.IsNullOrEmpty(itemId)) return;
+
+        vm.MoveItemToTab(itemId, tab.Id);
+        e.Handled = true;
     }
 
     /// <summary>Single click. In double-click mode this only selects the tile.</summary>
