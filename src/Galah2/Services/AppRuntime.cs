@@ -229,11 +229,11 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         return null;
     }
 
-    string? IPanelHost.Prompt(string title, string initial) =>
-        PromptWindow.Ask(_panel, title, initial);
+    void IPanelHost.Prompt(string title, string initial, Action<string?> onAnswer) =>
+        PromptWindow.Ask(_panel, title, initial, onAnswer);
 
-    bool IPanelHost.Confirm(string title, string message) =>
-        ConfirmWindow.Ask(_panel, title, message);
+    void IPanelHost.Confirm(string title, string message, Action<bool> onAnswer) =>
+        ConfirmWindow.Ask(_panel, title, message, onAnswer);
 
     void IPanelHost.ShowMaintenance()
     {

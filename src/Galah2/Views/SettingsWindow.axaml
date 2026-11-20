@@ -22,7 +22,10 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
       <StackPanel>
         <TextBlock Classes="section" Text="全局快捷键" />
-        <TextBox Text="{Binding HotkeyText, Mode=TwoWay}" FontSize="13" />
+        <!-- Same width as the combos: an unconstrained TextBox stretches the full page and runs
+             under the vertical scrollbar. -->
+        <TextBox Text="{Binding HotkeyText, Mode=TwoWay}" FontSize="13"
+                 HorizontalAlignment="Left" Width="196" />
         <TextBlock Classes="hint" Text="{Binding HotkeyHint}" Margin="0,6,0,0" />
 
         <TextBlock Classes="section" Text="外观" />

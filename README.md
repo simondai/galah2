@@ -49,6 +49,7 @@ powershell -ExecutionPolicy Bypass -File tools/publish-aot.ps1
 | 进程级验收（托盘、toggle、关闭后重开） | 可用，11/11 |
 | 绿色版自检 | 可用，9/9 |
 | 回滚兼容性（1.x ↔ 2.0 数据） | 可用，9/9 |
+| 对话框（提示、确认） | 可用，8/8 探针 |
 | NativeAOT 发布 | 可用，见 [PORTABLE.md](PORTABLE.md) |
 
 ---
@@ -124,6 +125,7 @@ tools/SettingsProbe/                   设置与主题探针
 tools/PanelProbe/                      面板命令面探针
 tools/UiAcceptance/                    进程级验收
 tools/PortableCheck/                   绿色版验证
+tools/DialogProbe/                     对话框探针
 tools/rollback-check.ps1             1.x <-> 2.0 数据兼容
 docs/PROCESS-AUDIT.md                流程自查（缺口诚实记录）
 docs/specs/                          需求规格（每轮开发前写）

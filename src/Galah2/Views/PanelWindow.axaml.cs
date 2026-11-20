@@ -10,7 +10,8 @@ namespace Galah2.Views;
 
 public partial class PanelWindow : Window
 {
-    private Point _dragStart;
+    private Point _dragOriginScreen;
+    private PixelPoint _dragWindowOrigin;
     private bool _dragging;
 
     public PanelWindow()
@@ -87,14 +88,20 @@ public partial class PanelWindow : Window
     private string RequestedMaterial =>
         (DataContext as PanelViewModel)?.PanelMaterial ?? Galah2.Models.PanelMaterials.None;
 
-    /// <summary>Ask the compositor for the transparency level the material setting implies.</summary>
+    /// <summary>
+    /// Ask the compositor for the transparency level the material setting implies.
+    ///
+    /// "None" is not an option even for an opaque panel: a window without an alpha channel cannot
+    /// clip its content, so the rounded corners render square. Transparent keeps the corners, and
+    /// an opaque Border fill is what makes it look solid.
+    /// </summary>
     public void ApplyMaterial()
     {
         TransparencyLevelHint = RequestedMaterial == Galah2.Models.PanelMaterials.Translucent
             ? new[] { Avalonia.Controls.WindowTransparencyLevel.Mica,
                       Avalonia.Controls.WindowTransparencyLevel.AcrylicBlur,
-                      Avalonia.Controls.WindowTransparencyLevel.None }
-            : new[] { Avalonia.Controls.WindowTransparencyLevel.None };
+                      Avalonia.Controls.WindowTransparencyLevel.Transparent }
+            : new[] { Avalonia.Controls.WindowTransparencyLevel.Transparent };
     }
 
     /// <summary>Single click. In double-click mode this only selects the tile.</summary>
@@ -143,12 +150,18 @@ public partial class PanelWindow : Window
         }
         catch (Exception ex) { Console.Error.WriteLine("drop failed: " + ex.Message); }
     }
-
-    /// <summary>Drag the frameless panel by its chrome strip.</summary>
+    /// <summary>
+    /// Drag the frameless panel by its chrome strip.
+    ///
+    /// The delta is computed from SCREEN coordinates. Using positions relative to the window feeds
+    /// the window's own movement back into the next delta, because the origin moves with it - the
+    /// panel chases the cursor and appears to vibrate.
+    /// </summary>
     private void Chrome_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
-        _dragStart = e.GetPosition(this);
+        _dragOriginScreen = e.GetPosition(null);
+        _dragWindowOrigin = Position;
         _dragging = false;
     }
 
@@ -161,14 +174,16 @@ public partial class PanelWindow : Window
             return;
         }
 
-        var now = e.GetPosition(this);
-        var dx = now.X - _dragStart.X;
-        var dy = now.Y - _dragStart.Y;
+        var now = e.GetPosition(null);
+        var dx = now.X - _dragOriginScreen.X;
+        var dy = now.Y - _dragOriginScreen.Y;
         if (!_dragging && Math.Abs(dx) + Math.Abs(dy) < 4) return;   // ignore jitter
 
         _dragging = true;
-        Position = new PixelPoint((int)(Position.X + dx), (int)(Position.Y + dy));
-        _dragStart = now;
+        // Absolute target, not an incremental step: no accumulated error, no feedback loop.
+        Position = new PixelPoint(
+            (int)(_dragWindowOrigin.X + dx),
+            (int)(_dragWindowOrigin.Y + dy));
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)

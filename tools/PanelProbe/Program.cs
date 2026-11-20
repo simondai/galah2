@@ -34,8 +34,16 @@ internal static class Program
         public void HidePanel() => HideCalled = true;
         public void ShowAddPicker(string tabId) => AddPickerTab = tabId;
         public CatalogItem? ShowEditItem(string tabId, CatalogItem? existing) => EditResult;
-        public string? Prompt(string title, string initial) { LastPrompt = title; return PromptAnswer; }
-        public bool Confirm(string title, string message) => ConfirmAnswer;
+        // The probe answers immediately: it is testing what the panel does WITH the answer, not
+        // how a real window collects it (DialogProbe covers that).
+        public void Prompt(string title, string initial, Action<string?> onAnswer)
+        {
+            LastPrompt = title;
+            onAnswer(PromptAnswer);
+        }
+
+        public void Confirm(string title, string message, Action<bool> onAnswer) =>
+            onAnswer(ConfirmAnswer);
         public void ShowMaintenance() => MaintenanceCalled = true;
         public void ShowSettings() => SettingsCalled = true;
         public bool Launch(CatalogItem item) { LaunchCount++; return LaunchResult; }

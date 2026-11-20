@@ -19,11 +19,14 @@ public interface IPanelHost
     /// <summary>Open the add/edit dialog. Returns the draft it committed, if any.</summary>
     CatalogItem? ShowEditItem(string tabId, CatalogItem? existing);
 
-    /// <summary>Ask for a single line of text (rename, new category).</summary>
-    string? Prompt(string title, string initial);
+    /// <summary>
+    /// Ask for a single line of text. The answer arrives through a callback: a dialog result cannot
+    /// be awaited synchronously on the UI thread without deadlocking the dialog itself.
+    /// </summary>
+    void Prompt(string title, string initial, Action<string?> onAnswer);
 
-    /// <summary>Confirm a destructive action.</summary>
-    bool Confirm(string title, string message);
+    /// <summary>Confirm a destructive action; the answer arrives through a callback.</summary>
+    void Confirm(string title, string message, Action<bool> onAnswer);
 
     /// <summary>Open the maintenance window.</summary>
     void ShowMaintenance();
@@ -358,11 +361,14 @@ public sealed class PanelViewModel : ObservableObject
     private void DeleteItem(ItemViewModel? tile)
     {
         if (tile is null) return;
-        if (!_host.Confirm("删除条目", "确定删除「" + tile.Name + "」？")) return;
 
-        _catalog.DeleteItem(tile.Id);
-        Refresh();
-        CheckSaveState();
+        _host.Confirm("删除条目", "确定删除「" + tile.Name + "」？", confirmed =>
+        {
+            if (!confirmed) return;
+            _catalog.DeleteItem(tile.Id);
+            Refresh();
+            CheckSaveState();
+        });
     }
 
     private void MoveItem(ItemViewModel? tile, int delta)
@@ -390,36 +396,45 @@ public sealed class PanelViewModel : ObservableObject
 
     private void NewTab()
     {
-        var name = _host.Prompt("新建分类", "新分类");
-        if (string.IsNullOrWhiteSpace(name)) return;
+        _host.Prompt("新建分类", "新分类", name =>
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
 
-        var created = _catalog.AddTab(name.Trim());
-        Refresh();
-        // Select what was just created: a new empty category is the thing the user is about to
-        // fill, so leaving the old one selected makes the action look like it did nothing.
-        SelectTab(Tabs.FirstOrDefault(t => t.Id == created.Id));
-        CheckSaveState();
+            var created = _catalog.AddTab(name.Trim());
+            Refresh();
+            // Select what was just created: a new empty category is the thing the user is about
+            // to fill, so leaving the old one selected makes the action look like it did nothing.
+            SelectTab(Tabs.FirstOrDefault(t => t.Id == created.Id));
+            CheckSaveState();
+        });
     }
 
     private void RenameTab(TabViewModel? tab)
     {
         if (tab is null) return;
-        var name = _host.Prompt("重命名分类", tab.Name);
-        if (string.IsNullOrWhiteSpace(name) || name.Trim() == tab.Name) return;
 
-        _catalog.RenameTab(tab.Id, name.Trim());
-        Refresh();
-        CheckSaveState();
+        _host.Prompt("重命名分类", tab.Name, name =>
+        {
+            if (string.IsNullOrWhiteSpace(name) || name.Trim() == tab.Name) return;
+
+            _catalog.RenameTab(tab.Id, name.Trim());
+            Refresh();
+            CheckSaveState();
+        });
     }
+
 
     private void DeleteTab(TabViewModel? tab)
     {
         if (tab is null) return;
-        if (!_host.Confirm("删除分类", "确定删除分类「" + tab.Name + "」及其全部条目？")) return;
 
-        _catalog.DeleteTab(tab.Id);
-        Refresh();
-        CheckSaveState();
+        _host.Confirm("删除分类", "确定删除分类「" + tab.Name + "」及其全部条目？", confirmed =>
+        {
+            if (!confirmed) return;
+            _catalog.DeleteTab(tab.Id);
+            Refresh();
+            CheckSaveState();
+        });
     }
 
     private void MoveTab(TabViewModel? tab, int delta)

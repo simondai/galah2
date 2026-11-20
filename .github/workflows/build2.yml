@@ -40,6 +40,12 @@ jobs:
           dotnet run --project tools/SettingsProbe -c Release
           if ($LASTEXITCODE -ne 0) { throw "settings probes failed" }
 
+      - name: Dialog probes
+        shell: pwsh
+        run: |
+          dotnet run --project tools/DialogProbe -c Release
+          if ($LASTEXITCODE -ne 0) { throw "dialog probes failed" }
+
       - name: Panel command-surface probes
         shell: pwsh
         run: |
