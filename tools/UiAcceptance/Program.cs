@@ -113,12 +113,26 @@ internal static class Program
         return _fail == 0 ? 0 : 1;
     }
 
+    /// <summary>
+    /// Locate the built executable. Two layouts exist: a plain `dotnet build` of the project puts
+    /// it under bin/Release, while building the SOLUTION puts it under bin/x64/Release because the
+    /// projects set PlatformTarget=x64. Both are searched, so the tool works either way.
+    /// </summary>
     private static string? FindBuiltExe()
     {
         var root = AppContext.BaseDirectory;
         for (var i = 0; i < 5; i++) root = Path.GetFullPath(Path.Combine(root, ".."));
-        var candidate = Path.Combine(root, "src", "Galah2", "bin", "Release", "net8.0", "Galah2.exe");
-        return File.Exists(candidate) ? candidate : null;
+
+        var candidates = new[]
+        {
+            Path.Combine(root, "src", "Galah2", "bin", "Release", "net8.0", "Galah2.exe"),
+            Path.Combine(root, "src", "Galah2", "bin", "x64", "Release", "net8.0", "Galah2.exe"),
+        };
+
+        foreach (var candidate in candidates)
+            if (File.Exists(candidate)) return candidate;
+
+        return null;
     }
 
     private static Process? Start(string exe, string dir)

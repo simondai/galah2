@@ -24,26 +24,26 @@ jobs:
         run: dotnet build Galah2.sln -c Release
 
       - name: COM round-trip probes
-        run: dotnet run --project tools/ComProbe -c Release --no-build
+        run: dotnet run --project tools/ComProbe -c Release
 
       # These probes open real windows (WriteableBitmap needs a render backend), so they only
       # pass on a runner that has an interactive desktop session.
       - name: Icon probes
         shell: pwsh
         run: |
-          dotnet run --project tools/IconProbe -c Release --no-build
+          dotnet run --project tools/IconProbe -c Release
           if ($LASTEXITCODE -ne 0) { throw "icon probes failed" }
 
       - name: Settings window probes
         shell: pwsh
         run: |
-          dotnet run --project tools/SettingsProbe -c Release --no-build
+          dotnet run --project tools/SettingsProbe -c Release
           if ($LASTEXITCODE -ne 0) { throw "settings probes failed" }
 
       - name: Panel command-surface probes
         shell: pwsh
         run: |
-          dotnet run --project tools/PanelProbe -c Release --no-build
+          dotnet run --project tools/PanelProbe -c Release
           if ($LASTEXITCODE -ne 0) { throw "panel probes failed" }
 
       # Drives the real executable across the process boundary: tray residency, toggle
@@ -51,7 +51,7 @@ jobs:
       - name: Process-level acceptance
         shell: pwsh
         run: |
-          dotnet run --project tools/UiAcceptance -c Release --no-build -- "src/Galah2/bin/Release/net8.0/Galah2.exe"
+          dotnet run --project tools/UiAcceptance -c Release
           if ($LASTEXITCODE -ne 0) { throw "process acceptance failed" }
 
       # NativeAOT needs the MSVC linker; windows-latest ships VS with the C++ workload.
@@ -98,7 +98,7 @@ jobs:
       - name: Portable check
         shell: pwsh
         run: |
-          dotnet run --project tools/PortableCheck -c Release --no-build -- "artifact"
+          dotnet run --project tools/PortableCheck -c Release -- "artifact"
           if ($LASTEXITCODE -ne 0) { throw "published build is not portable" }
 
       - name: Upload artifact (whole folder)
