@@ -51,11 +51,12 @@ jobs:
       - name: Process-level acceptance
         shell: pwsh
         run: |
-          dotnet run --project tools/UiAcceptance -c Release --no-build -- 
-            "src/Galah2/bin/Release/net8.0/Galah2.exe"
+          dotnet run --project tools/UiAcceptance -c Release --no-build -- "src/Galah2/bin/Release/net8.0/Galah2.exe"
           if ($LASTEXITCODE -ne 0) { throw "process acceptance failed" }
 
       # NativeAOT needs the MSVC linker; windows-latest ships VS with the C++ workload.
+      # PublishAot and PublishSingleFile are mutually exclusive in .NET 8, so the deliverable is a
+      # folder: the exe plus the three native libraries Skia/HarfBuzz/GLES need to sit beside it.
       - name: Publish (NativeAOT)
         run: >
           dotnet publish src/Galah2 -c Release -r win-x64 -p:PublishAot=true
@@ -63,18 +64,16 @@ jobs:
 
       # A publish that succeeded proves the code compiled, not that it runs: reflection-based
       # JSON throws JsonSerializerIsReflectionDisabled at startup under AOT. This step is the
-      # only thing that catches that class of failure.
-      - name: Smoke test the AOT binary
+      # only thing that catches that class of failure - and it copies the WHOLE folder, because
+      # the exe alone cannot start.
+      - name: Smoke test the AOT folder
         shell: pwsh
         run: |
-          $exe = "artifact\Galah2.exe"
-          if (-not (Test-Path $exe)) { throw "AOT output missing" }
-          $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
-          Write-Host "AOT exe size: $size MB"
+          if (-not (Test-Path "artifact\Galah2.exe")) { throw "AOT output missing" }
 
           $dir = Join-Path $env:RUNNER_TEMP "smoke"
           New-Item -ItemType Directory -Force -Path $dir | Out-Null
-          Copy-Item $exe $dir
+          Copy-Item artifact/* -Destination $dir -Recurse -Exclude *.pdb
 
           $p = Start-Process -FilePath (Join-Path $dir "Galah2.exe") -WorkingDirectory $dir -PassThru
           Start-Sleep -Seconds 10
@@ -82,19 +81,43 @@ jobs:
             throw "AOT binary exited during startup (code $($p.ExitCode)) - likely JsonSerializer reflection"
           }
           Write-Host "AOT binary still running after 10s: OK"
+          Write-Host "green folder files: $((Get-ChildItem $dir -File).Count)"
           $p.Kill()
 
-      - name: Upload artifact
+      # Strip the debug symbols: 175 MB of .pdb in a "green" download is pure waste.
+      - name: Slim the artifact
+        shell: pwsh
+        run: |
+          Remove-Item artifact/*.pdb -ErrorAction SilentlyContinue
+          $files = Get-ChildItem artifact -File
+          $size = ($files | Measure-Object Length -Sum).Sum
+          Write-Host ("artifact: {0:N1} MB across {1} file(s)" -f ($size/1MB), $files.Count)
+
+      # Proves the published folder is actually portable: runs from anywhere, keeps every byte of
+      # user data beside the exe, and adds nothing to the system unless asked.
+      - name: Portable check
+        shell: pwsh
+        run: |
+          dotnet run --project tools/PortableCheck -c Release --no-build -- "artifact"
+          if ($LASTEXITCODE -ne 0) { throw "published build is not portable" }
+
+      - name: Upload artifact (whole folder)
         if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
           name: Galah2-windows-x64-aot
-          path: artifact/Galah2.exe
+          path: artifact/
           retention-days: 14
+
+      # A release asset has to be one file, and the app needs four, so it ships as a zip.
+      - name: Zip for release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: Compress-Archive -Path artifact/* -DestinationPath Galah2-windows-x64.zip -Force
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: artifact/Galah2.exe
+          files: Galah2-windows-x64.zip
           generate_release_notes: true

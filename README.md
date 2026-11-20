@@ -38,7 +38,7 @@ A launcher for Windows, rewritten on **Avalonia 11 + NativeAOT**.
 | Browse buttons: file, folder, icon image | working |
 | Panel command surface | working, 40/40 probes |
 | Process-level acceptance (tray, toggle, close/reopen) | working, 11/11 checks |
-| NativeAOT publish | working (28.7 MB) |
+| NativeAOT publish | working, portable (see PORTABLE.md) |
 | Material (Mica) | working, verified as `actual=Mica` + pixel tint |
 
 ---
@@ -110,6 +110,7 @@ tools/ComProbe/                      COM round-trip probes
 tools/IconProbe/                     icon extraction probes
 tools/SettingsProbe/                 settings window probes
 tools/UiAcceptance/                  process-level acceptance
+tools/PortableCheck/                 green-build verification
 tools/perf/measure.ps1               memory measurement
 ```
 
