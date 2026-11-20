@@ -108,6 +108,14 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
+      <!-- ===== toast: transient news, auto-dismisses ===== -->
+      <Border DockPanel.Dock="Bottom" Margin="10,0,10,10" Padding="12,8" CornerRadius="8"
+              Background="{DynamicResource HoverBrush}"
+              IsVisible="{Binding Toast.IsOpen}">
+        <TextBlock Text="{Binding Toast.Message}" FontSize="11.5" TextWrapping="Wrap"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
+      </Border>
+
       <!-- ===== items ===== -->
       <ScrollViewer HorizontalScrollBarVisibility="Disabled">
         <ItemsControl ItemsSource="{Binding Items}" Margin="10,0,10,12">

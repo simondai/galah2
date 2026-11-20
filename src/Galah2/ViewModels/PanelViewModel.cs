@@ -33,6 +33,12 @@ public interface IPanelHost
 
     /// <summary>Launch an item; returns true when the shell accepted it.</summary>
     bool Launch(CatalogItem item);
+
+    /// <summary>Pick a file. Returns null when the picker was cancelled or unavailable.</summary>
+    Task<string?> PickFile(string title);
+
+    /// <summary>Pick a folder. Returns null when the picker was cancelled or unavailable.</summary>
+    Task<string?> PickFolder(string title);
 }
 
 /// <summary>One tile in the panel.</summary>
@@ -115,10 +121,11 @@ public sealed class PanelViewModel : ObservableObject
     private int _iconEdge = 32;
     private string _saveProblem = "";
 
-    public PanelViewModel(CatalogStore catalog, IPanelHost host)
+    public PanelViewModel(CatalogStore catalog, IPanelHost host, ToastService toast)
     {
         _catalog = catalog;
         _host = host;
+        Toast = toast;
 
         SelectTabCommand = new RelayCommand(p => { if (p is TabViewModel t) SelectTab(t); });
         LaunchCommand = new RelayCommand(p => { if (p is ItemViewModel i) LaunchTile(i); });
@@ -145,6 +152,9 @@ public sealed class PanelViewModel : ObservableObject
     }
 
     public event Action? ExitRequested;
+
+    /// <summary>Transient message strip (launch failures, first-run hints).</summary>
+    public ToastService Toast { get; }
 
     public ObservableCollection<TabViewModel> Tabs { get; } = new();
     public ObservableCollection<ItemViewModel> Items { get; } = new();
@@ -300,7 +310,9 @@ public sealed class PanelViewModel : ObservableObject
         }
         else
         {
-            SaveProblem = "无法启动：" + tile.Name + "（目标可能已失效）";
+            // A launch failure is news, not a standing problem: show it in the toast instead of the
+            // save banner, which is reserved for "your library could not be written".
+            Toast.Show("无法启动：" + tile.Name + "（目标可能已失效）");
         }
 
         return ok;

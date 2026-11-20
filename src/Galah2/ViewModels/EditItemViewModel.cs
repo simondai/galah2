@@ -26,6 +26,8 @@ public enum EditOutcome
 public sealed class EditItemViewModel : ObservableObject
 {
     private readonly CatalogStore _catalog;
+    private readonly IPanelHost _host;
+    private readonly AppDataPaths _paths;
     private readonly string? _tabId;
     private readonly CatalogItem _draft;
     private readonly bool _isNew;
@@ -40,10 +42,13 @@ public sealed class EditItemViewModel : ObservableObject
     private Bitmap? _iconPreview;
     private bool _isFetchingIcon;
 
-    public EditItemViewModel(CatalogStore catalog, string? tabId, CatalogItem? existing)
+    public EditItemViewModel(CatalogStore catalog, string? tabId, CatalogItem? existing,
+        IPanelHost host, AppDataPaths paths)
     {
         _catalog = catalog;
         _tabId = tabId;
+        _host = host;
+        _paths = paths;
         _isNew = existing is null;
         _draft = existing?.Clone() ?? new CatalogItem
         {
@@ -52,11 +57,11 @@ public sealed class EditItemViewModel : ObservableObject
         };
 
         Title = _isNew ? "添加快捷方式" : "编辑快捷方式";
-        BrowseTargetCommand = new RelayCommand(() => { });
-        BrowseWorkdirCommand = new RelayCommand(() => { });
-        PickIconCommand = new RelayCommand(() => { });
-        FetchIconCommand = new RelayCommand(() => { });
-        ResetIconCommand = new RelayCommand(() => { });
+        BrowseTargetCommand = new RelayCommand(BrowseTarget);
+        BrowseWorkdirCommand = new RelayCommand(BrowseWorkdir);
+        PickIconCommand = new RelayCommand(PickIcon);
+        FetchIconCommand = new RelayCommand(FetchIcon);
+        ResetIconCommand = new RelayCommand(ResetIcon);
         SaveCommand = new RelayCommand(() => Commit());
         CancelCommand = new RelayCommand(() => { Outcome = EditOutcome.Cancelled; CloseRequested?.Invoke(); });
         ApplySuggestedKindCommand = new RelayCommand(() => ApplySuggestedKind());
@@ -214,6 +219,88 @@ public sealed class EditItemViewModel : ObservableObject
                 : await IconService.GetAsync(draft, 32).ConfigureAwait(true);
         }
         catch (Exception) { IconPreview = null; }
+    }
+
+    /// <summary>Pick the target file or folder; the kind follows what was picked.</summary>
+    private async void BrowseTarget()
+    {
+        try
+        {
+            var picked = _draft.Kind == ItemKinds.Folder
+                ? await _host.PickFolder("选择文件夹")
+                : await _host.PickFile("选择程序或文件");
+            if (string.IsNullOrEmpty(picked)) return;
+
+            TargetText = picked;   // the setter re-derives kind and name
+        }
+        catch (Exception) { }
+    }
+
+    private async void BrowseWorkdir()
+    {
+        try
+        {
+            var picked = await _host.PickFolder("选择工作目录");
+            if (!string.IsNullOrEmpty(picked)) WorkingDirectory = picked;
+        }
+        catch (Exception) { }
+    }
+
+    /// <summary>Pick an image to use as the icon override.</summary>
+    private async void PickIcon()
+    {
+        try
+        {
+            var picked = await _host.PickFile("选择图标图片");
+            if (string.IsNullOrEmpty(picked)) return;
+
+            _draft.Icon.Mode = IconModes.Override;
+            _draft.Icon.OverrideSource = PathNorm.ToStored(picked);
+            await RefreshPreviewAsync();
+        }
+        catch (Exception) { }
+    }
+
+    /// <summary>Drop an override and go back to the target's own icon.</summary>
+    private async void ResetIcon()
+    {
+        _draft.Icon.Mode = IconModes.Auto;
+        _draft.Icon.OverrideSource = null;
+        await RefreshPreviewAsync();
+        Toast?.Show("已恢复为使用目标图标");
+    }
+
+    /// <summary>Toast channel supplied by the shell, optional.</summary>
+    public ToastService? Toast { get; init; }
+
+    private async void FetchIcon()
+    {
+        IsFetchingIcon = true;
+        try
+        {
+            var draft = BuildDraft();
+
+            // A URL has no file to extract from, so "fetch the icon" means its site icon. This is
+            // the only place the product touches the network, and only because a button was pressed.
+            if (draft.Kind == ItemKinds.Url && UrlSafety.IsHttpUrl(draft.Target, out _))
+            {
+                var result = await FaviconService.FetchAsync(draft.Target, draft.Id, _paths)
+                    .ConfigureAwait(true);
+
+                if (result.Ok && result.StoredPath is not null)
+                {
+                    _draft.Icon.Mode = IconModes.Override;
+                    _draft.Icon.OverrideSource = result.StoredPath;
+                    await RefreshPreviewAsync();
+                }
+
+                Toast?.Show(result.Message);
+                return;
+            }
+
+            await FetchIconAsync();
+        }
+        finally { IsFetchingIcon = false; }
     }
 
     private async Task FetchIconAsync()

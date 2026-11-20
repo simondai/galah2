@@ -265,6 +265,14 @@ public static class IconService
         }
     }
 
+    /// <summary>
+    /// Stable short hash of some content, used to name stored files without encoding their origin
+    /// in a path. Same algorithm as the icon cache, so the two cannot disagree.
+    /// </summary>
+    public static string ContentHash(string content) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(content))).ToLowerInvariant()[..24];
+
     private static string CachePath(string storedSource, int index, int size)
     {
         if (_paths is null) return "";

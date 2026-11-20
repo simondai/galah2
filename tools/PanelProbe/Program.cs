@@ -39,6 +39,12 @@ internal static class Program
         public void ShowMaintenance() => MaintenanceCalled = true;
         public void ShowSettings() => SettingsCalled = true;
         public bool Launch(CatalogItem item) { LaunchCount++; return LaunchResult; }
+
+        // Pickers are window capabilities; the probe answers with canned paths.
+        public string? PickFileAnswer { get; set; }
+        public string? PickFolderAnswer { get; set; }
+        public Task<string?> PickFile(string title) => Task.FromResult(PickFileAnswer);
+        public Task<string?> PickFolder(string title) => Task.FromResult(PickFolderAnswer);
     }
 
     private static string _root = "";
@@ -68,7 +74,7 @@ internal static class Program
         });
 
         var host = new FakeHost();
-        var vm = new PanelViewModel(store, host);
+        var vm = new PanelViewModel(store, host, new ToastService());
 
         // ---- projection ----
         Check("tabs projected", vm.Tabs.Count >= 2, vm.Tabs.Count + " tab(s)");
@@ -109,7 +115,9 @@ internal static class Program
 
         host.LaunchResult = false;
         vm.LaunchTile(vm.Items[0]);
-        Check("failed launch surfaces a banner", vm.HasSaveProblem, vm.SaveProblem);
+        // Launch failures are news, not a standing problem: they belong in the toast, and the
+        // save banner stays reserved for "your library could not be written".
+        Check("failed launch reports through the toast", vm.Toast.IsOpen, vm.Toast.Message);
 
         // ---- prompts: new tab, rename, delete ----
         host.PromptAnswer = "第二个分类";
@@ -192,7 +200,7 @@ internal static class Program
         window.Close();
 
         // ---- edit dialog keeps the commit gate ----
-        var editVm = new EditItemViewModel(store, tab.Id, null);
+        var editVm = new EditItemViewModel(store, tab.Id, null, host, paths);
         editVm.Name = "";
         editVm.TargetText = "";
         editVm.SaveCommand.Execute(null);
@@ -223,6 +231,29 @@ internal static class Program
 
         Check("pasted url accepted", vm.HandlePasteText("https://example.com/a"));
         Check("pasted junk rejected", !vm.HandlePasteText("not a url"));
+
+        // ---- toast is transient news, not a standing banner ----
+        var toast = new ToastService();
+        vm.Toast.Show("hello");
+        Check("toast opens", vm.Toast.IsOpen, vm.Toast.Message);
+        vm.Toast.Close();
+        Check("toast closes", !vm.Toast.IsOpen);
+
+        // A failed launch goes to the toast, not the save banner: the library was not touched.
+        vm.ApplySettings(new SettingsDocument { HideOnLaunch = false });
+        host.LaunchResult = false;
+        vm.LaunchTile(vm.Items[0]);
+        Check("launch failure uses the toast", vm.Toast.IsOpen, vm.Toast.Message);
+        Check("launch failure does not raise a save banner", !vm.HasSaveProblem);
+        host.LaunchResult = true;
+
+        // ---- favicon constraints: the "no network unless asked" rule lives in these ----
+        var notHttp = FaviconService.FetchAsync("ftp://example.com", "id", paths).GetAwaiter().GetResult();
+        Check("favicon refuses a non-http target", !notHttp.Ok, notHttp.Message);
+        Check("favicon has a byte cap", FaviconService.MaxBytes == 512 * 1024,
+            FaviconService.MaxBytes + " bytes");
+        Check("favicon has a time budget", FaviconService.Timeout.TotalSeconds <= 5,
+            FaviconService.Timeout.TotalSeconds + "s");
 
         // ---- maintenance preview is read-only until acted on ----
         var maintenanceVm = new MaintenanceViewModel(store, new SettingsStore(paths), paths);

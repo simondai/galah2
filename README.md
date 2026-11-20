@@ -7,7 +7,7 @@ A launcher for Windows, rewritten on **Avalonia 11 + NativeAOT**.
 > **Read [FINDINGS-2.0.md](FINDINGS-2.0.md) before assuming this rewrite saves memory.**
 > Measured on real hardware, the memory picture is not what the rewrite was started for:
 > idle usage is *higher* than 1.x, and the panel saves only 5–13%. What 2.0 does deliver is a
-> **65% smaller artifact** (68.6 MB → 26.4 MB), no .NET runtime dependency, and native startup.
+> **58% smaller artifact** (68.6 MB → 28.7 MB), no .NET runtime dependency, and native startup.
 
 ---
 
@@ -33,9 +33,12 @@ A launcher for Windows, rewritten on **Avalonia 11 + NativeAOT**.
 | Export and import of the whole library | working |
 | Prompt / confirm dialogs | working |
 | Drag and drop of files, pasted URLs | working |
+| Toast strip for launch failures | working |
+| Favicon fetch from a URL item (explicit button only) | working |
+| Browse buttons: file, folder, icon image | working |
 | Panel command surface | working, 40/40 probes |
 | Process-level acceptance (tray, toggle, close/reopen) | working, 11/11 checks |
-| NativeAOT publish | working (26.4 MB) |
+| NativeAOT publish | working (28.7 MB) |
 | Material (Mica) | working, verified as `actual=Mica` + pixel tint |
 
 ---

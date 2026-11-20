@@ -24,6 +24,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     private readonly TrayService _tray;
     private readonly HotkeyService _hotkey;
     private readonly ThemeService _theme = new();
+    private readonly ToastService _toast = new();
     private PanelWindow? _panel;
     private bool _shuttingDown;
 
@@ -82,7 +83,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     {
         if (_panel is null)
         {
-            _viewModel = new PanelViewModel(_catalog, this);
+            _viewModel = new PanelViewModel(_catalog, this, _toast);
             _viewModel.ExitRequested += RequestExit;
             _viewModel.ApplyLayout(_settings.Current);
             _viewModel.ApplySettings(_settings.Current);
@@ -214,7 +215,10 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     CatalogItem? IPanelHost.ShowEditItem(string tabId, CatalogItem? existing)
     {
         var isNew = existing is null || existing.Id is "draft";
-        var vm = new EditItemViewModel(_catalog, tabId, isNew ? null : existing);
+        var vm = new EditItemViewModel(_catalog, tabId, isNew ? null : existing, this, _paths)
+        {
+            Toast = _toast,
+        };
         var window = new EditItemWindow { DataContext = vm };
         vm.CloseRequested += () =>
         {
@@ -263,6 +267,40 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     }
 
     void IPanelHost.ShowSettings() => ShowSettings();
+
+    /// <summary>File picker, owned by a visible window.</summary>
+    async Task<string?> IPanelHost.PickFile(string title)
+    {
+        var picker = ActiveStorageProvider();
+        if (picker is null) return null;
+
+        var files = await picker.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = false,
+        });
+        return files.Count > 0 ? files[0].Path.LocalPath : null;
+    }
+
+    /// <summary>Folder picker, owned by a visible window.</summary>
+    async Task<string?> IPanelHost.PickFolder(string title)
+    {
+        var picker = ActiveStorageProvider();
+        if (picker is null) return null;
+
+        var folders = await picker.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = false,
+        });
+        return folders.Count > 0 ? folders[0].Path.LocalPath : null;
+    }
+
+    /// <summary>
+    /// Any live window can host a picker; the panel first because it is what the user is looking at.
+    /// </summary>
+    private Avalonia.Platform.Storage.IStorageProvider? ActiveStorageProvider() =>
+        _panel?.StorageProvider ?? _settingsWindow?.StorageProvider;
     private static Stream OpenEmbeddedIcon()
     {
         var uri = new Uri("avares://Galah2/Assets/galah.ico");
@@ -275,6 +313,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         _tray.Dispose();
         _hotkey.Dispose();
         _theme.Dispose();
+        _toast.Dispose();
         _panel?.Close();
     }
 }
