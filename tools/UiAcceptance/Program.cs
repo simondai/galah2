@@ -68,12 +68,17 @@ internal static class Program
             Check("panel has a real size", HasUsableSize(panel), DescribeSize(panel));
 
             // ---- 4. the panel reports the material it applied ----
+            // The panel records the transparency level it actually got, which depends on the
+            // configured material. Assert the record exists, not that it says "Mica": a fresh data
+            // folder defaults to material=none, and pinning the string made this fail on CI while
+            // passing locally with a hand-edited settings.json.
             var log = Path.Combine(dir, "GalahData", "galah.log");
             if (File.Exists(log))
             {
                 var text = File.ReadAllText(log);
-                Check("panel logged its actual material", text.Contains("actual=Mica"),
-                    text.Contains("actual=Mica") ? "actual=Mica" : "not logged");
+                var line = text.Split('\n').FirstOrDefault(l => l.Contains("[material]"));
+                Check("panel logged its actual material", line is not null,
+                    line?.Trim() ?? "no [material] line");
             }
             else Check("panel logged its actual material", false, "no log file");
 
