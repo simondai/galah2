@@ -174,9 +174,10 @@ public sealed class AppRuntime : IDisposable, IPanelHost
 
         var areas = MonitorGeometry.EnumerateWorkAreas();
         if (areas.Count == 0) return;
-        var area = MonitorGeometry.WorkAreaAtCursor() ?? areas[0];
-
         var cursor = PanelPlacement.CursorPoint();
+        // One fallback policy, in one place: the cursor's monitor, else the primary, else the
+        // first area. PlacePanel and any future caller must not each invent their own.
+        var area = PanelPlacement.AreaFor(cursor);
 
         // The work area is in device pixels; the window size is in DIPs. Mixing them places the
         // panel partly off-screen on any display whose scale is not 100 percent - reported as the

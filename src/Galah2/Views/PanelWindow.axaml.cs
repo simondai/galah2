@@ -24,9 +24,24 @@ public partial class PanelWindow : Window
     {
         base.OnOpened(e);
         // Keyboard navigation: Escape hides, arrows move the category, Ctrl+1..9 selects one.
-        KeyDown += OnKeyDown;
-        AddHandler(PointerWheelChangedEvent, OnWheel, RoutingStrategies.Tunnel);
+        //
+        // Registered on the TUNNEL route deliberately: Avalonia's KeyboardNavigationHandler
+        // watches KeyDown on the window (bubble) and marks arrows and Tab handled for focus
+        // movement, so a bubble-registered handler here would never see those keys - the same
+        // 1.x PreviewKeyDown semantics, rebuilt. The other keys fall through untouched.
+        AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
         AddHandler(PointerPressedEvent, Window_PointerPressedTunnel, RoutingStrategies.Tunnel);
+
+        // Wheel: switch category, but only when the tile list cannot scroll any further.
+        // The handler is attached with handledEventsToo so it runs AFTER the presenter's own
+        // scroll handling: while the list can still scroll, the event arrives already handled
+        // and this does nothing; at an edge it arrives unhandled and the gesture becomes a tab
+        // change - 1.x's PreviewMouseWheel semantics, rebuilt for Avalonia's tunnel order.
+        // (FindControl, not the x:Name field: the named fields are not populated at ctor time
+        // in this setup - the same reason ApplyMaterial looks up RootBorder this way.)
+        if (this.FindControl<ScrollViewer>("TileScroll") is { } tileScroll)
+            tileScroll.AddHandler(PointerWheelChangedEvent, OnWheel, RoutingStrategies.Bubble,
+                handledEventsToo: true);
 
         // Material follows the user's choice; the level is recorded because the compositor can
         // downgrade the request, and a panel that quietly fell back would look like a bug.
@@ -77,19 +92,40 @@ public partial class PanelWindow : Window
                 return;
         }
 
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.Key >= Key.D1 && e.Key <= Key.D9)
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && vm.NumberKeysSwitchTab)
         {
-            vm.SelectTabByIndex(e.Key - Key.D1 + 1);
-            e.Handled = true;
+            // Digits from both rows: 1.x mapped NumPad0-9 as well as D0-9, and a user whose hand
+            // is already on the numpad should not have to move it.
+            var digit = e.Key switch
+            {
+                >= Key.D0 and <= Key.D9 => e.Key - Key.D0,
+                >= Key.NumPad0 and <= Key.NumPad9 => e.Key - Key.NumPad0,
+                _ => -1
+            };
+            // TabNavigation is 0-based, SelectTabByIndex 1-based; 0 never maps (no silent jump).
+            if (TabNavigation.DigitToIndex(digit) is >= 0 and var index
+                && vm.SelectTabByIndex(index + 1))
+            {
+                e.Handled = true;
+            }
         }
     }
 
     private void OnWheel(object? sender, PointerWheelEventArgs e)
     {
+        if (e.Handled) return;   // the presenter scrolled the list; the wheel is a scroll
         if (DataContext is not PanelViewModel vm) return;
+        if (!vm.WheelSwitchTab) return;
         if (e.KeyModifiers != KeyModifiers.None) return;
+        if (sender is not ScrollViewer scroll) return;
 
-        vm.SwitchTabRelative(e.Delta.Y > 0 ? -1 : 1);
+        var direction = e.Delta.Y > 0 ? -1 : 1;
+        var atTop = scroll.Offset.Y <= 0;
+        var atBottom = scroll.Offset.Y + scroll.Viewport.Height >= scroll.Extent.Height - 0.5;
+        var edge = direction > 0 ? atBottom : atTop;
+        if (!edge) return;
+
+        vm.SwitchTabRelative(direction);
         e.Handled = true;
     }
 
@@ -147,14 +183,15 @@ public partial class PanelWindow : Window
         var tile = _dragTile;
         _dragTile = null;   // one drag per press
 
-        var data = new DataObject();
-        data.Set("galah/item-id", tile.Id);
-        await DragDrop.DoDragDrop(e, data, DragDropEffects.Move);
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(ItemIdFormat, tile.Id));
+        await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
     }
 
     private void TabChip_DragOver(object? sender, DragEventArgs e)
     {
-        e.DragEffects = e.Data.Contains("galah/item-id") ? DragDropEffects.Move : DragDropEffects.None;
+        e.DragEffects = e.DataTransfer.Contains(ItemIdFormat)
+            ? DragDropEffects.Move : DragDropEffects.None;
     }
 
     /// <summary>Move the dragged item into the category it was dropped on.</summary>
@@ -162,11 +199,21 @@ public partial class PanelWindow : Window
     {
         if (DataContext is not PanelViewModel vm) return;
         if (sender is not Button { Tag: TabViewModel tab }) return;
-        if (e.Data.Get("galah/item-id") is not string itemId || string.IsNullOrEmpty(itemId)) return;
+        // TryGetValue returns the value or null - the DataTransfer idiom, not a bool + out.
+        var itemId = e.DataTransfer.TryGetValue(ItemIdFormat);
+        if (string.IsNullOrEmpty(itemId)) return;
 
         vm.MoveItemToTab(itemId, tab.Id);
         e.Handled = true;
     }
+
+    /// <summary>
+    /// The custom drag format for tile moves. Both ends of the drag share this one static
+    /// instance. Identifier rules: ASCII letters, digits, dot and hyphen only - the slash of the
+    /// old IDataObject name "galah/item-id" is rejected here.
+    /// </summary>
+    private static readonly DataFormat<string> ItemIdFormat =
+        DataFormat.CreateStringApplicationFormat("galah.item-id");
 
     /// <summary>Single click. In double-click mode this only selects the tile.</summary>
     private void Tile_Click(object? sender, RoutedEventArgs e)
@@ -189,9 +236,11 @@ public partial class PanelWindow : Window
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        e.DragEffects = e.Data.Contains(DataFormats.Files) || e.Data.Contains(DataFormats.Text)
-            ? DragDropEffects.Copy
-            : DragDropEffects.None;
+        // Files by storage item, text by format probe - the DataTransfer replacements for
+        // DataFormats.Files/Text + IDataObject.Contains.
+        var hasPayload = e.DataTransfer.TryGetFiles() is not null
+                         || e.DataTransfer.TryGetText() is not null;
+        e.DragEffects = hasPayload ? DragDropEffects.Copy : DragDropEffects.None;
     }
 
     private void OnDrop(object? sender, DragEventArgs e)
@@ -200,7 +249,7 @@ public partial class PanelWindow : Window
 
         try
         {
-            var files = e.Data.GetFiles();
+            var files = e.DataTransfer.TryGetFiles();
             if (files is not null)
             {
                 var paths = files.Select(f => f.Path.LocalPath)
@@ -209,10 +258,10 @@ public partial class PanelWindow : Window
                 if (paths.Count > 0) { vm.HandleDrop(paths); return; }
             }
 
-            var text = e.Data.GetText();
+            var text = e.DataTransfer.TryGetText();
             if (!string.IsNullOrWhiteSpace(text)) vm.HandlePasteText(text);
         }
-        catch (Exception ex) { Console.Error.WriteLine("drop failed: " + ex.Message); }
+        catch (Exception ex) { DiagnosticsLog.Line("drop", "failed: " + ex.Message); }
     }
     // ---- window drag (chrome) and edge resize ----
     //

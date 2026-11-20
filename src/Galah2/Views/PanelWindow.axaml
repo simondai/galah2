@@ -124,7 +124,10 @@
       </Border>
 
       <!-- ===== items ===== -->
-      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+      <!-- TileScroll is named: the wheel handler is attached in code so it can run after the
+           presenter's own scroll handling (handledEventsToo), which is what makes "switch
+           category only at the edge" work. -->
+      <ScrollViewer x:Name="TileScroll" HorizontalScrollBarVisibility="Disabled">
         <ItemsControl ItemsSource="{Binding Items}" Margin="10,0,10,12">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>

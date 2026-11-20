@@ -1,4 +1,4 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -21,6 +21,10 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GeometryProbe", "tools\GeometryProbe\GeometryProbe.csproj", "{A1B2C3D4-0009-0000-0000-000000000009}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MaterialProbe", "tools\MaterialProbe\MaterialProbe.csproj", "{A1B2C3D4-000A-0000-0000-00000000000A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{E38F1643-8CDF-4726-8BC9-ED784C7CDD15}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InteractionProbe", "tools\InteractionProbe\InteractionProbe.csproj", "{C1BAF892-4AA0-41F0-8C8A-22C95D34B641}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -68,5 +72,12 @@ Global
 		{A1B2C3D4-000A-0000-0000-00000000000A}.Debug|x64.Build.0 = Debug|x64
 		{A1B2C3D4-000A-0000-0000-00000000000A}.Release|x64.ActiveCfg = Release|x64
 		{A1B2C3D4-000A-0000-0000-00000000000A}.Release|x64.Build.0 = Release|x64
+		{C1BAF892-4AA0-41F0-8C8A-22C95D34B641}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C1BAF892-4AA0-41F0-8C8A-22C95D34B641}.Debug|x64.Build.0 = Debug|Any CPU
+		{C1BAF892-4AA0-41F0-8C8A-22C95D34B641}.Release|x64.ActiveCfg = Release|Any CPU
+		{C1BAF892-4AA0-41F0-8C8A-22C95D34B641}.Release|x64.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{C1BAF892-4AA0-41F0-8C8A-22C95D34B641} = {E38F1643-8CDF-4726-8BC9-ED784C7CDD15}
 	EndGlobalSection
 EndGlobal

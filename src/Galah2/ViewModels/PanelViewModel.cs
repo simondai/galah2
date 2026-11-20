@@ -254,14 +254,17 @@ public sealed class PanelViewModel : ObservableObject
     /// <summary>Cycle categories with the wheel or Ctrl+number (1.x's tab navigation).</summary>
     public void SwitchTabRelative(int delta)
     {
-        if (Tabs.Count == 0) return;
-        var current = _selectedTab is null ? 0 : Tabs.IndexOf(_selectedTab);
-        var next = (current + delta + Tabs.Count) % Tabs.Count;
-        SelectTab(Tabs[next]);
+        // Wrapping lives in TabNavigation so the rule stays testable without a dispatcher.
+        var current = _selectedTab is null ? -1 : Tabs.IndexOf(_selectedTab);
+        var next = TabNavigation.StepIndex(Tabs.Count, current, delta);
+        if (next >= 0) SelectTab(Tabs[next]);
     }
 
-    /// <summary>Ctrl+number: 1..9 select a category directly.</summary>
-    /// <summary>Ctrl+number: 1..9 select a category directly.</summary>
+    /// <summary>
+    /// Ctrl+number: 1..9 select a category directly.
+    /// NOTE: this overload is 1-BASED. Galah 1.x had a same-named method that was 0-based;
+    /// TabNavigation.DigitToIndex (0-based) feeds this with index + 1.
+    /// </summary>
     public bool SelectTabByIndex(int oneBased)
     {
         if (oneBased < 1 || oneBased > Tabs.Count) return false;
@@ -332,8 +335,14 @@ public sealed class PanelViewModel : ObservableObject
         _clickMode = settings.ClickMode;
         _panelMaterial = settings.PanelMaterial;
         _hideOnBlur = settings.HideOnBlur;
+        _wheelSwitchTab = settings.WheelSwitchTab;
+        _numberKeysSwitchTab = settings.NumberKeysSwitchTab;
 
-        foreach (var n in new[] { nameof(HideOnBlur), nameof(PanelMaterial) }) Raise(n);
+        foreach (var n in new[]
+                 {
+                     nameof(HideOnBlur), nameof(PanelMaterial),
+                     nameof(WheelSwitchTab), nameof(NumberKeysSwitchTab)
+                 }) Raise(n);
     }
 
     /// <summary>Current click semantics ("single" | "double").</summary>
@@ -346,6 +355,16 @@ public sealed class PanelViewModel : ObservableObject
 
     /// <summary>Current material token, so the window can pick its transparency level.</summary>
     public string PanelMaterial => _panelMaterial;
+
+    /// <summary>True when the wheel may switch categories (at a list edge). 1.x parity.</summary>
+    public bool WheelSwitchTab => _wheelSwitchTab;
+
+    private bool _wheelSwitchTab = true;
+
+    /// <summary>True when Ctrl+0..9 may select a category. 1.x parity.</summary>
+    public bool NumberKeysSwitchTab => _numberKeysSwitchTab;
+
+    private bool _numberKeysSwitchTab = true;
 
     private void EditItem(ItemViewModel? tile)
     {

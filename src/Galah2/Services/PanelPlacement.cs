@@ -70,8 +70,6 @@ public static class PanelPlacement
         return (x, y);
     }
 
-    /// <summary>Work area that should host the summon: the cursor's monitor, else the primary.</summary>
-    /// <param name="cursor">Cursor point in device pixels, or null.</param>
     /// <summary>Current pointer position in device pixels, or null when unavailable.</summary>
     public static (double X, double Y)? CursorPoint()
     {
@@ -79,6 +77,11 @@ public static class PanelPlacement
         return (pt.X, pt.Y);
     }
 
+    /// <summary>
+    /// Work area that should host the summon: the cursor's monitor, else the primary, else the
+    /// first area. The single fallback policy for placement - callers do not invent their own.
+    /// </summary>
+    /// <param name="cursor">Cursor point in device pixels, or null.</param>
     public static WorkArea AreaFor((double X, double Y)? cursor)
     {
         if (cursor is not null && MonitorGeometry.WorkAreaAtCursor() is { } at)
