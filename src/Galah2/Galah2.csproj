@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <ApplicationIcon>app.ico</ApplicationIcon>
+    <!-- Both the PE icon and the in-app avares://Galah2/Assets/galah.ico (tray) come from this
+         one file: Assets/** is what the AvaloniaResource glob packages, app.ico at the project
+         root was a byte-identical duplicate and is gone. -->
+    <ApplicationIcon>Assets/galah.ico</ApplicationIcon>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
