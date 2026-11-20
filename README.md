@@ -2,7 +2,7 @@
 
 Windows 启动器，用 **Avalonia 11 + NativeAOT** 重写。
 
-1.x 在 `main` 分支（WPF），`v2` 分支是这次重写。
+1.x 在另一个仓库 `simondai/galah`（WPF）；本仓库是 2.0 重写。
 
 > **先读 [FINDINGS-2.0.md](FINDINGS-2.0.md)，别默认这次重写省内存。**
 > 实测下来内存并不是立项时想的那样：**待机反而比 1.x 更费**，面板只省 5~13%。

@@ -1,11 +1,11 @@
-name: build (2.0)
+name: build
 
 on:
   push:
-    branches: [v2]
-    tags: ['v2.*']
+    branches: [main]
+    tags: ["v*"]
   pull_request:
-    branches: [v2]
+    branches: [main]
 
 permissions:
   contents: write

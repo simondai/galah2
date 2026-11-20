@@ -7,13 +7,14 @@
 ## 1. 仓库布局
 
 ```
-galah/    1.x 维护线，main 分支，已冻结（只接受 hotfix）
-galah2/   2.0 开发线，v2 分支
+simondai/galah     1.x 维护线，main 分支，已冻结（只接受 hotfix）
+simondai/galah2    2.0 开发线，main 分支
 ```
 
-- v2 分支已推送到 `github.com:simondai/galah`，`main` 保持 1.x 不变。
-- CI：v2 用 `.github/workflows/build2.yml`（构建 + COM 探针 + AOT 发布 + AOT 冒烟测试），
-  1.x 的 `release.yml` 只在 main 上。
+- 两个独立仓库。2.0 的提交历史只含 2.0（19 个提交，从 Avalonia 骨架开始），
+  1.0 的 20 个提交留在 `galah` 仓库里。
+- CI：本仓库用 `.github/workflows/build2.yml`（构建 + 全部探针 + AOT 发布 + 绿色版校验 + 冒烟测试）。
+- `galah` 仓库上原来的 `v2` 分支保留作为归档，不再更新。
 
 ---
 
