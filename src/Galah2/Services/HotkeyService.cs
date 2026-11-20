@@ -40,12 +40,23 @@ public sealed class HotkeyService : IDisposable
     public bool Register(HotkeySpec spec)
     {
         var ok = false;
+        var done = new ManualResetEventSlim(false);
         RunOnLoop(() =>
         {
             if (_registered) { UnregisterHotKey((IntPtr)_window, 1); _registered = false; }
-            ok = RegisterHotKey((IntPtr)_window, 1, spec.Modifiers, spec.VirtualKey);
+            // MOD_NOREPEAT: without it, holding the keys past the autorepeat delay fires
+            // WM_HOTKEY again and again, and an even number of toggles hides the panel the
+            // user just asked for (reported as "release the keys and it goes away").
+            const uint ModNoRepeat = 0x4000;
+            ok = RegisterHotKey((IntPtr)_window, 1, spec.Modifiers | ModNoRepeat, spec.VirtualKey);
             _registered = ok;
+            done.Set();
         });
+
+        // Wait for the window thread to actually run the registration. Fire-and-forget here is how
+        // the old code lied: Register returned before the OS call happened, and callers (settings
+        // page, probes) always saw false. The 1408 investigation traced every REFUSED to this race.
+        done.Wait(TimeSpan.FromSeconds(2));
         return ok;
     }
 

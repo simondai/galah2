@@ -26,10 +26,10 @@ public partial class PanelWindow : Window
         // Keyboard navigation: Escape hides, arrows move the category, Ctrl+1..9 selects one.
         KeyDown += OnKeyDown;
         AddHandler(PointerWheelChangedEvent, OnWheel, RoutingStrategies.Tunnel);
+        AddHandler(PointerPressedEvent, Window_PointerPressedTunnel, RoutingStrategies.Tunnel);
 
-        // Material follows the user's choice: translucent asks the compositor for Mica, opaque asks
-        // for nothing. The applied level is recorded because the compositor can downgrade the
-        // request, and a panel that quietly fell back to opaque would look like a bug.
+        // Material follows the user's choice; the level is recorded because the compositor can
+        // downgrade the request, and a panel that quietly fell back would look like a bug.
         ApplyMaterial();
         DiagnosticsLog.Line("material",
             "requested=" + RequestedMaterial + " actual=" + ActualTransparencyLevel);
@@ -98,25 +98,19 @@ public partial class PanelWindow : Window
         (DataContext as PanelViewModel)?.PanelMaterial ?? Galah2.Models.PanelMaterials.None;
 
     /// <summary>
-    /// Apply the material setting to both the window and its fill.
+    /// Apply the material setting: the window stays Transparent either way (that is what keeps the
+    /// rounded corners), and only the fill changes.
     ///
-    /// Applying it to only one of the two is why the two options used to look identical: the
-    /// window was made transparent for Mica, but the Border kept a 90%-opaque fill either way, so
-    /// the backdrop never showed and "不透明" also looked see-through. The window level and the
-    /// fill have to move together.
+    /// Asking for Mica here was tried and reverted: the compositor reports Mica but renders it
+    /// nearly opaque, which sealed the backdrop off and made the two settings look identical.
+    /// 1.x never used Mica either - translucent there was a plain alpha fill over a transparent
+    /// window, which is visible everywhere Windows runs.
     /// </summary>
     public void ApplyMaterial()
     {
+        TransparencyLevelHint = new[] { Avalonia.Controls.WindowTransparencyLevel.Transparent };
+
         var translucent = RequestedMaterial == Galah2.Models.PanelMaterials.Translucent;
-
-        // "None" is never used, even for an opaque panel: a window with no alpha channel cannot
-        // clip its content, so the rounded corners would render square.
-        TransparencyLevelHint = translucent
-            ? new[] { Avalonia.Controls.WindowTransparencyLevel.Mica,
-                      Avalonia.Controls.WindowTransparencyLevel.AcrylicBlur,
-                      Avalonia.Controls.WindowTransparencyLevel.Transparent }
-            : new[] { Avalonia.Controls.WindowTransparencyLevel.Transparent };
-
         if (this.FindControl<Border>("RootBorder") is { } border)
         {
             border.Background = this.FindResource(translucent
@@ -220,6 +214,64 @@ public partial class PanelWindow : Window
         }
         catch (Exception ex) { Console.Error.WriteLine("drop failed: " + ex.Message); }
     }
+    // ---- window drag (chrome) and edge resize ----
+    //
+    // SystemDecorations=None removes the system's resize borders, so the edges are hit-tested
+    // here: the outer 6 DIP of the window belong to the resize zone, and a press there is
+    // handled on the tunnel route so tiles and the chrome drag never see it.
+
+    // Avalonia 11 has no diagonal resize cursors, so corners share one; the 6 px corner zones
+    // are too small for the difference to matter in practice.
+    private static readonly Cursor CornerCursor = new(StandardCursorType.SizeAll);
+
+    public const double ResizeBorder = 6;
+    public const int EdgeN = 1, EdgeS = 2, EdgeE = 4, EdgeW = 8;
+
+    private int _resizeEdges;
+    private Point _resizeOriginScreen;
+    private PixelPoint _resizeWindowOrigin;
+    private Size _resizeOriginalSize;
+
+    private void Window_PointerPressedTunnel(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        var edges = EdgeAt(e.GetPosition(this));
+        if (edges == 0) return;
+
+        if (!Win32.GetCursorPos(out var pt)) return;
+        _resizeEdges = edges;
+        _resizeOriginScreen = new Point(pt.X, pt.Y);
+        _resizeWindowOrigin = Position;
+        _resizeOriginalSize = new Size(Bounds.Width, Bounds.Height);
+        e.Handled = true;   // a border press resizes; tiles and the chrome drag must not act
+    }
+
+    private int EdgeAt(Point p) => EdgesFor(new Size(Bounds.Width, Bounds.Height), p);
+
+    /// <summary>Pure edge maths so the probes can assert every zone without a window.</summary>
+    public static int EdgesFor(Size size, Point p)
+    {
+        var b = ResizeBorder;
+        int edges = 0;
+        if (p.X <= b) edges |= EdgeW; else if (p.X >= size.Width - b) edges |= EdgeE;
+        if (p.Y <= b) edges |= EdgeN; else if (p.Y >= size.Height - b) edges |= EdgeS;
+        return edges;
+    }
+
+    private void UpdateResizeCursor(Point p)
+    {
+        if (_dragging || _resizeEdges != 0) return;
+        Cursor = EdgeAt(p) switch
+        {
+            // Avalonia 11 has no diagonal resize cursors, so corners share one; the 6 px corner
+            // zones are too small for the difference to matter in practice.
+            var e when (e & (EdgeN | EdgeS)) != 0 && (e & (EdgeE | EdgeW)) != 0 => CornerCursor,
+            var e when (e & (EdgeN | EdgeS)) != 0 => new Cursor(StandardCursorType.SizeNorthSouth),
+            var e when (e & (EdgeE | EdgeW)) != 0 => new Cursor(StandardCursorType.SizeWestEast),
+            _ => null,
+        };
+    }
+
     /// <summary>
     /// Drag the frameless panel by its chrome strip.
     ///
@@ -241,24 +293,93 @@ public partial class PanelWindow : Window
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+
+        // The Win32 check is the truth. If the button was released outside the window, Avalonia's
+        // pressed flag can go stale and the panel would stick to the cursor - reported as the
+        // panel "following the mouse" out of the screen.
+        var pressed = e.GetCurrentPoint(this).Properties.IsLeftButtonPressed
+                      && Win32.IsKeyDown(Win32.VkLButton);
+
+        if (!pressed)
         {
             _dragging = false;
+            _resizeEdges = 0;
+            UpdateResizeCursor(e.GetPosition(this));
             return;
         }
 
         if (!Win32.GetCursorPos(out var pt)) return;
+
+        if (_resizeEdges != 0) { ResizeTo(pt.X, pt.Y); return; }
+
         var dx = pt.X - _dragOriginScreen.X;
         var dy = pt.Y - _dragOriginScreen.Y;
         if (!_dragging && Math.Abs(dx) + Math.Abs(dy) < 4) return;   // ignore jitter
 
         _dragging = true;
-        Position = new PixelPoint((int)(_dragWindowOrigin.X + dx), (int)(_dragWindowOrigin.Y + dy));
+        // Clamp every step: a window dragged off-screen can be lost there, and the off-screen
+        // position would be remembered for the next summon.
+        var (x, y, _, _) = MonitorGeometry.ClampToScreens(
+            _dragWindowOrigin.X + dx, _dragWindowOrigin.Y + dy, Width, Height, RenderScaling);
+        Position = new PixelPoint((int)x, (int)y);
+    }
+
+    private void ResizeTo(double cursorX, double cursorY)
+    {
+        // Cursor deltas are physical pixels; the window geometry is in DIPs.
+        double dx = (cursorX - _resizeOriginScreen.X) / RenderScaling;
+        double dy = (cursorY - _resizeOriginScreen.Y) / RenderScaling;
+
+        var x = (double)_resizeWindowOrigin.X;
+        var y = (double)_resizeWindowOrigin.Y;
+        var w = _resizeOriginalSize.Width;
+        var h = _resizeOriginalSize.Height;
+
+        if ((_resizeEdges & EdgeE) != 0) w += dx;
+        if ((_resizeEdges & EdgeS) != 0) h += dy;
+        if ((_resizeEdges & EdgeW) != 0) { x += dx; w -= dx; }
+        if ((_resizeEdges & EdgeN) != 0) { y += dy; h -= dy; }
+
+        if (w < MinWidth) w = MinWidth;
+        if (h < MinHeight) h = MinHeight;
+
+        // Keep the whole window inside the work area it mostly sits on. When the min size or the
+        // screen stops a west/north resize, the position is re-derived so the opposite edge stays
+        // where the user left it.
+        var area = BestArea(x, y, w, h);
+        if (w > area.Width) { w = area.Width; }
+        if (h > area.Height) { h = area.Height; }
+        if ((_resizeEdges & EdgeW) != 0) x = area.Right - w;
+        if ((_resizeEdges & EdgeN) != 0) y = area.Bottom - h;
+        x = Math.Clamp(x, area.Left, Math.Max(area.Left, area.Right - w));
+        y = Math.Clamp(y, area.Top, Math.Max(area.Top, area.Bottom - h));
+
+        Position = new PixelPoint((int)x, (int)y);
+        Width = w;
+        Height = h;
+    }
+
+    private static WorkArea BestArea(double x, double y, double w, double h)
+    {
+        var areas = MonitorGeometry.EnumerateWorkAreas();
+        if (areas.Count == 0)
+            return new WorkArea(0, 0, 1920, 1040, true);
+
+        var best = areas[0];
+        var bestRatio = -1.0;
+        foreach (var area in areas)
+        {
+            var ratio = MonitorGeometry.OverlapRatio(x, y, w, h, area);
+            if (ratio > bestRatio) { bestRatio = ratio; best = area; }
+        }
+        return best;
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
         _dragging = false;
+        _resizeEdges = 0;
+        UpdateResizeCursor(e.GetPosition(this));
     }
 }

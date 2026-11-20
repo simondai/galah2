@@ -147,6 +147,15 @@ internal static class Program
         vm.HotkeyChanged += s => registered = s;
         vm.HotkeyText = "ctrl+shift+F9";
         Check("valid hotkey accepted", registered is not null, store.Current.Hotkey);
+        Check("valid hotkey accepted", registered is not null, store.Current.Hotkey);
+
+        // The OS must accept the shipped default. A refusal here means another program owns the
+        // combo; the settings page now says so instead of showing a hint that does nothing.
+        using (var hotkey = new HotkeyService())
+        {
+            var osTookIt = hotkey.Register(new HotkeySpec(0x1 /*MOD_ALT*/, 0x20 /*VK_SPACE*/, "alt+space"));
+            Check("alt+space registers with the OS", osTookIt);
+        }
 
         window.Close();
         try { Directory.Delete(_root, true); } catch { }

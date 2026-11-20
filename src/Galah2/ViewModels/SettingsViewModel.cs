@@ -97,6 +97,14 @@ public sealed class SettingsViewModel : ObservableObject
     /// <summary>Raised with a valid hotkey so the runtime can re-register it.</summary>
     public event Action<HotkeySpec>? HotkeyChanged;
 
+    /// <summary>
+    /// Show whether the runtime actually registered the hotkey. RegisterHotKey fails silently
+    /// to everyone else; without this a combo held by another program looks "already effective"
+    /// in the settings page while doing nothing.
+    /// </summary>
+    public void ReportHotkeyResult(bool ok, string text)
+        => HotkeyHint = ok ? "已生效：" + text : "注册失败（可能被其他程序占用）：" + text;
+
     public int ThemeIndex
     {
         get => _themeIndex;

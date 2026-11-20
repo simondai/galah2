@@ -63,6 +63,7 @@ internal static class Program
 
         var settings = new SettingsDocument();
         var alpha = new Dictionary<string, byte>();
+        var levels = new Dictionary<string, string>();
 
         foreach (var material in PanelMaterials.All)
         {
@@ -80,6 +81,7 @@ internal static class Program
             }
 
             var level = window.TransparencyLevelHint is { Count: > 0 } hint ? hint[0].ToString() : "unset";
+            levels[material] = level;
             alpha[material] = fill.Color.A;
 
             Console.WriteLine("      " + material + ": level=" + level + "  fill=#" + fill.Color.A.ToString("X2")
@@ -93,6 +95,14 @@ internal static class Program
         // Translucent means the backdrop participates, so the fill must let some through.
         Check("半透明 fill lets the backdrop through", alpha.GetValueOrDefault(PanelMaterials.Translucent) < 0xFF,
             "alpha=" + alpha.GetValueOrDefault(PanelMaterials.Translucent));
+
+        // The rounded corners live on the alpha channel, so BOTH settings keep the window level at
+        // Transparent; Mica was tried and reverted - the compositor reports it but renders it
+        // nearly opaque, which is exactly the "two identical settings" bug this probe exists for.
+        Check("window level is Transparent for both settings",
+            levels.GetValueOrDefault(PanelMaterials.None) == "Transparent"
+            && levels.GetValueOrDefault(PanelMaterials.Translucent) == "Transparent",
+            levels.GetValueOrDefault(PanelMaterials.None) + "/" + levels.GetValueOrDefault(PanelMaterials.Translucent));
 
         // The whole point: the two must not render the same.
         Check("the two materials differ",

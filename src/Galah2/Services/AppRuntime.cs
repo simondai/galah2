@@ -73,7 +73,10 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         _tray = new TrayService(iconStream, Toggle, ShowSettings, RequestExit);
 
         if (HotkeyParser.TryParse(_settings.Current.Hotkey, out var spec, out _) && spec is not null)
-            _hotkey.Register(spec);
+        {
+            var registered = _hotkey.Register(spec);
+            DiagnosticsLog.Line("hotkey", "registered=" + registered + " " + spec.Text);
+        }
         else
             DiagnosticsLog.Line("hotkey", "热键解析失败，回退到托盘");
     }
@@ -174,8 +177,14 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         var area = MonitorGeometry.WorkAreaAtCursor() ?? areas[0];
 
         var cursor = PanelPlacement.CursorPoint();
+
+        // The work area is in device pixels; the window size is in DIPs. Mixing them places the
+        // panel partly off-screen on any display whose scale is not 100 percent - reported as the
+        // panel sliding off the screen after being summoned from the tray.
+        var scale = _panel.RenderScaling;
         var (x, y) = PanelPlacement.Resolve(
-            _settings.Current.PanelPlacement, remembered, cursor, area, _panel.Width, _panel.Height);
+            _settings.Current.PanelPlacement, remembered, cursor, area,
+            _panel.Bounds.Width * scale, _panel.Bounds.Height * scale);
 
         _panel.Position = new Avalonia.PixelPoint((int)x, (int)y);
     }
@@ -199,7 +208,12 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         }
 
         var vm = new SettingsViewModel(_settings, _paths.Root, ExePath, ApplySettings);
-        vm.HotkeyChanged += spec => _hotkey.Register(spec);
+        vm.HotkeyChanged += spec =>
+        {
+            var registered = _hotkey.Register(spec);
+            DiagnosticsLog.Line("hotkey", "registered=" + registered + " " + spec.Text);
+            vm.ReportHotkeyResult(registered, spec.Text);
+        };
 
         _settingsWindow = new SettingsWindow { DataContext = vm };
         _settingsWindow.Closed += (_, _) => _settingsWindow = null;

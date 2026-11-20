@@ -281,6 +281,14 @@ internal static class Win32
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool GetCursorPos(out POINT lpPoint);
 
+    [DllImport("user32.dll")]
+    public static extern short GetAsyncKeyState(int vKey);
+
+    /// <summary>GetAsyncKeyState high bit: the key is physically down right now.</summary>
+    public static bool IsKeyDown(int vKey) => (GetAsyncKeyState(vKey) & 0x8000) != 0;
+
+    public const int VkLButton = 0x01;
+
     [DllImport("user32.dll", SetLastError = true)]
     public static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
 

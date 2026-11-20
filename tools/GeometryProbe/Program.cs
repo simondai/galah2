@@ -61,6 +61,18 @@ internal static class Program
 
         Check("panel is resizable", window.CanResize, "CanResize=" + window.CanResize);
 
+        // The resize zones are pure maths: all eight directions plus a centre that must NOT match.
+        // 6 DIP border on a 720x460 window.
+        var sz = new Size(720, 460);
+        bool Has(int edges, int flag) => (edges & flag) != 0;
+        Check("west edge zone", Has(PanelWindow.EdgesFor(sz, new Point(0, 230)), PanelWindow.EdgeW));
+        Check("east edge zone", Has(PanelWindow.EdgesFor(sz, new Point(719, 230)), PanelWindow.EdgeE));
+        Check("north edge zone", Has(PanelWindow.EdgesFor(sz, new Point(360, 0)), PanelWindow.EdgeN));
+        Check("south edge zone", Has(PanelWindow.EdgesFor(sz, new Point(360, 459)), PanelWindow.EdgeS));
+        Check("north-west corner", PanelWindow.EdgesFor(sz, new Point(0, 0)) == (PanelWindow.EdgeN | PanelWindow.EdgeW));
+        Check("south-east corner", PanelWindow.EdgesFor(sz, new Point(719, 459)) == (PanelWindow.EdgeS | PanelWindow.EdgeE));
+        Check("centre is not a resize zone", PanelWindow.EdgesFor(sz, new Point(360, 230)) == 0);
+
         window.Width = 640;
         window.Height = 400;
         Dispatcher.UIThread.RunJobs();
