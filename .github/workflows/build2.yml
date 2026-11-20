@@ -60,6 +60,15 @@ jobs:
           dotnet run --project tools/PanelProbe -c Release
           if ($LASTEXITCODE -ne 0) { throw "panel probes failed" }
 
+      # Drives the REAL PanelWindow with real routed wheel/key events: scrolling, edge tab
+      # switching, the two switch-tab settings, both digit rows, and Ctrl+Tab wraparound.
+      # The view-layer coverage every other probe lacks.
+      - name: Interaction probes
+        shell: pwsh
+        run: |
+          dotnet run --project tools/InteractionProbe -c Release
+          if ($LASTEXITCODE -ne 0) { throw "interaction probes failed" }
+
       # Drives the real executable across the process boundary: tray residency, toggle
       # forwarding, panel appearance, close-to-hide, and that the panel can be summoned again.
       - name: Process-level acceptance

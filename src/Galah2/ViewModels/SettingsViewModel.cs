@@ -62,8 +62,12 @@ public sealed class SettingsViewModel : ObservableObject
     public string[] IconSizeOptions { get; } = ["小", "中", "大"];
     public string[] TabPositionOptions { get; } = ["顶部", "左侧"];
     public string[] ClickModeOptions { get; } = ["单击启动", "双击启动"];
-    /// <summary>Only what the app can actually render: opacity or a translucent surface.</summary>
-    public string[] MaterialOptions { get; } = ["不透明", "半透明"];
+    /// <summary>
+    /// Only what the app can actually render: an opaque fill, or the same fill at 91% alpha
+    /// (the 1.x translucent level). The percentages say what the two options really differ in
+    /// - the surface is 100% vs 91% opaque, nothing more.
+    /// </summary>
+    public string[] MaterialOptions { get; } = ["不透明（100%）", "半透明（91%，同 1.x）"];
     public string[] PlacementOptions { get; } = ["记住上次位置", "跟随鼠标", "屏幕居中"];
 
     public string HotkeyText

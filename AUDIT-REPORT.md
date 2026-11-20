@@ -293,3 +293,36 @@ catch (Exception ex) { Console.Error.WriteLine("drop failed: " + ex.Message); }
 
 **审查人**: Alma  
 **审查方式**: 静态代码分析 + 1.x 对照
+
+---
+
+## 五、处理结果（2026-11-20 复核后，全部已修）
+
+对每个条目做了实测复核。结论：11 个已确认问题里审计判断正确的 8 个，
+**3 处审计自身有误**；4 个存疑项中 3 项在 d255a16 已解决、1 项按用户决策处理；
+另发现**审计漏掉的 2 个 P0 + 1 个 P0 变体**（均由新 InteractionProbe 实测捕获）。
+
+| 审计条目 | 复核结论 | 处理 |
+|---|---|---|
+| 1.1 DialogGuard 死代码 | 真。但属"丢接线"而非冗余 | 用户拍板：对话框随面板隐藏是期望行为 → 删除（c34ef25） |
+| 1.2 TabNavigation 死代码 | 真 | 接线进 SwitchTabRelative / 数字键路径（c34ef25） |
+| 1.3 AreaFor 死代码 | 真，且与 PlacePanel 回退语义不一致 | 用户拍板 primary 优先 → 接线为唯一回退策略（c34ef25） |
+| 2.1 WheelSwitchTab 死设置 | 真，但审计给的修法编译不过（VM 无该字段） | VM 补投影 + View 读取（c34ef25） |
+| 2.2 NumberKeysSwitchTab 死设置 | 真 | 同上（c34ef25） |
+| 2.3 滚轮无边缘判定 | 真 | 按 1.x 语义实现（c34ef25） |
+| 3 小键盘缺失 | 真 | NumPad0-9 接线（c34ef25） |
+| 4 过时拖放 API | 真（10 条 CS0618） | 全量迁移 DataTransfer（c34ef25）。**注意**：自定义格式标识符不允 "/"，`galah/item-id` → `galah.item-id` |
+| 5 SelectTabByIndex 语义 | 真（1-based vs 1.x 0-based） | 加注释钉死；数字键衔接处 `+1`（c34ef25） |
+| 6 图标重复 | 真，但**去重方向写反了**：删 galah.ico 会弄坏托盘（avares 只打包 `Assets/**`） | 反向删 `app.ico`，`ApplicationIcon` 指向 `Assets/galah.ico` |
+| 7 Console.Error 残留 | 真 | 改 `DiagnosticsLog.Line("drop", …)`（c34ef25） |
+| 存疑 1 多屏回退 | d255a16 已按 clamp 保留 | 用户拍板 primary 优先，随 1.3 一起接线 |
+| 存疑 2 MOD_NOREPEAT | d255a16 已被同步注册修复取代（根因 1408） | 关闭，无需动作 |
+| 存疑 3 材质一致性 | Tokens 里 alpha 与 1.x 一致（91%） | 实现不动，设置文案改为「不透明（100%）/ 半透明（91%，同 1.x）」 |
+| 存疑 4 exe 图标 | d255a16 已验证（RT_ICON 存在，主色 #F25080） | 图标去重后重验（C3 验收 4） |
+| **审计漏报 1** | 警告数：实为 47（37 CA1416 + 10 CS0618），审计只记 20 CS0618 | `<SupportedOSPlatform>` 走 csproj 在 net8.0 目标**不生效**（实测），改 `Properties/AssemblyInfo.cs` 程序集特性 → 0 警告（dc31f62） |
+| **审计漏报 2（P0）** | 磁贴列表完全无法滚动：Window 层 Tunnel handler 无条件 Handled，`ScrollContentPresenter` 类处理器（handledEventsToo=false）永不执行 | 滚轮 handler 改挂 TileScroll（handledEventsToo），边缘才切分类（c34ef25） |
+| **审计漏报 3（P0）** | 方向键切分类与 Ctrl+Tab 回绕是死功能：`KeyboardNavigationHandler` 在窗口 Bubble 路由先标记 Handled | KeyDown 改 Tunnel 注册（对应 1.x PreviewKeyDown 语义）（c34ef25） |
+| **审计漏报（流程）** | 9 个探针全绕开 View 层直驱 VM → 三个 P0 全逃过 CI | 新增 InteractionProbe：真实窗口 + 模板 presenter + 真实路由事件，12 项断言，已入 CI |
+
+验收状态：Release 构建 0 警告 0 错误；9 个原探针全绿；InteractionProbe 12/12；
+AOT 发布 + 启动冒烟 + PE 图标重验见交付说明。
