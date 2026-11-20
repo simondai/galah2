@@ -61,12 +61,22 @@
 
 ### 2.2 产物
 
-| | 1.0（WPF 单文件） | 2.0 AOT |
+
+对比必须包含**全部**要拷走的文件。只算 exe 会得出偏小的数字，那是错的。
+
+| | 1.0（WPF 单文件） | 2.0 AOT（绿色文件夹） |
 |---|---|---|
-| 发布体积 | **68.6 MB** | **23.8 MB** |
+| 形态 | 1 个文件 | 4 个文件（exe + 3 个原生 dll） |
+| 发布体积 | **68.6 MB** | **43.2 MB** |
 | 依赖 | 需 .NET 运行时 | 无（原生） |
 
-**体积缩小 65%。**
+**体积缩小 37%。**
+
+4 个文件拆开：`Galah2.exe` 27.4 MB、`libSkiaSharp.dll` 9.0 MB、
+`av_libglesv2.dll` 5.2 MB、`libHarfBuzzSharp.dll` 1.7 MB。
+
+不能压成单文件是因为 .NET 8 里 `PublishAot` 与 `PublishSingleFile` 互斥（实测报错）。
+详见 [PORTABLE.md](PORTABLE.md)。
 
 ### 2.3 AOT 路上必须踩的两个坑（都已解决）
 
@@ -112,8 +122,8 @@ Unhandled Exception: System.InvalidOperationException: JsonSerializerIsReflectio
 | 待机省内存 | 11.1 → 17.7~27.9 MB | ❌ 反向 |
 | 面板省内存 | 57.4 → 50.1 MB | ⚠ 5–13%，不显著 |
 | 启动更快 | AOT，未精确测时 | ✅ 原生无 JIT，确凿收益 |
-| **体积更小** | **68.6 → 23.8 MB** | ✅ **65%，最确定的收益** |
-| 无运行时依赖 | AOT 单 exe | ✅ 确凿 |
+| **体积更小** | **68.6 → 43.2 MB** | ✅ **37%，最确定的收益** |
+| 无运行时依赖 | AOT 原生（4 文件绿色版） | ✅ 确凿 |
 
 **如果目标是"常驻内存"，Avalonia+AOT 这条路没有兑现。**
 真正兑现的是**体积**和**启动/无依赖**。

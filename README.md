@@ -1,119 +1,132 @@
 # Galah 2.0
 
-A launcher for Windows, rewritten on **Avalonia 11 + NativeAOT**.
+Windows 启动器，用 **Avalonia 11 + NativeAOT** 重写。
 
-1.x lives on the `main` branch (WPF). This branch (`v2`) is the rewrite.
+1.x 在 `main` 分支（WPF），`v2` 分支是这次重写。
 
-> **Read [FINDINGS-2.0.md](FINDINGS-2.0.md) before assuming this rewrite saves memory.**
-> Measured on real hardware, the memory picture is not what the rewrite was started for:
-> idle usage is *higher* than 1.x, and the panel saves only 5–13%. What 2.0 does deliver is a
-> **58% smaller artifact** (68.6 MB → 28.7 MB), no .NET runtime dependency, and native startup.
+> **先读 [FINDINGS-2.0.md](FINDINGS-2.0.md)，别默认这次重写省内存。**
+> 实测下来内存并不是立项时想的那样：**待机反而比 1.x 更费**，面板只省 5~13%。
+> 2.0 真正兑现的是 **体积小 37%**（68.6 MB → 43.2 MB）、**不依赖 .NET 运行时**、
+> 以及原生启动速度。
 
 ---
 
-## Status
+## 产物与发布
 
-| Area | State |
+本地发布产物在仓库根目录的 **`artifact/`**（4 个文件，43.2 MB）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/publish-aot.ps1
+```
+
+绿色版怎么用、为什么不是单文件、CI 曾经怎么把包做坏，都写在 **[PORTABLE.md](PORTABLE.md)**。
+
+## 功能状态
+
+| 功能 | 状态 |
 |---|---|
-| Tray icon, left-click activate, native right-click menu | working |
-| Global hotkey (message-only sink, survives a never-shown panel) | working |
-| Single instance + forward toggle | working |
-| Panel: chrome, hamburger menu, item grid, context menu, drag to move | working |
-| Category strip on top or as a left rail, three icon sizes | working |
-| Reads 1.x `GalahData/catalog.json` unchanged | working |
-| Item launch (exe / lnk / url / protocol) | working |
-| Shell link (.lnk) create + read, **without `ComImport`** | working, 11/11 probes |
-| Icon extraction + PNG cache, incl. .msc | working, 12/12 probes |
-| Settings (theme, icon size, category position, material, click mode, placement, hotkey, autostart, shortcut) | working, 17/17 probes |
-| Autostart writes HKCU Run and re-asserts on boot | working |
-| Desktop shortcut via COM vtable | working |
-| Add-picker (4 sources, filter, multi-select) | working |
-| Edit dialog with commit gate | working |
-| Maintenance: scan, clean invalid, dedupe, sort, rebuild cache | working |
-| Export and import of the whole library | working |
-| Prompt / confirm dialogs | working |
-| Drag and drop of files, pasted URLs | working |
-| Toast strip for launch failures | working |
-| Favicon fetch from a URL item (explicit button only) | working |
-| Browse buttons: file, folder, icon image | working |
-| Panel command surface | working, 40/40 probes |
-| Process-level acceptance (tray, toggle, close/reopen) | working, 11/11 checks |
-| NativeAOT publish | working, portable (see PORTABLE.md) |
-| Material (Mica) | working, verified as `actual=Mica` + pixel tint |
+| 托盘图标、左键唤出、右键原生菜单 | 可用 |
+| 全局热键（消息窗常驻，面板从未显示也能唤出） | 可用 |
+| 单实例 + 转发 toggle | 可用 |
+| 面板：标题栏、☰ 菜单、条目网格、右键菜单、拖动 | 可用 |
+| 分类条顶部/左侧切换，图标三档尺寸 | 可用 |
+| 直接读 1.x 的 `GalahData/catalog.json` | 可用 |
+| 条目启动（exe / lnk / url / protocol） | 可用 |
+| 桌面快捷方式读写，**不用 `ComImport`** | 可用，11/11 探针 |
+| 图标提取 + PNG 缓存（含 .msc） | 可用，12/12 探针 |
+| 设置（主题、图标尺寸、分类位置、材质、点击方式、面板位置、热键、自启、快捷方式） | 可用，17/17 探针 |
+| 开机自启（写 HKCU Run，启动时再断言） | 可用 |
+| 添加选择器（4 个来源、搜索、多选） | 可用 |
+| 编辑对话框（带提交校验门） | 可用 |
+| 库维护：扫描、清失效、去重、排序、重建图标缓存 | 可用 |
+| 整库导出与导入 | 可用 |
+| 提示框与确认框 | 可用 |
+| 拖放文件、粘贴 URL | 可用 |
+| 启动失败的 toast 提示 | 可用 |
+| URL 条目抓取站点图标（仅手动按钮触发） | 可用 |
+| 浏览按钮：选文件、选目录、选图标图片 | 可用 |
+| 面板命令面 | 可用，52/52 探针 |
+| 进程级验收（托盘、toggle、关闭后重开） | 可用，11/11 |
+| 绿色版自检 | 可用，9/9 |
+| NativeAOT 发布 | 可用，见 [PORTABLE.md](PORTABLE.md) |
 
 ---
 
-## Build
+## 构建
 
 ```bash
 dotnet build Galah2.sln -c Release
 ```
 
-Run:
+运行：
 
 ```bash
 dotnet run --project src/Galah2 -c Release
 ```
 
-The exe looks for `GalahData/` next to itself (same contract as 1.x), so copy an existing
-library in to test with real data.
+exe 会在自己旁边找 `GalahData/`（和 1.x 同一套约定），把已有的内容库拷进去就能用真实数据测。
 
 ### NativeAOT
 
-Requires **VS 2022 or Build Tools with the "Desktop development with C++" workload** and a
-Windows SDK — the ILCompiler links with MSVC's `link.exe`.
+需要 **VS 2022 或 Build Tools 的「使用 C++ 的桌面开发」工作负载**加 Windows SDK——
+ILCompiler 用 MSVC 的 `link.exe` 链接。
 
 ```bash
-dotnet publish src/Galah2 -c Release -r win-x64 -p:PublishAot=true -o artifacts/aot
+dotnet publish src/Galah2 -c Release -r win-x64 -p:PublishAot=true -o artifact
 ```
 
-**AOT must be smoke-tested, not just compiled.** `JsonSerializer` reflection throws
-`JsonSerializerIsReflectionDisabled` the moment the first document loads, which is *before*
-any window exists — the failure looks like "double-click does nothing". Publish succeeding
-proves nothing. Start it once and confirm a tray icon appears.
+**AOT 必须真实启动验证，不能只看编译通过。** `JsonSerializer` 的反射序列化在 AOT 下会抛
+`JsonSerializerIsReflectionDisabled`，而且是在**任何窗口创建之前**——表现出来就是
+"双击没反应"。发布成功不代表能跑。必须启动一次，确认托盘图标出来了。
 
 ---
 
-## Measure
+## 验收
+
+六个工具，全部可独立运行：
+
+```bash
+dotnet run --project tools/ComProbe      -c Release   # 快捷方式 COM 往返（11 条）
+dotnet run --project tools/IconProbe     -c Release   # 图标提取（12 条）
+dotnet run --project tools/SettingsProbe -c Release   # 设置与主题（17 条）
+dotnet run --project tools/PanelProbe    -c Release   # 面板命令面（52 条）
+dotnet run --project tools/UiAcceptance  -c Release -- <exe>  # 进程级（11 条）
+dotnet run --project tools/PortableCheck -c Release -- artifact  # 绿色版（9 条）
+```
+
+内存测量：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/perf/measure.ps1
 ```
 
-Reports **Private Working Set** (the number Task Manager shows). Working Set includes shared
-DLL pages and looks much larger — never quote it as the app's own memory.
+报告 **Private Working Set**（任务管理器"内存"列那个数）。Working Set 含共享 DLL 页，
+会虚高近一倍，不要拿它当应用自己的内存。
 
 ---
 
-## Verification tools
-
-```bash
-dotnet run --project tools/ComProbe -c Release
-```
-
-Exercises the hand-written COM vtable path against a real `.lnk`: writes one, reads every
-field back, and checks that a corrupt file reports an error instead of crashing.
-
----
-
-## Layout
+## 目录结构
 
 ```
 src/Galah2/
-  Services/Interop/ShellLinkCom.cs   hand-written COM vtables (AOT has no built-in wrappers)
-  Services/Interop/Win32.cs          P/Invoke surface
-  Services/                          tray, hotkey, single instance, placement, launcher
-  Persistence/                       JSON stores + source-generated JsonContext
-  Views/ ViewModels/                 Avalonia UI
-  Styles/Baseline.axaml              the entire visual theme of 2.0
-tools/ComProbe/                      COM round-trip probes
-tools/IconProbe/                     icon extraction probes
-tools/SettingsProbe/                 settings window probes
-tools/UiAcceptance/                  process-level acceptance
-tools/PortableCheck/                 green-build verification
-tools/perf/measure.ps1               memory measurement
+  Services/Interop/ShellLinkCom.cs     手写 COM vtable（AOT 没有内置包装器）
+  Services/Interop/ShellIconHandler.cs  shell 图标处理器（.msc 那条路）
+  Services/Interop/Win32.cs            P/Invoke 面
+  Services/                            托盘、热键、单实例、位置、启动、主题、toast
+  Persistence/                         JSON 存储 + 源生成 JsonContext
+  Views/ ViewModels/                   Avalonia 界面
+  Styles/Tokens.axaml                  全部颜色 token（深浅两套）
+  Styles/Baseline.axaml                全部控件样式
+tools/ComProbe/                        COM 往返探针
+tools/IconProbe/                       图标提取探针
+tools/SettingsProbe/                   设置与主题探针
+tools/PanelProbe/                      面板命令面探针
+tools/UiAcceptance/                    进程级验收
+tools/PortableCheck/                   绿色版验证
+tools/perf/measure.ps1                 内存测量
+tools/publish-aot.ps1                  AOT 发布
 ```
 
-## License
+## 许可证
 
-MIT — see [LICENSE](LICENSE).
+MIT — 见 [LICENSE](LICENSE)。
