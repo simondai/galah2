@@ -204,7 +204,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
             window.Close();
             _viewModel?.Refresh();   // the picker commits in one action, so one re-project
         };
-        window.Show(_panel);
+        ShowOwned(window);
     }
 
     /// <summary>
@@ -225,7 +225,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
             window.Close();
             if (vm.Completed) _viewModel?.Refresh();
         };
-        window.Show(_panel);
+        ShowOwned(window);
         return null;
     }
 
@@ -263,7 +263,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         var window = new MaintenanceWindow { DataContext = vm };
         vm.CloseRequested += window.Close;
         vm.CatalogChanged += () => _viewModel?.Refresh();
-        window.Show(_panel);
+        ShowOwned(window);
     }
 
     void IPanelHost.ShowSettings() => ShowSettings();
@@ -294,6 +294,18 @@ public sealed class AppRuntime : IDisposable, IPanelHost
             AllowMultiple = false,
         });
         return folders.Count > 0 ? folders[0].Path.LocalPath : null;
+    }
+
+    /// <summary>
+    /// Show a dialog owned by a live window. The panel is the natural owner, but it may never have
+    /// been created - the user can reach the tray menu before ever opening it - and Show(owner)
+    /// throws on null.
+    /// </summary>
+    private void ShowOwned(Window window)
+    {
+        Window? owner = _panel is not null ? _panel : _settingsWindow;
+        if (owner is not null && owner.IsVisible) window.Show(owner);
+        else window.Show();
     }
 
     /// <summary>
