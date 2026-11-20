@@ -56,10 +56,26 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:SeedViewModel">
               <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,2,0,2">
-                <StackPanel Spacing="1">
-                  <TextBlock Text="{Binding Name}" FontSize="12.5" />
-                  <TextBlock Text="{Binding Note}" FontSize="10.5" Foreground="{DynamicResource TextFaintBrush}"
-                             TextTrimming="CharacterEllipsis" MaxLines="1" />
+                <!-- Icon, name, note: the same three-part row 1.x used, so candidates are
+                     recognisable at a glance instead of being a wall of text. -->
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <Panel Width="32" Height="32" VerticalAlignment="Center">
+                    <Border CornerRadius="5" Background="{DynamicResource TilePlaceholderBrush}"
+                            IsVisible="{Binding !HasIcon}">
+                      <TextBlock Text="{Binding Initial}" FontSize="13"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Image Source="{Binding Icon}" Width="32" Height="32"
+                           IsVisible="{Binding HasIcon}" />
+                  </Panel>
+                  <StackPanel VerticalAlignment="Center" Spacing="1">
+                    <TextBlock Text="{Binding Name}" FontSize="12.5"
+                               TextTrimming="CharacterEllipsis" MaxWidth="330" />
+                    <TextBlock Text="{Binding Note}" FontSize="10.5"
+                               Foreground="{DynamicResource TextFaintBrush}"
+                               TextTrimming="CharacterEllipsis" MaxWidth="330" />
+                  </StackPanel>
                 </StackPanel>
               </CheckBox>
             </DataTemplate>

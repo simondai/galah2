@@ -18,6 +18,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PortableCheck", "tools\Port
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DialogProbe", "tools\DialogProbe\DialogProbe.csproj", "{A1B2C3D4-0008-0000-0000-000000000008}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GeometryProbe", "tools\GeometryProbe\GeometryProbe.csproj", "{A1B2C3D4-0009-0000-0000-000000000009}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -56,5 +58,9 @@ Global
 		{A1B2C3D4-0008-0000-0000-000000000008}.Debug|x64.Build.0 = Debug|x64
 		{A1B2C3D4-0008-0000-0000-000000000008}.Release|x64.ActiveCfg = Release|x64
 		{A1B2C3D4-0008-0000-0000-000000000008}.Release|x64.Build.0 = Release|x64
+		{A1B2C3D4-0009-0000-0000-000000000009}.Debug|x64.ActiveCfg = Debug|x64
+		{A1B2C3D4-0009-0000-0000-000000000009}.Debug|x64.Build.0 = Debug|x64
+		{A1B2C3D4-0009-0000-0000-000000000009}.Release|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-0009-0000-0000-000000000009}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 EndGlobal

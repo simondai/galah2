@@ -40,6 +40,12 @@ jobs:
           dotnet run --project tools/SettingsProbe -c Release
           if ($LASTEXITCODE -ne 0) { throw "settings probes failed" }
 
+      - name: Geometry and picker-icon probes
+        shell: pwsh
+        run: |
+          dotnet run --project tools/GeometryProbe -c Release
+          if ($LASTEXITCODE -ne 0) { throw "geometry probes failed" }
+
       - name: Dialog probes
         shell: pwsh
         run: |

@@ -98,8 +98,19 @@ public sealed class AppRuntime : IDisposable, IPanelHost
             {
                 if (_shuttingDown) return;
                 e.Cancel = true;
+                RememberGeometry();   // capture before hiding
                 _panel.Hide();
             };
+
+            // Restore the size from last time, and remember it as the user resizes.
+            var saved = _uiState.Current.Window;
+            if (saved.Width > 0 && saved.Height > 0)
+            {
+                _panel.Width = saved.Width;
+                _panel.Height = saved.Height;
+            }
+            _panel.SizeChanged += (_, _) => ScheduleRememberGeometry();
+            _panel.PositionChanged += (_, _) => ScheduleRememberGeometry();
         }
 
         if (_panel.IsVisible)
@@ -112,6 +123,41 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         PlacePanel();
         _panel.Show();
         _panel.Activate();
+    }
+
+    private DispatcherTimer? _geometryTimer;
+
+    /// <summary>
+    /// Persist the panel's position and size once the user stops moving it. Dragging and resizing
+    /// fire continuously, and a write per pixel would hammer the disk; the timer collapses a burst
+    /// of changes into one commit.
+    /// </summary>
+    private void ScheduleRememberGeometry()
+    {
+        _geometryTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+        _geometryTimer.Stop();
+        _geometryTimer.Tick -= OnGeometrySettled;
+        _geometryTimer.Tick += OnGeometrySettled;
+        _geometryTimer.Start();
+    }
+
+    private void OnGeometrySettled(object? sender, EventArgs e)
+    {
+        _geometryTimer?.Stop();
+        RememberGeometry();
+    }
+
+    /// <summary>Write the live window geometry into ui-state.</summary>
+    private void RememberGeometry()
+    {
+        if (_panel is null) return;
+
+        var window = _uiState.Current.Window;
+        window.X = _panel.Position.X;
+        window.Y = _panel.Position.Y;
+        window.Width = _panel.Bounds.Width;
+        window.Height = _panel.Bounds.Height;
+        _uiState.Save();
     }
 
     private void PlacePanel()

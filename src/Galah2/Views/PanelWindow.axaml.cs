@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Galah2.Services;
+using Galah2.Services.Interop;
 using Galah2.ViewModels;
 
 namespace Galah2.Views;
@@ -153,14 +154,17 @@ public partial class PanelWindow : Window
     /// <summary>
     /// Drag the frameless panel by its chrome strip.
     ///
-    /// The delta is computed from SCREEN coordinates. Using positions relative to the window feeds
-    /// the window's own movement back into the next delta, because the origin moves with it - the
-    /// panel chases the cursor and appears to vibrate.
+    /// Uses Win32 GetCursorPos for the pointer, not Avalonia GetPosition(null). The managed call
+    /// resolves against whichever root Visual is current, so while the window moves the reference
+    /// moves with it and the drag feeds on itself. Screen pixels have no such dependency: the
+    /// target is always origin + (cursorNow - cursorAtPress).
     /// </summary>
     private void Chrome_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
-        _dragOriginScreen = e.GetPosition(null);
+        if (!Win32.GetCursorPos(out var pt)) return;
+
+        _dragOriginScreen = new Point(pt.X, pt.Y);
         _dragWindowOrigin = Position;
         _dragging = false;
     }
@@ -174,16 +178,13 @@ public partial class PanelWindow : Window
             return;
         }
 
-        var now = e.GetPosition(null);
-        var dx = now.X - _dragOriginScreen.X;
-        var dy = now.Y - _dragOriginScreen.Y;
+        if (!Win32.GetCursorPos(out var pt)) return;
+        var dx = pt.X - _dragOriginScreen.X;
+        var dy = pt.Y - _dragOriginScreen.Y;
         if (!_dragging && Math.Abs(dx) + Math.Abs(dy) < 4) return;   // ignore jitter
 
         _dragging = true;
-        // Absolute target, not an incremental step: no accumulated error, no feedback loop.
-        Position = new PixelPoint(
-            (int)(_dragWindowOrigin.X + dx),
-            (int)(_dragWindowOrigin.Y + dy));
+        Position = new PixelPoint((int)(_dragWindowOrigin.X + dx), (int)(_dragWindowOrigin.Y + dy));
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)

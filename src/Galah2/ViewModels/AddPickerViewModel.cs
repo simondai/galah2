@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Galah2.Models;
 using Galah2.Persistence;
+using Avalonia.Media.Imaging;
+using Galah2.Services;
 using Galah2.Services.CatalogSources;
 
 namespace Galah2.ViewModels;
@@ -10,20 +12,52 @@ namespace Galah2.ViewModels;
 public sealed class SeedViewModel : ObservableObject
 {
     private bool _isChecked;
+    private Bitmap? _icon;
 
     public SeedViewModel(CatalogSeed seed)
     {
         Seed = seed;
         Name = seed.Name;
         Note = string.IsNullOrWhiteSpace(seed.Note) ? seed.Target : seed.Note;
+        Initial = string.IsNullOrWhiteSpace(seed.Name) ? "?" : seed.Name[..1].ToUpperInvariant();
         // A name that cannot be searched is useless in a long list.
         SearchKey = (seed.Name + " " + seed.Target).ToLowerInvariant();
+
+        // The icon arrives a moment later; the row shows a letter tile until then.
+        _ = LoadIconAsync(seed);
     }
 
     public CatalogSeed Seed { get; }
     public string Name { get; }
     public string Note { get; }
     public string SearchKey { get; }
+    public string Initial { get; }
+
+    public Bitmap? Icon
+    {
+        get => _icon;
+        private set { if (Set(ref _icon, value)) Raise(nameof(HasIcon)); }
+    }
+
+    public bool HasIcon => _icon is not null;
+
+    private async Task LoadIconAsync(CatalogSeed seed)
+    {
+        try
+        {
+            var item = new CatalogItem
+            {
+                Id = "seed",
+                Name = seed.Name,
+                Kind = seed.Kind,
+                Target = seed.Target,
+                Args = seed.Args,
+            };
+            var bitmap = await IconService.GetAsync(item, 32).ConfigureAwait(true);
+            if (bitmap is not null) Icon = bitmap;
+        }
+        catch (Exception) { }   // an icon is decoration: never break the list
+    }
 
     public bool IsChecked
     {

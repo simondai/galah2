@@ -8,7 +8,8 @@
         TransparencyLevelHint="None"
         Background="Transparent"
         ShowInTaskbar="False"
-        CanResize="False">
+        CanResize="True"
+        MinWidth="420" MinHeight="300">
   <!-- Semi-transparent so the Mica backdrop shows through. An opaque fill makes the material
        request pointless; the first screenshot check showed three different corner colours only
        because the DWM tint bled past the rounded corners. -->
