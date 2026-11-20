@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Galah2.Models;
 using Galah2.Persistence;
+using Avalonia.VisualTree;
 using Galah2.Services;
 using Galah2.ViewModels;
 using Galah2.Views;
@@ -20,6 +21,29 @@ internal static class Program
     }
 
     private static string _root = "";
+
+    /// <summary>
+    /// The settings dialog must not let its controls run into the scrollbar. A star-sized column
+    /// inside a ScrollViewer has no width budget, so the combo boxes used to stretch under the
+    /// scrollbar and look broken. Measured from the laid-out visual tree, not from pixels: the
+    /// Fluent border on a ComboBox is too faint to find in a screenshot.
+    /// </summary>
+    private static void CheckLayout(SettingsWindow window)
+    {
+        var combos = window.GetVisualDescendants().OfType<Avalonia.Controls.ComboBox>().ToList();
+        Check("settings has combo boxes", combos.Count > 0, combos.Count + " combo(s)");
+        if (combos.Count == 0) return;
+
+        var client = window.ClientSize.Width;
+        var widest = combos.Max(c => c.Bounds.X + c.Bounds.Width);
+        // Leave a real margin: the content area ends before the vertical scrollbar.
+        Check("combo boxes stop before the scrollbar", widest < client - 40,
+            "rightmost=" + widest + " client=" + client);
+
+        var uniform = combos.Select(c => Math.Round(c.Bounds.Width)).Distinct().Count() == 1;
+        Check("combo boxes share one width", uniform,
+            string.Join(" / ", combos.Select(c => Math.Round(c.Bounds.Width))));
+    }
 
     /// <summary>Theme mapping and the system-dark read. The watcher itself is a poll loop, so
     /// what is testable without a desktop is that the preference maps to the right variant and
@@ -101,7 +125,8 @@ internal static class Program
         Check("window opened", window.IsVisible);
         var size = window.Bounds.Size;
         Check("window has layout", size.Width > 100 && size.Height > 100,
-            $"{size.Width}x{size.Height}");
+            size.Width + "x" + size.Height);
+        CheckLayout(window);
 
         // An edit must reach the document, the disk, and the restart callback.
         vm.HideOnLaunch = !vm.HideOnLaunch;

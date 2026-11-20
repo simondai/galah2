@@ -16,7 +16,10 @@
       <Button Content="关闭" Command="{Binding CloseCommand}" />
     </StackPanel>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <!-- Horizontal scrolling disabled on purpose: with it enabled the content lays out at its
+         unbounded desired width, so the star column had no constraint and the combo boxes ran
+         under the vertical scrollbar. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
       <StackPanel>
         <TextBlock Classes="section" Text="全局快捷键" />
         <TextBox Text="{Binding HotkeyText, Mode=TwoWay}" FontSize="13" />
@@ -24,45 +27,39 @@
 
         <TextBlock Classes="section" Text="外观" />
         <StackPanel Spacing="10">
-          <Grid ColumnDefinitions="110,*">
+          <Grid ColumnDefinitions="110,196">
             <TextBlock Grid.Column="0" Classes="label" Text="主题色" />
             <ComboBox Grid.Column="1" ItemsSource="{Binding ThemeOptions}"
-                      SelectedIndex="{Binding ThemeIndex, Mode=TwoWay}"
-                      HorizontalAlignment="Stretch" />
+                      SelectedIndex="{Binding ThemeIndex, Mode=TwoWay}" />
           </Grid>
-          <Grid ColumnDefinitions="110,*">
+          <Grid ColumnDefinitions="110,196">
             <TextBlock Grid.Column="0" Classes="label" Text="图标大小" />
             <ComboBox Grid.Column="1" ItemsSource="{Binding IconSizeOptions}"
-                      SelectedIndex="{Binding IconSizeIndex, Mode=TwoWay}"
-                      HorizontalAlignment="Stretch" />
+                      SelectedIndex="{Binding IconSizeIndex, Mode=TwoWay}" />
           </Grid>
-          <Grid ColumnDefinitions="110,*">
+          <Grid ColumnDefinitions="110,196">
             <TextBlock Grid.Column="0" Classes="label" Text="分类位置" />
             <ComboBox Grid.Column="1" ItemsSource="{Binding TabPositionOptions}"
-                      SelectedIndex="{Binding TabPositionIndex, Mode=TwoWay}"
-                      HorizontalAlignment="Stretch" />
+                      SelectedIndex="{Binding TabPositionIndex, Mode=TwoWay}" />
           </Grid>
-          <Grid ColumnDefinitions="110,*">
+          <Grid ColumnDefinitions="110,196">
             <TextBlock Grid.Column="0" Classes="label" Text="面板材质" />
             <ComboBox Grid.Column="1" ItemsSource="{Binding MaterialOptions}"
-                      SelectedIndex="{Binding MaterialIndex, Mode=TwoWay}"
-                      HorizontalAlignment="Stretch" />
+                      SelectedIndex="{Binding MaterialIndex, Mode=TwoWay}" />
           </Grid>
         </StackPanel>
 
         <TextBlock Classes="section" Text="交互" />
         <StackPanel Spacing="10">
-          <Grid ColumnDefinitions="110,*">
+          <Grid ColumnDefinitions="110,196">
             <TextBlock Grid.Column="0" Classes="label" Text="点击方式" />
             <ComboBox Grid.Column="1" ItemsSource="{Binding ClickModeOptions}"
-                      SelectedIndex="{Binding ClickModeIndex, Mode=TwoWay}"
-                      HorizontalAlignment="Stretch" />
+                      SelectedIndex="{Binding ClickModeIndex, Mode=TwoWay}" />
           </Grid>
-          <Grid ColumnDefinitions="110,*">
+          <Grid ColumnDefinitions="110,196">
             <TextBlock Grid.Column="0" Classes="label" Text="面板位置" />
             <ComboBox Grid.Column="1" ItemsSource="{Binding PlacementOptions}"
-                      SelectedIndex="{Binding PlacementIndex, Mode=TwoWay}"
-                      HorizontalAlignment="Stretch" />
+                      SelectedIndex="{Binding PlacementIndex, Mode=TwoWay}" />
           </Grid>
           <CheckBox IsChecked="{Binding HideOnLaunch, Mode=TwoWay}" Content="启动条目后收起面板" />
           <CheckBox IsChecked="{Binding HideOnBlur, Mode=TwoWay}" Content="面板失焦时自动收起" />
