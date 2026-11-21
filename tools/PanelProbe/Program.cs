@@ -1,5 +1,8 @@
+using System.Linq;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.VisualTree;
 using Galah2.Models;
 using Galah2.Persistence;
 using Galah2.Services;
@@ -205,6 +208,38 @@ internal static class Program
         var size = window.Bounds.Size;
         Check("panel has layout", size.Width > 100 && size.Height > 100,
             $"{size.Width}x{size.Height}");
+
+        // ---- new-category chip on the strip (1.x parity) ----
+        // The + lives on the strip itself, not only in the context menu. It must be present in
+        // both orientations, and clicking it must create a tab and select it (NewTab semantics).
+        // What the tab-position setting toggles is the parent strip (a StackPanel bound to
+        // !IsVerticalTabs / IsVerticalTabs), not the chip's own IsVisible flag.
+        var chips = window.GetVisualDescendants().OfType<Button>()
+            .Where(b => b.Classes.Contains("newtab")).ToList();
+        Check("both strips carry the new-category chip", chips.Count == 2,
+            chips.Count + " chip(s)");
+        var horizontalChip = chips.FirstOrDefault();
+        var hStrip = horizontalChip?.GetVisualParent<StackPanel>();
+        Check("chip sits on the visible strip", hStrip?.IsVisible == true,
+            $"strip visible={hStrip?.IsVisible}");
+
+        var tabsBefore = vm.Tabs.Count;
+        host.PromptAnswer = "圆片分类";
+        horizontalChip?.Command?.Execute(horizontalChip.CommandParameter);
+        Check("chip click asks for a name", host.LastPrompt == "新建分类",
+            host.LastPrompt ?? "no prompt");
+        Check("chip click created a tab", vm.Tabs.Count == tabsBefore + 1,
+            vm.Tabs.Count + " tab(s)");
+        Check("chip click selected the new tab",
+            vm.Tabs.FirstOrDefault(t => t.Name == "圆片分类")?.IsActive == true);
+
+        vm.ApplyLayout(new SettingsDocument { TabPosition = TabPositions.Left });
+        var verticalChip = chips.LastOrDefault();
+        var vStrip = verticalChip?.GetVisualParent<StackPanel>();
+        Check("chip follows the vertical rail",
+            hStrip?.IsVisible == false && vStrip?.IsVisible == true,
+            $"hStrip={hStrip?.IsVisible} vStrip={vStrip?.IsVisible}");
+
         window.Close();
 
         // ---- edit dialog keeps the commit gate ----

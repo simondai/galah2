@@ -71,6 +71,19 @@
     <Setter Property="Foreground" Value="{DynamicResource TextStrongBrush}" />
   </Style>
 
+  <!-- New-category chip: a 28x28 circle that sits at the end of the category strip, the
+       1.x button-icon-circular grammar. The glyph is TextPrimary; the circle is a light
+       overlay that deepens on hover and shrinks on press. -->
+  <Style Selector="Button.newtab:pointerover /template/ Border#chip">
+    <Setter Property="Background" Value="#40D2D2D7" />
+  </Style>
+
+  <Style Selector="Button.newtab:pressed /template/ Border#chip">
+    <Setter Property="Background" Value="#40D2D2D7" />
+    <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+    <Setter Property="RenderTransform" Value="scale(0.9)" />
+  </Style>
+
   <Style Selector="Button.tile">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="CornerRadius" Value="8" />

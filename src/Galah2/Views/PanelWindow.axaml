@@ -75,45 +75,83 @@
       <!-- ===== category strip: a top row, or a left rail =====
            Two instances rather than one control with a switched DockPanel.Dock: Dock is applied
            once at layout time, so flipping it on a live control would not re-dock reliably. -->
-      <ItemsControl ItemsSource="{Binding Tabs}" Margin="14,10,14,6"
-                    DockPanel.Dock="Top" IsVisible="{Binding !IsVerticalTabs}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <StackPanel Orientation="Horizontal" Spacing="6" />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:TabViewModel">
-            <!-- A drop target: dragging a tile onto a category moves the item there. -->
-            <Button Classes="chip" Content="{Binding Name}" Tag="{Binding}"
-                    Classes.active="{Binding IsActive}"
-                    DragDrop.AllowDrop="True"
-                    DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
-                    Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
-                    CommandParameter="{Binding}" />
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      <StackPanel Orientation="Horizontal" Margin="14,10,14,6"
+                  DockPanel.Dock="Top" IsVisible="{Binding !IsVerticalTabs}">
+        <ItemsControl ItemsSource="{Binding Tabs}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="6" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:TabViewModel">
+              <!-- A drop target: dragging a tile onto a category moves the item there. -->
+              <Button Classes="chip" Content="{Binding Name}" Tag="{Binding}"
+                      Classes.active="{Binding IsActive}"
+                      DragDrop.AllowDrop="True"
+                      DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
+                      Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
+                      CommandParameter="{Binding}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <!-- New-category chip: the + that 1.x sat at the end of the tab row. -->
+        <Button Classes="newtab" Command="{Binding NewTabCommand}"
+                ToolTip.Tip="新建分类" AutomationProperties.Name="新建分类"
+                Width="28" Height="28" MinWidth="0" Padding="0" Margin="4,1,0,2"
+                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Background="Transparent" BorderThickness="0" Cursor="Hand">
+          <Button.Template>
+            <ControlTemplate TargetType="Button">
+              <Border x:Name="chip" Background="#26D2D2D7" CornerRadius="14"
+                      Width="28" Height="28">
+                <TextBlock Text="＋" FontSize="15" FontWeight="Light"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+            </ControlTemplate>
+          </Button.Template>
+        </Button>
+      </StackPanel>
 
-      <ItemsControl ItemsSource="{Binding Tabs}" Margin="10,10,8,10" Width="96"
-                    DockPanel.Dock="Left" IsVisible="{Binding IsVerticalTabs}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <StackPanel Orientation="Vertical" Spacing="4" />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:TabViewModel">
-            <Button Classes="chip" Content="{Binding Name}" Tag="{Binding}"
-                    Classes.active="{Binding IsActive}"
-                    HorizontalAlignment="Left"
-                    DragDrop.AllowDrop="True"
-                    DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
-                    Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
-                    CommandParameter="{Binding}" />
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      <StackPanel Orientation="Vertical" Margin="10,10,8,10" Width="96"
+                  DockPanel.Dock="Left" IsVisible="{Binding IsVerticalTabs}">
+        <ItemsControl ItemsSource="{Binding Tabs}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Vertical" Spacing="4" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:TabViewModel">
+              <Button Classes="chip" Content="{Binding Name}" Tag="{Binding}"
+                      Classes.active="{Binding IsActive}"
+                      HorizontalAlignment="Left"
+                      DragDrop.AllowDrop="True"
+                      DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
+                      Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
+                      CommandParameter="{Binding}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <!-- New-category chip: same + as the horizontal strip, hung below the left rail. -->
+        <Button Classes="newtab" Command="{Binding NewTabCommand}"
+                ToolTip.Tip="新建分类" AutomationProperties.Name="新建分类"
+                Width="28" Height="28" MinWidth="0" Padding="0" Margin="11,6,0,4"
+                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Background="Transparent" BorderThickness="0" Cursor="Hand">
+          <Button.Template>
+            <ControlTemplate TargetType="Button">
+              <Border x:Name="chip" Background="#26D2D2D7" CornerRadius="14"
+                      Width="28" Height="28">
+                <TextBlock Text="＋" FontSize="15" FontWeight="Light"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+            </ControlTemplate>
+          </Button.Template>
+        </Button>
+      </StackPanel>
 
       <!-- ===== toast: transient news, auto-dismisses ===== -->
       <Border DockPanel.Dock="Bottom" Margin="10,0,10,10" Padding="12,8" CornerRadius="8"
