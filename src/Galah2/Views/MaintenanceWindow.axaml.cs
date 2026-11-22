@@ -7,6 +7,10 @@ public partial class MaintenanceWindow : Window
 {
     public MaintenanceWindow() => AvaloniaXamlLoader.Load(this);
 
+    // Borderless chrome (the system title bar is gone): forward to the shared handlers.
+    private void TitleBar_Drag(object? sender, Avalonia.Input.PointerPressedEventArgs e) => DialogChrome.Drag(this, e);
+    private void TitleBar_Close(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => DialogChrome.Close(this, e);
+
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);

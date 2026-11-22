@@ -18,6 +18,10 @@ public partial class PromptWindow : Window
 
     public PromptWindow() => AvaloniaXamlLoader.Load(this);
 
+    // Borderless chrome (the system title bar is gone): forward to the shared handlers.
+    private void TitleBar_Drag(object? sender, Avalonia.Input.PointerPressedEventArgs e) => DialogChrome.Drag(this, e);
+    private void TitleBar_Close(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => DialogChrome.Close(this, e);
+
     public PromptWindow(string title, string initial, Action<string?> onClosed) : this()
     {
         Title = title;

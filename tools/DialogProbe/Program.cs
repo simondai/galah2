@@ -69,20 +69,23 @@ internal static class Program
         var prompt = FindWindow<PromptWindow>();
         Check("prompt window is open", prompt is not null);
 
-        // ---- the dialog renders on the panel surface (light alignment, 2026-11-22) ----
-        // Dialogs keep the system title bar but must sit on the same surface as the main
-        // panel. Look the token up through the window's resource chain (the app-level
-        // ResourceDictionary indexer does not expose merged tokens in 11.3) and compare by
-        // identity: DynamicResource hands out the dictionary's own brush instance, so a
-        // different object would mean the token wiring is wrong.
+        // ---- borderless surface, the panel's grammar (full alignment, 2026-11-22) ----
+        // The dialog is now chrome-less like the panel: transparent window, a rounded
+        // RootBorder carrying the opaque panel fill. Look the token up through the window's
+        // resource chain (the app-level ResourceDictionary indexer does not expose merged
+        // tokens in 11.3) and compare by identity: DynamicResource hands out the
+        // dictionary's own brush instance, so a different object means wrong token wiring.
         object? surfaceResource = null;
         var surface = (prompt != null && prompt.TryFindResource("DialogSurfaceBrush", out surfaceResource))
             ? surfaceResource as Avalonia.Media.IBrush
             : null;
-        Check("prompt sits on the panel surface",
-            surface is not null && prompt is not null && ReferenceEquals(prompt.Background, surface),
-            prompt is null ? "no window"
-                : "bg=" + prompt.Background + " token=" + (surface?.ToString() ?? "MISS"));
+        var rootBorder = prompt?.FindControl<Border>("RootBorder");
+        Check("dialog window is borderless", prompt?.SystemDecorations == SystemDecorations.None,
+            prompt is null ? "no window" : prompt.SystemDecorations.ToString());
+        Check("dialog surface is the panel fill on the RootBorder",
+            surface is not null && rootBorder is not null && ReferenceEquals(rootBorder.Background, surface),
+            rootBorder is null ? "no RootBorder"
+                : "bg=" + rootBorder.Background + " token=" + (surface?.ToString() ?? "MISS"));
         if (prompt is not null)
         {
             var input = prompt.FindControl<TextBox>("Input");
@@ -127,6 +130,23 @@ internal static class Program
         if (confirm2 is not null) PressConfirmOk(confirm2);
         Pump();
         Check("confirming a confirm returns true", confirmResult == true, confirmResult?.ToString() ?? "null");
+
+        // ---- the chrome close button (the system title bar is gone) settles as "no" ----
+        // With no OS title bar, the only dismissal left besides the dialog's own buttons is
+        // the ✕ in the custom chrome. It must settle the callback, or the caller waits forever.
+        bool? chromeCloseResult = null;
+        ConfirmWindow.Ask(null, "测试5", "标题栏关闭", ok => chromeCloseResult = ok);
+        Pump();
+
+        var confirm3 = FindWindow<ConfirmWindow>();
+        var chromeClose = confirm3?.GetVisualDescendantsOfType<Button>()
+            .FirstOrDefault(b => (b.Content as string) == "✕");
+        Check("chrome carries a close button", chromeClose is not null);
+        if (chromeClose is not null)
+            chromeClose.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Pump();
+        Check("chrome close settles as dismiss", chromeCloseResult == false,
+            chromeCloseResult?.ToString() ?? "no callback");
     }
 
     private static void PressOk(PromptWindow window)

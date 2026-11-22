@@ -18,6 +18,10 @@ public partial class ConfirmWindow : Window
 
     public ConfirmWindow() => AvaloniaXamlLoader.Load(this);
 
+    // Borderless chrome (the system title bar is gone): forward to the shared handlers.
+    private void TitleBar_Drag(object? sender, Avalonia.Input.PointerPressedEventArgs e) => DialogChrome.Drag(this, e);
+    private void TitleBar_Close(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => DialogChrome.Close(this, e);
+
     public ConfirmWindow(string title, string message, Action<bool> onClosed) : this()
     {
         Title = title;

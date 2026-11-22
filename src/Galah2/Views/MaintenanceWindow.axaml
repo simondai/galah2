@@ -4,9 +4,10 @@
         x:Class="Galah2.Views.MaintenanceWindow"
         x:DataType="vm:MaintenanceViewModel"
         Title="维护与迁移"
-        Width="560" Height="540"
+        Width="560" Height="574"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource DialogSurfaceBrush}">
+        SystemDecorations="None"
+        Background="Transparent">
   <Window.Styles>
     <Style Selector="TextBlock.section">
       <Setter Property="FontSize" Value="11" />
@@ -23,6 +24,23 @@
     </Style>
   </Window.Styles>
 
+  <!-- Borderless surface: the same rounded RootBorder grammar as PanelWindow - the window
+       itself is transparent, the surface, hairline and corners come from the Border.
+       CanResize stays on, so edges still resize the way the panel does (no OS border). -->
+  <Border x:Name="RootBorder" Background="{DynamicResource DialogSurfaceBrush}"
+          CornerRadius="10" BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1">
+    <DockPanel>
+      <!-- Custom title bar: title, drag, close (the system bar is gone). -->
+      <Border DockPanel.Dock="Top" Height="34" Background="{DynamicResource ElevatedBrush}"
+              CornerRadius="10,10,0,0" PointerPressed="TitleBar_Drag">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="13"
+                     FontWeight="SemiBold" Foreground="{DynamicResource TextStrongBrush}"
+                     Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" />
+          <Button Grid.Column="1" Classes="chip" Content="✕" FontSize="13" Padding="8,0"
+                  Margin="2,0,6,0" VerticalAlignment="Center" Click="TitleBar_Close" />
+        </Grid>
+      </Border>
   <DockPanel Margin="18,14,18,14">
     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right"
                 Spacing="8" Margin="0,12,0,0">
@@ -96,5 +114,7 @@
                    FontSize="10.5" Foreground="{DynamicResource TextFaintBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
       </StackPanel>
     </ScrollViewer>
-  </DockPanel>
+    </DockPanel>
+    </DockPanel>
+  </Border>
 </Window>
