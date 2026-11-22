@@ -78,4 +78,8 @@
   <SolidColorBrush x:Key="IconPlateBrush" Color="{DynamicResource PaletteIconPlate}" />
   <SolidColorBrush x:Key="PanelFillBrush" Color="{DynamicResource PalettePanelFill}" />
   <SolidColorBrush x:Key="PanelFillOpaqueBrush" Color="{DynamicResource PalettePanelFillOpaque}" />
+  <!-- Dialog surfaces: the opaque panel fill. Dialogs keep the system title bar (light
+       alignment, 2026-11-22) but render on the same surface language as the main panel,
+       so they no longer look like a flat stock window under the panel's charcoal. -->
+  <SolidColorBrush x:Key="DialogSurfaceBrush" Color="{DynamicResource PalettePanelFillOpaque}" />
 </ResourceDictionary>

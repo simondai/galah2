@@ -7,7 +7,7 @@
         Width="440" Height="600"
         CanResize="False"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource WindowBrush}">
+        Background="{DynamicResource DialogSurfaceBrush}">
   <!-- The combos bind ItemsSource to the view model's option arrays, so the label order and the
        index mapping live in one place and cannot drift apart. -->
   <DockPanel Margin="20,16,20,16">

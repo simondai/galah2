@@ -5,7 +5,7 @@
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
-        Background="{DynamicResource WindowBrush}">
+        Background="{DynamicResource DialogSurfaceBrush}">
   <DockPanel Margin="18,14,18,14">
     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right"
                 Spacing="8" Margin="0,14,0,0">

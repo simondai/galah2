@@ -24,9 +24,28 @@ internal static class Program
         if (!ok) _fail++;
     }
 
+    private static IClassicDesktopStyleApplicationLifetime _lifetime = null!;
+
     [STAThread]
     public static int Main(string[] args)
-        => AppBuilder.Configure<ProbeApp>().UsePlatformDetect().StartWithClassicDesktopLifetime(args);
+    {
+        // Use the product Application so Tokens.axaml is loaded exactly as it is in the real
+        // app - the surface assertions only mean something against the real token dictionary.
+        // A desktop lifetime is registered (never started) so shown windows are tracked.
+        _lifetime = new ClassicDesktopStyleApplicationLifetime
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown
+        };
+        AppBuilder.Configure<Galah2.App>().UsePlatformDetect().SetupWithLifetime(_lifetime);
+        var code = 0;
+        try { RunChecks(); code = Report(); }
+        catch (Exception ex)
+        {
+            Console.WriteLine("FAILED " + ex.GetType().Name + ": " + ex.Message);
+            code = 1;
+        }
+        return code;
+    }
 
     public static void RunChecks()
     {
@@ -49,6 +68,21 @@ internal static class Program
         // Drive it the way a user would: find the open prompt and press OK.
         var prompt = FindWindow<PromptWindow>();
         Check("prompt window is open", prompt is not null);
+
+        // ---- the dialog renders on the panel surface (light alignment, 2026-11-22) ----
+        // Dialogs keep the system title bar but must sit on the same surface as the main
+        // panel. Look the token up through the window's resource chain (the app-level
+        // ResourceDictionary indexer does not expose merged tokens in 11.3) and compare by
+        // identity: DynamicResource hands out the dictionary's own brush instance, so a
+        // different object would mean the token wiring is wrong.
+        object? surfaceResource = null;
+        var surface = (prompt != null && prompt.TryFindResource("DialogSurfaceBrush", out surfaceResource))
+            ? surfaceResource as Avalonia.Media.IBrush
+            : null;
+        Check("prompt sits on the panel surface",
+            surface is not null && prompt is not null && ReferenceEquals(prompt.Background, surface),
+            prompt is null ? "no window"
+                : "bg=" + prompt.Background + " token=" + (surface?.ToString() ?? "MISS"));
         if (prompt is not null)
         {
             var input = prompt.FindControl<TextBox>("Input");
@@ -118,9 +152,7 @@ internal static class Program
     }
 
     private static T? FindWindow<T>() where T : Window =>
-        Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d
-            ? d.Windows.OfType<T>().FirstOrDefault(w => w.IsVisible)
-            : null;
+        _lifetime.Windows.OfType<T>().FirstOrDefault(w => w.IsVisible);
 
     /// <summary>Let queued UI work run, without blocking the dispatcher.</summary>
     private static void Pump()
@@ -153,23 +185,3 @@ internal static class VisualExtensions
     }
 }
 
-internal sealed class ProbeApp : Application
-{
-    public override void OnFrameworkInitializationCompleted()
-    {
-        if (ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop) return;
-
-        desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnExplicitShutdown;
-        Dispatcher.UIThread.Post(() =>
-        {
-            var code = 0;
-            try { DialogProbe.Program.RunChecks(); code = DialogProbe.Program.Report(); }
-            catch (Exception ex)
-            {
-                Console.WriteLine("FAILED " + ex.GetType().Name + ": " + ex.Message);
-                code = 1;
-            }
-            finally { desktop.Shutdown(code); }
-        });
-    }
-}

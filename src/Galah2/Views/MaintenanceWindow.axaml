@@ -6,7 +6,7 @@
         Title="维护与迁移"
         Width="560" Height="540"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource WindowBrush}">
+        Background="{DynamicResource DialogSurfaceBrush}">
   <Window.Styles>
     <Style Selector="TextBlock.section">
       <Setter Property="FontSize" Value="11" />

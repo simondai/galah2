@@ -7,7 +7,7 @@
         Width="460" Height="500"
         CanResize="False"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource WindowBrush}">
+        Background="{DynamicResource DialogSurfaceBrush}">
   <Window.Styles>
     <Style Selector="TextBlock.label">
       <Setter Property="FontSize" Value="12" />
