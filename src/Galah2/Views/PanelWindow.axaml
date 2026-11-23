@@ -200,12 +200,22 @@
                      greys the item out on the binding error (Avalonia MenuItem.cs: BindingError
                      -> _commandCanExecute=false). The tile ContextMenus below prove this host
                      works; a left click opens the same menu from code. -->
+                <!-- Commands bind straight to the ContextMenu's own DataContext, which the
+                     Opening handler sets to the PanelViewModel. This button's DataContext is the
+                     sentinel ItemViewModel, so any binding that inherits it (or walks the popup's
+                     logical tree) resolves to nothing and MenuItem greys the row out - the exact
+                     symptom reported twice. Opening fires for BOTH the automatic right-click open
+                     and the code-driven left-click open. The blank-space menu on TileScroll proves
+                     the plain-DataContext pattern works. -->
                 <Button.ContextMenu>
-                  <ContextMenu>
-                    <MenuItem Header="添加快捷方式…" Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).AddPickerCommand}" />
-                    <MenuItem Header="添加文件…" Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).AddFileCommand}" />
-                    <MenuItem Header="添加文件夹…" Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).AddFolderCommand}" />
-                    <MenuItem Header="添加网址…" Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).AddUrlCommand}" />
+                  <!-- x:DataType here is load-bearing: the template's data type is ItemViewModel,
+                       so compiled bindings would resolve against the sentinel and fail to build.
+                       The Opening handler swaps the DataContext to the PanelViewModel at runtime. -->
+                  <ContextMenu Opening="AddTileMenu_Opening" x:DataType="vm:PanelViewModel">
+                    <MenuItem Header="添加快捷方式…" Command="{Binding AddPickerCommand}" />
+                    <MenuItem Header="添加文件…" Command="{Binding AddFileCommand}" />
+                    <MenuItem Header="添加文件夹…" Command="{Binding AddFolderCommand}" />
+                    <MenuItem Header="添加网址…" Command="{Binding AddUrlCommand}" />
                   </ContextMenu>
                 </Button.ContextMenu>
                 <StackPanel Width="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).TileWidth}" Spacing="6">

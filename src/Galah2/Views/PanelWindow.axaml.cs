@@ -178,9 +178,14 @@ public partial class PanelWindow : Window
     /// <summary>Begin one move-drag carrying the given id under the given format.</summary>
     private async void StartMoveDrag(PointerEventArgs e, DataFormat<string> format, string id)
     {
+        DiagnosticsLog.Line("drag", "start id=" + id);
         var data = new DataTransfer();
         data.Add(DataTransferItem.Create(format, id));
-        try { await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move); }
+        try
+        {
+            var effect = await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
+            DiagnosticsLog.Line("drag", "end id=" + id + " effect=" + effect);
+        }
         catch (Exception ex) { DiagnosticsLog.Line("drag", "failed: " + ex.Message); }
     }
 
@@ -204,6 +209,7 @@ public partial class PanelWindow : Window
         if (!string.IsNullOrEmpty(draggedTab))
         {
             var target = vm.Tabs.ToList().FindIndex(t => t.Id == tab.Id);
+            DiagnosticsLog.Line("drag", "drop tab=" + draggedTab + " -> slot " + target);
             if (target >= 0) vm.MoveTabToIndex(draggedTab!, target);
             e.Handled = true;
             return;
@@ -245,6 +251,7 @@ public partial class PanelWindow : Window
         var itemId = e.DataTransfer.TryGetValue(ItemIdFormat);
         if (string.IsNullOrEmpty(itemId)) return;
 
+        DiagnosticsLog.Line("drag", "drop tile=" + itemId + " -> slot " + vm.Items.IndexOf(target));
         vm.MoveItemToIndex(itemId, vm.Items.IndexOf(target));
         e.Handled = true;
     }
@@ -271,8 +278,20 @@ public partial class PanelWindow : Window
     /// </summary>
     private void AddTile_Click(object? sender, RoutedEventArgs e)
     {
-        // IsOpen has a protected setter; Open() is the public door.
+        // IsOpen has a protected setter; Open() is the public door. The Opening handler (below)
+        // fixes the DataContext for this path too, so nothing else is needed here.
         if (sender is Button { ContextMenu: { } menu }) menu.Open();
+    }
+
+    /// <summary>
+    /// Give the add-menu the PanelViewModel as its DataContext. The button's own DataContext is
+    /// the sentinel ItemViewModel, so the menu's command bindings would resolve to nothing and
+    /// every row would grey out. Opening fires for the automatic right-click open AND the
+    /// code-driven left-click open, which is why the fix lives here and not in AddTile_Click.
+    /// </summary>
+    private void AddTileMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (sender is ContextMenu menu) menu.DataContext = DataContext;
     }
 
     /// <summary>
@@ -308,6 +327,12 @@ public partial class PanelWindow : Window
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
+        // Internal reorder drags (tile/chip) carry their own formats and already set their own
+        // effect in the tile/chip handlers. This window-level handler sits ABOVE them on the
+        // bubble route, so it must not overwrite their effect - doing so forced None and refused
+        // every internal drop (the 2026-11-23 "all four drags dead" bug).
+        if (e.DataTransfer.Contains(ItemIdFormat) || e.DataTransfer.Contains(TabIdFormat)) return;
+
         // Files by storage item, text by format probe - the DataTransfer replacements for
         // DataFormats.Files/Text + IDataObject.Contains.
         var hasPayload = e.DataTransfer.TryGetFiles() is not null
@@ -383,7 +408,13 @@ public partial class PanelWindow : Window
         // tile is refused by IsAddTile - both fall through to the clearing default, which is
         // exactly right: neither is draggable.
         var point = e.GetPosition(this);
-        switch (DragButtonFrom(e.Source))
+        var hit = DragButtonFrom(e.Source);
+        DiagnosticsLog.Line("drag", "press source=" + (e.Source?.GetType().Name ?? "null")
+            + " hit=" + (hit is null ? "none"
+                : hit.Tag is ItemViewModel it ? "tile:" + it.Id
+                : hit.Tag is TabViewModel tt ? "tab:" + tt.Id
+                : "other"));
+        switch (hit)
         {
             case Button { Tag: ItemViewModel { IsAddTile: false } tile }:
                 _dragTab = null;
