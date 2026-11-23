@@ -201,7 +201,9 @@ public partial class PanelWindow : Window
 
     private void TabChip_DragOver(object? sender, DragEventArgs e)
     {
-        e.DragEffects = e.DataTransfer.Contains(ItemIdFormat)
+        // A chip accepts an incoming item (move it into this category) and an incoming chip
+        // (reorder the strip). Two formats, one drop target.
+        e.DragEffects = e.DataTransfer.Contains(ItemIdFormat) || e.DataTransfer.Contains(TabIdFormat)
             ? DragDropEffects.Move : DragDropEffects.None;
     }
 
@@ -210,12 +212,108 @@ public partial class PanelWindow : Window
     {
         if (DataContext is not PanelViewModel vm) return;
         if (sender is not Button { Tag: TabViewModel tab }) return;
+
+        // Chip onto chip: the target IS the destination slot (projection order, placeholder
+        // never appears here - the tab strip has no sentinel).
+        var draggedTab = e.DataTransfer.TryGetValue(TabIdFormat);
+        if (!string.IsNullOrEmpty(draggedTab))
+        {
+            var target = vm.Tabs.ToList().FindIndex(t => t.Id == tab.Id);
+            if (target >= 0) vm.MoveTabToIndex(draggedTab!, target);
+            e.Handled = true;
+            return;
+        }
+
         // TryGetValue returns the value or null - the DataTransfer idiom, not a bool + out.
         var itemId = e.DataTransfer.TryGetValue(ItemIdFormat);
         if (string.IsNullOrEmpty(itemId)) return;
 
         vm.MoveItemToTab(itemId, tab.Id);
         e.Handled = true;
+    }
+
+    // ---- category reorder by dragging a chip onto a chip ----
+
+    private TabViewModel? _dragTab;
+    private Point _dragTabOrigin;
+
+    /// <summary>Remember which chip a press started on, in case it becomes a drag.</summary>
+    private void TabChip_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Button { Tag: TabViewModel tab }) { _dragTab = null; return; }
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) { _dragTab = null; return; }
+
+        _dragTab = tab;
+        _dragTabOrigin = e.GetPosition(this);
+    }
+
+    /// <summary>
+    /// Start a chip drag past the threshold - the same 8 px rule as tiles, so a normal click
+    /// still selects the category instead of starting a drag.
+    /// </summary>
+    private async void TabChip_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_dragTab is null) return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) { _dragTab = null; return; }
+
+        var now = e.GetPosition(this);
+        if (Math.Abs(now.X - _dragTabOrigin.X) + Math.Abs(now.Y - _dragTabOrigin.Y) < 8) return;
+
+        var tab = _dragTab;
+        _dragTab = null;   // one drag per press
+
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(TabIdFormat, tab.Id));
+        await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
+    }
+
+    // ---- item reorder by dragging a tile onto a tile ----
+
+    /// <summary>A tile accepts another tile (reorder inside the category) only.</summary>
+    private void Tile_DragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = e.DataTransfer.Contains(ItemIdFormat)
+            ? DragDropEffects.Move : DragDropEffects.None;
+    }
+
+    /// <summary>Drop onto a real tile: the dragged item takes this tile's slot.</summary>
+    private void Tile_Drop(object? sender, DragEventArgs e)
+    {
+        if (DataContext is not PanelViewModel vm) return;
+        if (sender is not Button { Tag: ItemViewModel target }) return;
+        if (target.IsAddTile) return;   // the placeholder handles its own drop
+
+        var itemId = e.DataTransfer.TryGetValue(ItemIdFormat);
+        if (string.IsNullOrEmpty(itemId)) return;
+
+        vm.MoveItemToIndex(itemId, vm.Items.IndexOf(target));
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Drop onto the placeholder: "move to the end". The sentinel sits at Items.Count - 1, so
+    /// its own index is exactly the last data slot - which is also why the placeholder can never
+    /// be displaced: it is not draggable, and every end-destination lands on it.
+    /// </summary>
+    private void AddTile_Drop(object? sender, DragEventArgs e)
+    {
+        if (DataContext is not PanelViewModel vm) return;
+
+        var itemId = e.DataTransfer.TryGetValue(ItemIdFormat);
+        if (string.IsNullOrEmpty(itemId)) return;
+
+        vm.MoveItemToIndex(itemId, vm.Items.Count - 1);
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// The placeholder's gesture is its menu. A ContextMenu opens on right-click by itself;
+    /// the left click that the button reports must open the same menu explicitly.
+    /// </summary>
+    private void AddTile_Click(object? sender, RoutedEventArgs e)
+    {
+        // IsOpen has a protected setter; Open() is the public door.
+        if (sender is Button { ContextMenu: { } menu }) menu.Open();
     }
 
     /// <summary>
@@ -225,6 +323,10 @@ public partial class PanelWindow : Window
     /// </summary>
     private static readonly DataFormat<string> ItemIdFormat =
         DataFormat.CreateStringApplicationFormat("galah.item-id");
+
+    /// <summary>The custom drag format for category reorder (chip onto chip). Same rules.</summary>
+    private static readonly DataFormat<string> TabIdFormat =
+        DataFormat.CreateStringApplicationFormat("galah.tab-id");
 
     /// <summary>Single click. In double-click mode this only selects the tile.</summary>
     private void Tile_Click(object? sender, RoutedEventArgs e)

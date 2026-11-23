@@ -491,6 +491,26 @@ public sealed class PanelViewModel : ObservableObject
         CheckSaveState();
     }
 
+    /// <summary>
+    /// Reorder inside the current category (drag a tile onto another tile). The display
+    /// projection keeps real items first and the placeholder last, so a projection index is a
+    /// data index - except for the placeholder itself, which the store refuses by id anyway.
+    /// </summary>
+    public void MoveItemToIndex(string itemId, int targetIndex)
+    {
+        if (!_catalog.MoveItemToIndex(itemId, targetIndex)) return;
+        Refresh();
+        CheckSaveState();
+    }
+
+    /// <summary>Reorder the strip (drag a chip onto another chip: the target IS the slot).</summary>
+    public void MoveTabToIndex(string tabId, int targetIndex)
+    {
+        if (!_catalog.MoveTabToIndex(tabId, targetIndex)) return;
+        Refresh();
+        CheckSaveState();
+    }
+
     private void MoveTab(TabViewModel? tab, int delta)
     {
         if (tab is null) return;

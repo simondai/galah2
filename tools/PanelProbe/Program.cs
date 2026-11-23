@@ -2,6 +2,7 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Galah2.Models;
@@ -187,6 +188,50 @@ internal static class Program
             emptyTab is not null && emptyTab.Items.Count == 0,
             emptyTab?.Items.Count.ToString() ?? "tab missing");
 
+        // ---- drag reorder: chips onto chips, tiles onto tiles (2026-11-23) ----
+        vm.SelectTabByIndex(vm.Tabs.ToList().FindIndex(t => t.Name == "测试分类") + 1);
+
+        // The store refuses the sentinel by id: it can never become a data entry.
+        Check("sentinel cannot be reordered in the store",
+            !store.MoveItemToIndex("add-tile", 0));
+
+        // Tile onto tile: last item takes the first slot, orders stay 0..n-1, one write.
+        var names0 = vm.Items.Where(i => !i.IsAddTile).Select(i => i.Name).ToList();
+        var lastId = names0.Count > 1 ? vm.Items[^2].Id : null;   // last real item
+        if (lastId is not null)
+        {
+            vm.MoveItemToIndex(lastId, 0);
+            var names1 = vm.Items.Where(i => !i.IsAddTile).Select(i => i.Name).ToList();
+            Check("tile drag moves to the target slot",
+                names1[0] == names0[^1] && names1.Count == names0.Count,
+                string.Join(",", names1));
+            Check("orders renumber densely",
+                store.Current.ItemsInOrder(store.Current.FindTab(vm.SelectedTab!.Id)!)
+                    .Select((it, k) => it.Order == k).All(ok => ok));
+            Check("placeholder still ends the grid after a reorder", vm.Items.Last().IsAddTile);
+
+            // Move it back so later blocks see the original order.
+            vm.MoveItemToIndex(lastId, names0.Count - 1);
+        }
+
+        // Chip onto chip: the target IS the slot.
+        var tabNames0 = vm.Tabs.Select(t => t.Name).ToList();
+        var tailTab = vm.Tabs.Last();
+        vm.MoveTabToIndex(tailTab.Id, 0);
+        var tabNames1 = vm.Tabs.Select(t => t.Name).ToList();
+        Check("chip drag moves to the target slot",
+            tabNames1[0] == tabNames0[^1] && tabNames1.Count == tabNames0.Count,
+            string.Join(",", tabNames1));
+        Check("tab orders renumber densely",
+            store.Current.TabsInOrder().Select((t, k) => t.Order == k).All(ok => ok));
+        vm.MoveTabToIndex(tailTab.Id, tabNames0.Count - 1);   // restore
+        Check("chip drag restores", vm.Tabs.Select(t => t.Name).ToList().SequenceEqual(tabNames0));
+
+        // A no-op move writes nothing (same index).
+        var before = File.ReadAllText(paths.CatalogFile);
+        vm.MoveTabToIndex(vm.Tabs[1].Id, 1);
+        Check("no-op tab move writes nothing", File.ReadAllText(paths.CatalogFile) == before);
+
         // ---- settings and maintenance routing ----
         vm.ShowSettingsCommand.Execute(null);
         Check("settings routed", host.SettingsCalled);
@@ -264,9 +309,24 @@ internal static class Program
             addTiles.Count + " add-tile(s)");
         Check("placeholder tile is the last cell",
             addTiles.Count == 1 && ReferenceEquals(visibleTiles.Last(), addTiles[0]));
-        Check("placeholder tile opens a menu, not a launch",
-            addTiles.Count == 1 && addTiles[0].Flyout is MenuFlyout mf && mf.Items.Count == 4,
-            addTiles.FirstOrDefault()?.Flyout?.GetType().Name ?? "no flyout");
+        // The placeholder's menu must be a ContextMenu, not a MenuFlyout: flyout items are not
+        // in the logical tree, $parent[ItemsControl] fails there, and MenuItem greys the row
+        // out on the binding error (Avalonia MenuItem.cs) - the user's grey-menu screenshot.
+        // Command RESOLUTION cannot be asserted in a probe: opening a menu without a real
+        // display never establishes the popup's logical chain, so even the shipped, hand-
+        // verified tile menus read Command=null here (measured 2026-11-23: both NULL). The
+        // structural fact that IS assertable is the host type and the four rows; resolution
+        // follows from using the identical pattern as the real tiles, and acceptance is the
+        // user's manual click.
+        var addMenu = addTiles.Count == 1 ? addTiles[0].ContextMenu : null;
+        Check("placeholder tile menu is a ContextMenu with the 4 add rows",
+            addMenu is not null && addMenu.Items.Count == 4
+            && addMenu.Items.OfType<MenuItem>().Select(mi => mi.Header as string).SequenceEqual(
+                new[] { "添加快捷方式…", "添加文件…", "添加文件夹…", "添加网址…" })
+            && addTiles[0].Flyout is null,
+            addMenu is null ? "no context menu" : addMenu.Items.Count + " row(s)");
+        Check("placeholder tile accepts a drop (move to end)",
+            addTiles.Count == 1 && DragDrop.GetAllowDrop(addTiles[0]));
         Check("real tiles keep their own context menu",
             visibleTiles.Where(b => !b.Classes.Contains("addtile"))
                 .All(b => b.ContextMenu is not null && b.ContextMenu.Items.Count == 7));

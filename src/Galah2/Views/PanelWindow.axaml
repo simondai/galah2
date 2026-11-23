@@ -90,6 +90,7 @@
                       Classes.active="{Binding IsActive}"
                       DragDrop.AllowDrop="True"
                       DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
+                      PointerPressed="TabChip_PointerPressed" PointerMoved="TabChip_PointerMoved"
                       Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
                       CommandParameter="{Binding}" />
             </DataTemplate>
@@ -129,6 +130,7 @@
                       HorizontalAlignment="Left"
                       DragDrop.AllowDrop="True"
                       DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
+                      PointerPressed="TabChip_PointerPressed" PointerMoved="TabChip_PointerMoved"
                       Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
                       CommandParameter="{Binding}" />
             </DataTemplate>
@@ -188,18 +190,26 @@
               <Panel>
               <!-- Entry point 2: the placeholder tile that always ends the grid. Its click opens
                    the same add menu as the blank-space right-click; it never launches and never
-                   starts a drag (both guarded in code). A MenuFlyout rather than a dialog so the
-                   gesture matches the ☰ chip. -->
+                   starts a drag (both guarded in code), but it does accept a drop - landing on
+                   it means "move to the end", which keeps the placeholder last by construction. -->
               <Button Classes="tile addtile" Tag="{Binding}" ToolTip.Tip="添加条目到当前分类"
-                      IsVisible="{Binding IsAddTile}" Cursor="Hand">
-                <Button.Flyout>
-                  <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                      IsVisible="{Binding IsAddTile}" Cursor="Hand"
+                      Click="AddTile_Click"
+                      DragDrop.AllowDrop="True"
+                      DragDrop.DragOver="Tile_DragOver" DragDrop.Drop="AddTile_Drop">
+                <!-- A ContextMenu, not a MenuFlyout: flyout items are not in the logical tree,
+                     so the $parent[ItemsControl] command path resolves to nothing and MenuItem
+                     greys the item out on the binding error (Avalonia MenuItem.cs: BindingError
+                     -> _commandCanExecute=false). The tile ContextMenus below prove this host
+                     works; a left click opens the same menu from code. -->
+                <Button.ContextMenu>
+                  <ContextMenu>
                     <MenuItem Header="添加快捷方式…" Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).AddPickerCommand}" />
                     <MenuItem Header="添加文件…" Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).AddFileCommand}" />
                     <MenuItem Header="添加文件夹…" Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).AddFolderCommand}" />
                     <MenuItem Header="添加网址…" Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).AddUrlCommand}" />
-                  </MenuFlyout>
-                </Button.Flyout>
+                  </ContextMenu>
+                </Button.ContextMenu>
                 <StackPanel Width="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).TileWidth}" Spacing="6">
                   <Panel Width="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).IconEdge}"
                          Height="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).IconEdge}"
@@ -221,7 +231,9 @@
               <Button Classes="tile" Tag="{Binding}" ToolTip.Tip="{Binding Name}"
                       IsVisible="{Binding !IsAddTile}"
                       Click="Tile_Click" DoubleTapped="Tile_DoubleTapped"
-                      PointerPressed="Tile_PointerPressed" PointerMoved="Tile_PointerMoved">
+                      PointerPressed="Tile_PointerPressed" PointerMoved="Tile_PointerMoved"
+                      DragDrop.AllowDrop="True"
+                      DragDrop.DragOver="Tile_DragOver" DragDrop.Drop="Tile_Drop">
                 <Button.ContextMenu>
                   <ContextMenu>
                     <MenuItem Header="打开"

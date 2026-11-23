@@ -275,6 +275,31 @@ public sealed class CatalogStore
         Commit();
     }
 
+    /// <summary>
+    /// Move a tab to an absolute position (drag a chip onto another chip: the drop target IS
+    /// the destination slot). Orders are renumbered 0..n-1 afterwards, so a long drag cannot
+    /// leave gaps or duplicates behind. Unknown ids and no-op moves write nothing.
+    /// </summary>
+    /// <param name="tabId">Tab to move.</param>
+    /// <param name="targetIndex">Destination index in the ordered list (clamped, 0-based).</param>
+    /// <returns>True when the order actually changed and the library was written.</returns>
+    public bool MoveTabToIndex(string tabId, int targetIndex)
+    {
+        var ordered = Current.TabsInOrder().ToList();
+        var from = ordered.FindIndex(t => t.Id == tabId);
+        if (from < 0) return false;
+
+        var to = Math.Min(Math.Max(targetIndex, 0), ordered.Count - 1);
+        if (to == from) return false;
+
+        var moved = ordered[from];
+        ordered.RemoveAt(from);
+        ordered.Insert(to, moved);
+        for (var i = 0; i < ordered.Count; i++) ordered[i].Order = i;
+        Commit();
+        return true;
+    }
+
     /// <summary>Number of items in a tab (used by the delete-confirmation text).</summary>
     public int CountItems(string tabId) => Current.FindTab(tabId)?.Items.Count ?? 0;
 
