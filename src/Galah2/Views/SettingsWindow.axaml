@@ -83,6 +83,8 @@
           </Grid>
           <CheckBox IsChecked="{Binding HideOnLaunch, Mode=TwoWay}" Content="启动条目后收起面板" />
           <CheckBox IsChecked="{Binding HideOnBlur, Mode=TwoWay}" Content="面板失焦时自动收起" />
+          <CheckBox IsChecked="{Binding ShowAddTile, Mode=TwoWay}"
+                    Content="显示“添加”占位磁贴（分类末尾）" />
           <CheckBox IsChecked="{Binding WheelSwitchTab, Mode=TwoWay}" Content="滚轮切换分类" />
           <CheckBox IsChecked="{Binding NumberKeysSwitchTab, Mode=TwoWay}" Content="Ctrl+数字切换分类" />
         </StackPanel>

@@ -96,8 +96,16 @@ internal static class Program
         // empty default one created by a fresh store.
         var testTabIndex = vm.Tabs.ToList().FindIndex(t => t.Name == "测试分类");
         vm.SelectTabByIndex(testTabIndex + 1);
-        // Items is the display projection and always ends with the add-entry placeholder, so the
-        // entry count is asserted over the real items, not the raw list length.
+
+        // ---- the add placeholder is opt-in (2026-11-23 setting, default OFF) ----
+        Check("add placeholder is OFF by default",
+            vm.Items.Count == 2 && vm.Items.All(i => !i.IsAddTile), vm.Items.Count + " cell(s)");
+        vm.ApplySettings(new SettingsDocument { ShowAddTile = true });
+        Check("switching ON adds the placeholder live",
+            vm.Items.Count == 3 && vm.Items.Last().IsAddTile, vm.Items.Count + " cell(s)");
+
+        // Items is the display projection; with the setting on it ends with the placeholder, so
+        // the entry count is asserted over the real items, not the raw list length.
         Check("items projected", vm.Items.Count(i => !i.IsAddTile) == 2,
             vm.Items.Count(i => !i.IsAddTile) + " item(s)");
         Check("placeholder ends the grid", vm.Items.Last().IsAddTile);
@@ -125,7 +133,7 @@ internal static class Program
         Check("launch reached the host", host.LaunchCount == 1, host.LaunchCount + " call(s)");
         Check("panel hid after launch", host.HideCalled);
 
-        vm.ApplySettings(new SettingsDocument { HideOnLaunch = false });
+        vm.ApplySettings(new SettingsDocument { HideOnLaunch = false, ShowAddTile = true });
         host.HideCalled = false;
         vm.LaunchTile(vm.Items[0]);
         Check("hide-on-launch off keeps panel", !host.HideCalled);
@@ -254,7 +262,7 @@ internal static class Program
         // Back to the tab that has items - by NAME, because creating and deleting categories in
         // the blocks above shifted the indexes that testTabIndex was captured from.
         vm.SelectTabByIndex(vm.Tabs.ToList().FindIndex(t => t.Name == "测试分类") + 1);
-        vm.ApplySettings(new SettingsDocument { ClickMode = ClickModes.Double, HideOnLaunch = false });
+        vm.ApplySettings(new SettingsDocument { ClickMode = ClickModes.Double, HideOnLaunch = false, ShowAddTile = true });
         var clickedTile = vm.Items[0];
         var launchedBefore = host.LaunchCount;
         vm.LaunchTile(clickedTile, clickCount: 1);
@@ -263,7 +271,7 @@ internal static class Program
         vm.LaunchTile(clickedTile, clickCount: 2);
         Check("double click launches in double mode", host.LaunchCount == launchedBefore + 1);
 
-        vm.ApplySettings(new SettingsDocument { ClickMode = ClickModes.Single, HideOnLaunch = false });
+        vm.ApplySettings(new SettingsDocument { ClickMode = ClickModes.Single, HideOnLaunch = false, ShowAddTile = true });
         launchedBefore = host.LaunchCount;
         vm.LaunchTile(clickedTile, clickCount: 1);
         Check("single click launches in single mode", host.LaunchCount == launchedBefore + 1);
@@ -271,7 +279,7 @@ internal static class Program
         // ---- material and blur flags reach the view model ----
         vm.ApplySettings(new SettingsDocument
         {
-            PanelMaterial = PanelMaterials.Translucent, HideOnBlur = true
+            PanelMaterial = PanelMaterials.Translucent, HideOnBlur = true, ShowAddTile = true
         });
         Check("material reaches the panel", vm.PanelMaterial == PanelMaterials.Translucent,
             vm.PanelMaterial);
@@ -336,6 +344,22 @@ internal static class Program
         Check("blank-space context menu present",
             scroll?.ContextMenu is not null && scroll.ContextMenu.Items.Count == 4,
             scroll?.ContextMenu is null ? "no context menu" : scroll.ContextMenu.Items.Count + " item(s)");
+
+        // Switching the setting OFF removes the placeholder from the live grid, and the
+        // blank-space menu survives it (it is an independent entry point).
+        vm.ApplySettings(new SettingsDocument { ShowAddTile = false });
+        for (var i = 0; i < 20; i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(100);
+            if (!window.GetVisualDescendants().OfType<Button>()
+                    .Any(b => b.Classes.Contains("addtile") && b.IsVisible)) break;
+        }
+        Check("switching OFF removes the placeholder from the grid",
+            !window.GetVisualDescendants().OfType<Button>()
+                .Any(b => b.Classes.Contains("addtile") && b.IsVisible));
+        Check("blank-space menu survives the switch",
+            scroll?.ContextMenu is not null && scroll.ContextMenu.Items.Count == 4);
 
         // ---- new-category chip on the strip (1.x parity) ----
         // The + lives on the strip itself, not only in the context menu. It must be present in

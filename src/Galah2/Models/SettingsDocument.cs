@@ -59,6 +59,14 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
     [JsonPropertyName("hideOnBlur")]
     public bool HideOnBlur { get; set; }
 
+    /// <summary>
+    /// Show the dashed "add" placeholder tile at the end of every category grid. Default OFF:
+    /// the grid ends with the real entries, and adding goes through the blank-space right-click
+    /// or the ☰ menu. Absent in older files deserializes to false, which is the intended default.
+    /// </summary>
+    [JsonPropertyName("showAddTile")]
+    public bool ShowAddTile { get; set; }
+
     [JsonPropertyName("language")]
     public string Language { get; set; } = "zh-CN";
 

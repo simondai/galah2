@@ -314,9 +314,10 @@ public sealed class PanelViewModel : ObservableObject
             foreach (var item in _catalog.Current.ItemsInOrder(source))
                 Items.Add(new ItemViewModel(item, _iconEdge));
 
-        // The add-entry placeholder is always the last cell, in an empty category too: a fresh
-        // category must be fillable without routing through the ☰ menu first.
-        Items.Add(ItemViewModel.AddTile());
+        // The add-entry placeholder is the last cell when the setting asks for it, in an empty
+        // category too. With the setting off (the default) the grid ends with the real entries
+        // and adding goes through the blank-space right-click or the ☰ menu.
+        if (_showAddTile) Items.Add(ItemViewModel.AddTile());
     }
 
     /// <summary>
@@ -365,12 +366,22 @@ public sealed class PanelViewModel : ObservableObject
         _wheelSwitchTab = settings.WheelSwitchTab;
         _numberKeysSwitchTab = settings.NumberKeysSwitchTab;
 
+        // Toggling the placeholder changes the projection, not just a flag: re-project so the
+        // grid gains or loses its last cell immediately, without reopening the panel.
+        var addTileChanged = _showAddTile != settings.ShowAddTile;
+        _showAddTile = settings.ShowAddTile;
+        if (addTileChanged) SelectTab(_selectedTab);
+
         foreach (var n in new[]
                  {
                      nameof(HideOnBlur), nameof(PanelMaterial),
                      nameof(WheelSwitchTab), nameof(NumberKeysSwitchTab)
                  }) Raise(n);
     }
+
+    /// <summary>Whether the grid ends with the dashed add placeholder (settings-driven).</summary>
+    public bool ShowAddTile => _showAddTile;
+    private bool _showAddTile;
 
     /// <summary>Current click semantics ("single" | "double").</summary>
     public string ClickMode => _clickMode;

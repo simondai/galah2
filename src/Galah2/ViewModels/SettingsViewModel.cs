@@ -204,6 +204,14 @@ public sealed class SettingsViewModel : ObservableObject
         set { if (Set(ref _hideOnBlur, value)) { _store.Current.HideOnBlur = value; Commit(); } }
     }
 
+    /// <summary>Show the dashed add placeholder tile at the end of each category grid.</summary>
+    public bool ShowAddTile
+    {
+        get => _showAddTile;
+        set { if (Set(ref _showAddTile, value)) { _store.Current.ShowAddTile = value; Commit(); } }
+    }
+    private bool _showAddTile;
+
     /// <summary>
     /// Autostart writes the HKCU Run value, not just the preference. A checkbox that only
     /// remembered a flag and never touched the registry would look right and do nothing.
@@ -300,6 +308,7 @@ public sealed class SettingsViewModel : ObservableObject
         };
         _hideOnLaunch = s.HideOnLaunch;
         _hideOnBlur = s.HideOnBlur;
+        _showAddTile = s.ShowAddTile;
         _wheelSwitchTab = s.WheelSwitchTab;
         _numberKeysSwitchTab = s.NumberKeysSwitchTab;
 
