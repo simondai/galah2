@@ -72,15 +72,21 @@ internal static class Program
             // configured material. Assert the record exists, not that it says "Mica": a fresh data
             // folder defaults to material=none, and pinning the string made this fail on CI while
             // passing locally with a hand-edited settings.json.
+            // The line is written in PanelWindow.OnOpened, which fires AFTER the HWND becomes
+            // visible - so a single read right after WaitForPanel can lose the race on a slow
+            // AOT cold start. Poll for the line instead of snapshotting once.
             var log = Path.Combine(dir, "GalahData", "galah.log");
-            if (File.Exists(log))
+            string? line = null;
+            for (var i = 0; i < 30; i++)
             {
-                var text = File.ReadAllText(log);
-                var line = text.Split('\n').FirstOrDefault(l => l.Contains("[material]"));
-                Check("panel logged its actual material", line is not null,
-                    line?.Trim() ?? "no [material] line");
+                if (File.Exists(log))
+                {
+                    line = File.ReadAllText(log).Split('\n').FirstOrDefault(l => l.Contains("[material]"));
+                    if (line is not null) break;
+                }
+                Thread.Sleep(200);
             }
-            else Check("panel logged its actual material", false, "no log file");
+            Check("panel logged its actual material", line is not null, line?.Trim() ?? "no [material] line");
 
             // ---- 5. closing the panel only hides it - the app stays resident ----
             // This is the 1.x contract, and its opposite was a real bug once: a panel that closed
