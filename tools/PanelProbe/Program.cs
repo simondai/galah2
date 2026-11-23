@@ -258,6 +258,16 @@ internal static class Program
         Check("small icon edge", vm.IconEdge == IconSizes.IconEdge(IconSizes.Small),
             vm.IconEdge.ToString());
 
+        // ---- category chip label size (2026-11-23 setting, three steps, no free-form) ----
+        Check("chip font defaults to the shipped 12 DIP", vm.ChipFontSize == ChipFontSizes.FontSize(ChipFontSizes.Medium),
+            vm.ChipFontSize.ToString());
+        vm.ApplyLayout(new SettingsDocument { TabFontSize = ChipFontSizes.Large });
+        Check("large chip font step", vm.ChipFontSize == 14, vm.ChipFontSize.ToString());
+        vm.ApplyLayout(new SettingsDocument { TabFontSize = ChipFontSizes.Small });
+        Check("small chip font step", vm.ChipFontSize == 11, vm.ChipFontSize.ToString());
+        vm.ApplyLayout(new SettingsDocument());
+        Check("chip font back to default", vm.ChipFontSize == 12, vm.ChipFontSize.ToString());
+
         // ---- click mode decides whether a single click acts ----
         // Back to the tab that has items - by NAME, because creating and deleting categories in
         // the blocks above shifted the indexes that testTabIndex was captured from.
@@ -360,6 +370,21 @@ internal static class Program
                 .Any(b => b.Classes.Contains("addtile") && b.IsVisible));
         Check("blank-space menu survives the switch",
             scroll?.ContextMenu is not null && scroll.ContextMenu.Items.Count == 4);
+
+        // ---- the chip label font size follows the setting in the live window ----
+        var tabChip = window.GetVisualDescendants().OfType<Button>()
+            .FirstOrDefault(b => b.Classes.Contains("chip") && b.DataContext is TabViewModel);
+        Check("category chip renders at the default 12 DIP", tabChip is not null && tabChip.FontSize == 12,
+            tabChip is null ? "no chip" : tabChip.FontSize.ToString());
+        vm.ApplyLayout(new SettingsDocument { TabFontSize = ChipFontSizes.Large });
+        for (var i = 0; i < 20; i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(100);
+            if (tabChip is null || tabChip.FontSize == 14) break;
+        }
+        Check("chip font size follows the setting live", tabChip?.FontSize == 14,
+            tabChip is null ? "no chip" : tabChip.FontSize.ToString());
 
         // ---- new-category chip on the strip (1.x parity) ----
         // The + lives on the strip itself, not only in the context menu. It must be present in

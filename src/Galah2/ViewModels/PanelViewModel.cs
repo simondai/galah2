@@ -251,9 +251,16 @@ public sealed class PanelViewModel : ObservableObject
     /// <summary>Tile width: icon plus padding, so a bigger icon never clips its label.</summary>
     public double TileWidth => Math.Max(76, IconEdge + 44);
 
+    /// <summary>Category chip label font size in DIPs (the size step resolved for layout).</summary>
+    public double ChipFontSize => ChipFontSizes.FontSize(_chipFontSize);
+    private string _chipFontSize = ChipFontSizes.Medium;
+
     /// <summary>Apply layout-affecting settings (icon size, strip position).</summary>
     public void ApplyLayout(SettingsDocument settings)
     {
+        // Font size is binding-driven, so it applies even when the tile geometry is unchanged.
+        ApplyChipFontSize(settings.TabFontSize);
+
         var edge = (int)IconSizes.IconEdge(settings.IconSize);
         var vertical = settings.TabPosition == TabPositions.Left;
 
@@ -267,6 +274,14 @@ public sealed class PanelViewModel : ObservableObject
 
         foreach (var n in new[] { nameof(IconEdge), nameof(TileWidth), nameof(IsVerticalTabs) })
             Raise(n);
+    }
+
+    /// <summary>Chip label size is binding-driven (no re-projection); just keep the step and re-raise.</summary>
+    public void ApplyChipFontSize(string size)
+    {
+        if (_chipFontSize == size) return;
+        _chipFontSize = size;
+        Raise(nameof(ChipFontSize));
     }
 
     /// <summary>Live icon-size change: rebuild tiles so each asks for the new edge length.</summary>

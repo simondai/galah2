@@ -35,6 +35,10 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
     [JsonPropertyName("tabPosition")]
     public string TabPosition { get; set; } = TabPositions.Top;
 
+    /// <summary>Category chip label size: "small" | "medium" (default, the shipped 12 DIP) | "large".</summary>
+    [JsonPropertyName("tabFontSize")]
+    public string TabFontSize { get; set; } = ChipFontSizes.Medium;
+
     /// <summary>Hide the panel after a successful launch (spec §3.3, default true per spec §9-Q1).</summary>
     [JsonPropertyName("hideOnLaunch")]
     public bool HideOnLaunch { get; set; } = true;
@@ -81,6 +85,7 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
         if (Array.IndexOf(ClickModes.All, s.ClickMode) < 0) s.ClickMode = ClickModes.Single;
         if (Array.IndexOf(IconSizes.All, s.IconSize) < 0) s.IconSize = IconSizes.Medium;
         if (Array.IndexOf(TabPositions.All, s.TabPosition) < 0) s.TabPosition = TabPositions.Top;
+        if (Array.IndexOf(ChipFontSizes.All, s.TabFontSize) < 0) s.TabFontSize = ChipFontSizes.Medium;
         if (Array.IndexOf(PanelPositions.All, s.PanelPlacement) < 0) s.PanelPlacement = PanelPositions.Remember;
         if (Array.IndexOf(PanelMaterials.All, s.PanelMaterial) < 0) s.PanelMaterial = PanelMaterials.None;
         if (string.IsNullOrWhiteSpace(s.Hotkey)) s.Hotkey = DefaultHotkey;
@@ -98,12 +103,14 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
         ClickMode = ClickMode,
         IconSize = IconSize,
         TabPosition = TabPosition,
+        TabFontSize = TabFontSize,
         PanelPlacement = PanelPlacement,
         PanelMaterial = PanelMaterial,
         WheelSwitchTab = WheelSwitchTab,
         NumberKeysSwitchTab = NumberKeysSwitchTab,
         HideOnLaunch = HideOnLaunch,
         HideOnBlur = HideOnBlur,
+        ShowAddTile = ShowAddTile,
         Language = Language,
     };
 }
@@ -147,6 +154,27 @@ public static class IconSizes
         Small => 72,
         Large => 124,
         _ => 96,
+    };
+}
+
+/// <summary>
+/// Category chip label size steps. Three steps like IconSizes, no free-form value: the strip is
+/// the panel's navigation spine and a runaway font size would break its row height. Medium is
+/// the shipped default (the global Button size of 12 DIP).
+/// </summary>
+public static class ChipFontSizes
+{
+    public const string Small = "small";
+    public const string Medium = "medium";
+    public const string Large = "large";
+    public static readonly string[] All = [Small, Medium, Large];
+
+    /// <summary>Label font size in DIPs for a step.</summary>
+    public static double FontSize(string? size) => size switch
+    {
+        Small => 11,
+        Large => 14,
+        _ => 12,
     };
 }
 

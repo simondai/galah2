@@ -85,8 +85,10 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:TabViewModel">
-              <!-- A drop target: dragging a tile onto a category moves the item there. -->
+              <!-- A drop target: dragging a tile onto a category moves the item there.
+                   FontSize follows the 分类名字号 setting (default 12 = the global Button size). -->
               <Button Classes="chip" Content="{Binding Name}" Tag="{Binding}"
+                      FontSize="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).ChipFontSize}"
                       Classes.active="{Binding IsActive}"
                       DragDrop.AllowDrop="True"
                       DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
@@ -125,6 +127,7 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:TabViewModel">
               <Button Classes="chip" Content="{Binding Name}" Tag="{Binding}"
+                      FontSize="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).ChipFontSize}"
                       Classes.active="{Binding IsActive}"
                       HorizontalAlignment="Left"
                       DragDrop.AllowDrop="True"

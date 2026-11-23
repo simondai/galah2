@@ -60,6 +60,7 @@ public sealed class SettingsViewModel : ObservableObject
     // ---- labels shown next to each combo, in the same order the index maps from ----
     public string[] ThemeOptions { get; } = ["跟随系统", "浅色", "深色"];
     public string[] IconSizeOptions { get; } = ["小", "中", "大"];
+    public string[] TabFontSizeOptions { get; } = ["小", "中", "大"];
     public string[] TabPositionOptions { get; } = ["顶部", "左侧"];
     public string[] ClickModeOptions { get; } = ["单击启动", "双击启动"];
     /// <summary>
@@ -140,6 +141,23 @@ public sealed class SettingsViewModel : ObservableObject
             Commit();
         }
     }
+
+    public int TabFontSizeIndex
+    {
+        get => _tabFontSizeIndex;
+        set
+        {
+            if (!Set(ref _tabFontSizeIndex, value)) return;
+            _store.Current.TabFontSize = value switch
+            {
+                0 => ChipFontSizes.Small,
+                2 => ChipFontSizes.Large,
+                _ => ChipFontSizes.Medium
+            };
+            Commit();
+        }
+    }
+    private int _tabFontSizeIndex;
 
     public int TabPositionIndex
     {
@@ -297,6 +315,12 @@ public sealed class SettingsViewModel : ObservableObject
             IconSizes.Large => 2,
             _ => 1
         };
+        _tabFontSizeIndex = s.TabFontSize switch
+        {
+            ChipFontSizes.Small => 0,
+            ChipFontSizes.Large => 2,
+            _ => 1
+        };
         _tabPositionIndex = s.TabPosition == TabPositions.Left ? 1 : 0;
         _clickModeIndex = s.ClickMode == ClickModes.Double ? 1 : 0;
         _materialIndex = s.PanelMaterial == PanelMaterials.Translucent ? 1 : 0;
@@ -320,7 +344,7 @@ public sealed class SettingsViewModel : ObservableObject
         foreach (var name in new[]
                  {
                      nameof(HotkeyText), nameof(HotkeyHint), nameof(ThemeIndex),
-                     nameof(IconSizeIndex), nameof(TabPositionIndex), nameof(ClickModeIndex),
+                     nameof(IconSizeIndex), nameof(TabFontSizeIndex), nameof(TabPositionIndex), nameof(ClickModeIndex),
                      nameof(MaterialIndex), nameof(PlacementIndex),
                      nameof(HideOnLaunch), nameof(HideOnBlur), nameof(AutoStart),
                      nameof(AutoStartMessage), nameof(WheelSwitchTab),
