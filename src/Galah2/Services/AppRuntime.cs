@@ -182,10 +182,14 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         // The work area is in device pixels; the window size is in DIPs. Mixing them places the
         // panel partly off-screen on any display whose scale is not 100 percent - reported as the
         // panel sliding off the screen after being summoned from the tray.
+        //
+        // Width/Height (the DIP properties), not Bounds: on the very first Show the window has
+        // never been laid out, so Bounds is 0x0 and the center/mouse maths degenerates to
+        // "top-left at the screen centre" - the first summon of a fresh install landed there.
         var scale = _panel.RenderScaling;
         var (x, y) = PanelPlacement.Resolve(
             _settings.Current.PanelPlacement, remembered, cursor, area,
-            _panel.Bounds.Width * scale, _panel.Bounds.Height * scale);
+            _panel.Width * scale, _panel.Height * scale);
 
         _panel.Position = new Avalonia.PixelPoint((int)x, (int)y);
     }

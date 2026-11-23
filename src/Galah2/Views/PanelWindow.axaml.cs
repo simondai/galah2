@@ -15,6 +15,12 @@ public partial class PanelWindow : Window
     private PixelPoint _dragWindowOrigin;
     private bool _dragging;
 
+    // Arming: the origin fields above are persistent, and a release can land on another HWND
+    // (the ☰ MenuFlyout popup) that the panel never sees. Without explicit arming, the next
+    // button-down movement would re-fire the drag from the stale origin and teleport the panel
+    // (2026-11-23: panel flew off the desktop after clicking 设置 in the menu).
+    private readonly DragArmState _arm = new();
+
     public PanelWindow()
     {
         AvaloniaXamlLoader.Load(this);
@@ -53,6 +59,9 @@ public partial class PanelWindow : Window
         // deactivate when its own context menu opens, so this is opt-in and never the default.
         Deactivated += (_, _) =>
         {
+            // A flyout or dialog taking activation ends any in-flight press, even though the
+            // release event will arrive on the popup and never here.
+            _arm.Deactivated();
             if (DataContext is PanelViewModel { HideOnBlur: true }) Hide();
         };
 
@@ -292,6 +301,7 @@ public partial class PanelWindow : Window
         _resizeOriginScreen = new Point(pt.X, pt.Y);
         _resizeWindowOrigin = Position;
         _resizeOriginalSize = new Size(Bounds.Width, Bounds.Height);
+        _arm.ArmResize();
         e.Handled = true;   // a border press resizes; tiles and the chrome drag must not act
     }
 
@@ -337,6 +347,7 @@ public partial class PanelWindow : Window
         _dragOriginScreen = new Point(pt.X, pt.Y);
         _dragWindowOrigin = Position;
         _dragging = false;
+        _arm.ArmDrag();
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
@@ -353,23 +364,48 @@ public partial class PanelWindow : Window
         {
             _dragging = false;
             _resizeEdges = 0;
+            _arm.ButtonUpMoved();
             UpdateResizeCursor(e.GetPosition(this));
             return;
         }
 
         if (!Win32.GetCursorPos(out var pt)) return;
 
-        if (_resizeEdges != 0) { ResizeTo(pt.X, pt.Y); return; }
+        // Arming, not button state, decides what this movement does. A button-down movement with
+        // no arming press is a ghost (the flyout-click case) and must never move the window.
+        if (_arm.ResizeArmed && _resizeEdges != 0) { ResizeTo(pt.X, pt.Y); return; }
+        if (!_arm.DragArmed) return;
 
         var dx = pt.X - _dragOriginScreen.X;
         var dy = pt.Y - _dragOriginScreen.Y;
         if (!_dragging && Math.Abs(dx) + Math.Abs(dy) < 4) return;   // ignore jitter
 
         _dragging = true;
-        // Clamp every step: a window dragged off-screen can be lost there, and the off-screen
-        // position would be remembered for the next summon.
-        var (x, y, _, _) = MonitorGeometry.ClampToScreens(
-            _dragWindowOrigin.X + dx, _dragWindowOrigin.Y + dy, Width, Height, RenderScaling);
+        // Clamp every step and keep the whole window inside the nearest work area: a launcher
+        // dragged off-screen is lost there, and the position would be remembered for the next
+        // summon. (The 30% rule in MonitorGeometry.ClampToScreens is for restoring saved
+        // geometry after a monitor change, not for a live drag.)
+        ClampDragPosition(_dragWindowOrigin.X + dx, _dragWindowOrigin.Y + dy);
+    }
+
+    /// <summary>Move to a device-pixel target, kept fully inside the nearest work area.</summary>
+    private void ClampDragPosition(double targetX, double targetY)
+    {
+        var scale = RenderScaling <= 0 ? 1.0 : RenderScaling;
+        var w = Width * scale;
+        var h = Height * scale;
+        var areas = MonitorGeometry.EnumerateWorkAreas();
+        var area = areas[0];
+        var cx = targetX + w / 2;
+        var cy = targetY + h / 2;
+        var best = double.MaxValue;
+        foreach (var a in areas)
+        {
+            var d = (a.CenterX - cx) * (a.CenterX - cx) + (a.CenterY - cy) * (a.CenterY - cy);
+            if (d < best) { best = d; area = a; }
+        }
+        var x = Math.Clamp(targetX, area.Left, Math.Max(area.Left, area.Right - w));
+        var y = Math.Clamp(targetY, area.Top, Math.Max(area.Top, area.Bottom - h));
         Position = new PixelPoint((int)x, (int)y);
     }
 
@@ -429,6 +465,7 @@ public partial class PanelWindow : Window
         base.OnPointerReleased(e);
         _dragging = false;
         _resizeEdges = 0;
+        _arm.Release();
         UpdateResizeCursor(e.GetPosition(this));
     }
 }
