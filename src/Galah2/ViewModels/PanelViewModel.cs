@@ -61,6 +61,27 @@ public sealed class ItemViewModel : ObservableObject
         _ = LoadIconAsync(item, iconEdge);
     }
 
+    /// <summary>
+    /// The permanent last cell of the grid: a placeholder tile that opens the add-entry menu
+    /// instead of launching anything. It belongs to the list view, not the library - Item is
+    /// null for it, so every consumer of Item must check IsAddTile first (LaunchTile does, and
+    /// the view never starts a drag from it).
+    /// </summary>
+    public static ItemViewModel AddTile() => new();
+
+    private ItemViewModel()
+    {
+        IsAddTile = true;
+        Item = null!;
+        Id = "add-tile";
+        Name = "添加";
+        Initial = "＋";
+    }
+
+    /// <summary>True for the add-entry placeholder - see the AddTile factory.</summary>
+    public bool IsAddTile { get; }
+
+    /// <summary>The library entry behind this tile. Null only when IsAddTile.</summary>
     public CatalogItem Item { get; }
     public string Id { get; }
     public string Name { get; }
@@ -289,10 +310,13 @@ public sealed class PanelViewModel : ObservableObject
 
         Items.Clear();
         var source = _catalog.Current.FindTab(tab.Id);
-        if (source is null) return;
+        if (source is not null)
+            foreach (var item in _catalog.Current.ItemsInOrder(source))
+                Items.Add(new ItemViewModel(item, _iconEdge));
 
-        foreach (var item in _catalog.Current.ItemsInOrder(source))
-            Items.Add(new ItemViewModel(item, _iconEdge));
+        // The add-entry placeholder is always the last cell, in an empty category too: a fresh
+        // category must be fillable without routing through the ☰ menu first.
+        Items.Add(ItemViewModel.AddTile());
     }
 
     /// <summary>
@@ -301,6 +325,9 @@ public sealed class PanelViewModel : ObservableObject
     /// </summary>
     public bool LaunchTile(ItemViewModel tile, int clickCount = 2)
     {
+        // The placeholder tile has no target: its gesture is the menu, never a launch.
+        if (tile.IsAddTile) return false;
+
         var wanted = ClickMode == ClickModes.Double ? 2 : 1;
         if (clickCount < wanted)
         {

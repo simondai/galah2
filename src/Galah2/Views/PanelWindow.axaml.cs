@@ -171,6 +171,8 @@ public partial class PanelWindow : Window
     private void Tile_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Button { Tag: ItemViewModel tile }) { _dragTile = null; return; }
+        // The placeholder tile has nothing to reorder; its press belongs to the flyout.
+        if (tile.IsAddTile) { _dragTile = null; return; }
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) { _dragTile = null; return; }
 
         _dragTile = tile;
