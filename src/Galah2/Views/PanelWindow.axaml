@@ -200,13 +200,13 @@
                      greys the item out on the binding error (Avalonia MenuItem.cs: BindingError
                      -> _commandCanExecute=false). The tile ContextMenus below prove this host
                      works; a left click opens the same menu from code. -->
-                <!-- Commands bind straight to the ContextMenu's own DataContext, which the
-                     Opening handler sets to the PanelViewModel. This button's DataContext is the
-                     sentinel ItemViewModel, so any binding that inherits it (or walks the popup's
-                     logical tree) resolves to nothing and MenuItem greys the row out - the exact
-                     symptom reported twice. Opening fires for BOTH the automatic right-click open
-                     and the code-driven left-click open. The blank-space menu on TileScroll proves
-                     the plain-DataContext pattern works. -->
+                <!-- Commands bind straight to the ContextMenu's own DataContext, injected as the
+                     PanelViewModel on BOTH open paths (Opening for right-click, AddTile_Click for
+                     the programmatic left-click open - Opening does not fire for Open()). This
+                     button's DataContext is the sentinel ItemViewModel, so any binding that
+                     inherits it resolves to nothing and MenuItem greys the row out - the exact
+                     symptom reported twice. The blank-space menu on TileScroll proves the plain
+                     DataContext pattern works. -->
                 <Button.ContextMenu>
                   <!-- x:DataType here is load-bearing: the template's data type is ItemViewModel,
                        so compiled bindings would resolve against the sentinel and fail to build.

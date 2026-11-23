@@ -37,14 +37,47 @@ public sealed class CatalogStore
     /// <summary>Store used by this domain (exposed for tests and for schema/refusal reporting).</summary>
     public JsonFileStore<CatalogDocument> FileStore => _store;
 
-    /// <summary>Load with the documented fallback chain. Zero writes except first-run bootstrap.</summary>
+    /// <summary>
+    /// Load with the documented fallback chain. Zero writes except the first-run bootstrap and
+    /// the one-shot duplicate-id repair (a migration, not a per-boot write).
+    /// </summary>
     public LoadOutcome<CatalogDocument> Load()
     {
         var outcome = _store.Load();
         Current = outcome.Data;
         _savePending = false;
         _lastSaveError = null;
+        RepairDuplicateIds();
         return outcome;
+    }
+
+    /// <summary>
+    /// One-shot repair for libraries written before ids were always store-assigned: entries that
+    /// share a placeholder id ("seed"/"draft") make every id-addressed operation ambiguous. Give
+    /// each duplicate a fresh id, keep the first occurrence, and persist once so the repair is
+    /// durable. A clean library costs nothing here.
+    /// </summary>
+    private void RepairDuplicateIds()
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var repaired = 0;
+        foreach (var tab in Current.Tabs)
+        {
+            foreach (var item in tab.Items)
+            {
+                if (string.IsNullOrEmpty(item.Id) || !seen.Add(item.Id))
+                {
+                    item.Id = Ids.NewItemId();
+                    repaired++;
+                }
+            }
+        }
+        if (repaired > 0)
+        {
+            DiagnosticsLog.Line("catalog", "repaired " + repaired + " duplicate/empty item id(s)");
+            try { _store.Save(Current); }
+            catch (PersistenceException) { /* memory is repaired; the banner handles the write */ }
+        }
     }
 
     /// <summary>Re-attempt the last failed commit (the "点击重试" action of the global banner).</summary>
@@ -81,7 +114,12 @@ public sealed class CatalogStore
         foreach (var draft in drafts)
         {
             var item = draft.Clone();
-            if (string.IsNullOrEmpty(item.Id)) item.Id = Ids.NewItemId();
+            // Ids are born HERE, always. Drafts arrive carrying placeholder ids ("seed" from the
+            // picker, "draft" from the edit dialog); persisting them verbatim made every entry
+            // in the library share one id, and every id-addressed operation then hit the first
+            // of them - drag reorder moved the wrong tile and looked like it did nothing.
+            // INV-7: the store is the single place an item id is created.
+            item.Id = Ids.NewItemId();
             item.Order = order++;
             tab.Items.Add(item);
             added.Add(item.Id);

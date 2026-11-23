@@ -278,21 +278,25 @@ public partial class PanelWindow : Window
     /// </summary>
     private void AddTile_Click(object? sender, RoutedEventArgs e)
     {
-        // IsOpen has a protected setter; Open() is the public door. The Opening handler (below)
-        // fixes the DataContext for this path too, so nothing else is needed here.
-        if (sender is Button { ContextMenu: { } menu }) menu.Open();
+        if (sender is not Button { ContextMenu: { } menu }) return;
+        // The programmatic Open() does NOT raise Opening (ContextMenu.cs: CancelOpening is only
+        // on the right-click path), so the DataContext must be fixed HERE as well as in Opening.
+        GiveMenuTheViewModel(menu);
+        menu.Open();   // IsOpen has a protected setter; Open() is the public door.
     }
 
     /// <summary>
     /// Give the add-menu the PanelViewModel as its DataContext. The button's own DataContext is
     /// the sentinel ItemViewModel, so the menu's command bindings would resolve to nothing and
-    /// every row would grey out. Opening fires for the automatic right-click open AND the
-    /// code-driven left-click open, which is why the fix lives here and not in AddTile_Click.
+    /// every row would grey out. Called from both open paths: Opening (right click) and
+    /// AddTile_Click (left click), because Opening alone misses the programmatic open.
     /// </summary>
     private void AddTileMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (sender is ContextMenu menu) menu.DataContext = DataContext;
+        if (sender is ContextMenu menu) GiveMenuTheViewModel(menu);
     }
+
+    private void GiveMenuTheViewModel(ContextMenu menu) => menu.DataContext = DataContext;
 
     /// <summary>
     /// The custom drag format for tile moves. Both ends of the drag share this one static
