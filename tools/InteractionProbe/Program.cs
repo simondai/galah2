@@ -184,10 +184,62 @@ internal static class Program
         Check("Ctrl+Shift+Tab wraps first -> last", ReferenceEquals(vm.SelectedTab, tab3),
             vm.SelectedTab!.Name);
 
+        // ---- 6. the drag-start routing: Button swallows the BUBBLE press, the TUNNEL sees it ----
+        //
+        // This is the root cause of the 2026-11-23 "drag reorder does nothing" report, locked in
+        // as a permanent regression. A Button's class handler marks PointerPressed handled in the
+        // BUBBLE phase (Button.cs: e.Handled = true), and the route only calls an instance
+        // handler when the event is unhandled (EventRoute.cs). So the old `PointerPressed="..."`
+        // on a tile/chip never ran - the drag origin stayed null and the drag never started.
+        // The fix captures the press in a WINDOW-LEVEL TUNNEL handler, which runs before the
+        // class handler. Raising a real press on a real tile proves both halves at once.
+        var pressPointer = MakePointer();
+        var tileBtn = window.GetVisualDescendants().OfType<Button>()
+            .First(b => b.Classes.Contains("tile") && b.IsVisible && !b.Classes.Contains("addtile"));
+        var tileLabel = tileBtn.GetVisualDescendants().OfType<TextBlock>().First();
+
+        bool bubbleOnButton = false, tunnelOnButton = false, tunnelOnWindow = false;
+        tileBtn.AddHandler(InputElement.PointerPressedEvent,
+            (object? s, PointerPressedEventArgs a) => bubbleOnButton = true,
+            RoutingStrategies.Bubble);
+        tileBtn.AddHandler(InputElement.PointerPressedEvent,
+            (object? s, PointerPressedEventArgs a) => tunnelOnButton = true,
+            RoutingStrategies.Tunnel);
+        window.AddHandler(InputElement.PointerPressedEvent,
+            (object? s, PointerPressedEventArgs a) => tunnelOnWindow = true,
+            RoutingStrategies.Tunnel);
+
+        // Raise the press from the label - the element a real hit would actually return - so the
+        // route is label -> tile Button -> ... -> window, exactly like a physical click.
+        RaisePress(pressPointer, tileLabel, window);
+        Pump();
+        Check("bubble press on a Button is swallowed (the bug)", !bubbleOnButton);
+        Check("tunnel press on the Button is seen (the fix's mechanism)", tunnelOnButton);
+        Check("window tunnel press is seen (where the fix captures it)", tunnelOnWindow);
+
+        // The pure helpers the fix relies on: walking up from the hit element to the draggable
+        // button, and the 8 px threshold that separates a click from a drag.
+        Check("DragButtonFrom walks up from the label to the tile button",
+            ReferenceEquals(PanelWindow.DragButtonFrom(tileLabel), tileBtn));
+        Check("DragButtonFrom returns null for a non-draggable element",
+            PanelWindow.DragButtonFrom(window) is null);
+        Check("a 7 px move is not a drag", !PanelWindow.PassedThreshold(new Point(0, 0), new Point(4, 3)));
+        Check("an 8 px move is a drag", PanelWindow.PassedThreshold(new Point(0, 0), new Point(4, 4)));
+
         window.Close();
         try { Directory.Delete(root, true); } catch { /* best effort */ }
         Console.WriteLine(_fail == 0 ? "=== ALL PASS ===" : "=== " + _fail + " FAILED ===");
         return _fail;
+    }
+
+    /// <summary>Raise a real left-button PointerPressed on a target, routed up to the window.</summary>
+    private static void RaisePress(IPointer pointer, Control target, Visual root)
+    {
+        var props = new PointerPointProperties(RawInputModifiers.LeftMouseButton,
+            PointerUpdateKind.LeftButtonPressed);
+        var e = new PointerPressedEventArgs(target, pointer, root, new Point(100, 100),
+            0UL, props, KeyModifiers.None, 1);
+        ((Interactive)target).RaiseEvent(e);
     }
 
     private static void Pump()

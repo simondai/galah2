@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.VisualTree;
 using Galah2.Services;
 using Galah2.Services.Interop;
 using Galah2.ViewModels;
@@ -167,36 +168,20 @@ public partial class PanelWindow : Window
     private ItemViewModel? _dragTile;
     private Point _dragTileOrigin;
 
-    /// <summary>Remember which tile a press started on, in case it becomes a drag.</summary>
-    private void Tile_PointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is not Button { Tag: ItemViewModel tile }) { _dragTile = null; return; }
-        // The placeholder tile has nothing to reorder; its press belongs to the flyout.
-        if (tile.IsAddTile) { _dragTile = null; return; }
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) { _dragTile = null; return; }
-
-        _dragTile = tile;
-        _dragTileOrigin = e.GetPosition(this);
-    }
-
     /// <summary>
-    /// Start a drag once the pointer has moved far enough to mean it. Without the threshold every
-    /// click would begin a drag and the tile could never be clicked.
+    /// A movement counts as a drag only past 8 px, so a normal click stays a click and the tile
+    /// can still be launched (1.x's SystemParameters.MinimumHorizontalDragDistance semantics).
     /// </summary>
-    private async void Tile_PointerMoved(object? sender, PointerEventArgs e)
+    public static bool PassedThreshold(Point now, Point origin) =>
+        Math.Abs(now.X - origin.X) + Math.Abs(now.Y - origin.Y) >= 8;
+
+    /// <summary>Begin one move-drag carrying the given id under the given format.</summary>
+    private async void StartMoveDrag(PointerEventArgs e, DataFormat<string> format, string id)
     {
-        if (_dragTile is null) return;
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) { _dragTile = null; return; }
-
-        var now = e.GetPosition(this);
-        if (Math.Abs(now.X - _dragTileOrigin.X) + Math.Abs(now.Y - _dragTileOrigin.Y) < 8) return;
-
-        var tile = _dragTile;
-        _dragTile = null;   // one drag per press
-
         var data = new DataTransfer();
-        data.Add(DataTransferItem.Create(ItemIdFormat, tile.Id));
-        await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
+        data.Add(DataTransferItem.Create(format, id));
+        try { await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move); }
+        catch (Exception ex) { DiagnosticsLog.Line("drag", "failed: " + ex.Message); }
     }
 
     private void TabChip_DragOver(object? sender, DragEventArgs e)
@@ -233,39 +218,13 @@ public partial class PanelWindow : Window
     }
 
     // ---- category reorder by dragging a chip onto a chip ----
+    //
+    // The press is captured in Window_PointerPressedTunnel and the drag is started in
+    // OnPointerMoved, both at the window, for the reason documented there: a Button swallows
+    // the press before any instance handler on it can see it.
 
     private TabViewModel? _dragTab;
     private Point _dragTabOrigin;
-
-    /// <summary>Remember which chip a press started on, in case it becomes a drag.</summary>
-    private void TabChip_PointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is not Button { Tag: TabViewModel tab }) { _dragTab = null; return; }
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) { _dragTab = null; return; }
-
-        _dragTab = tab;
-        _dragTabOrigin = e.GetPosition(this);
-    }
-
-    /// <summary>
-    /// Start a chip drag past the threshold - the same 8 px rule as tiles, so a normal click
-    /// still selects the category instead of starting a drag.
-    /// </summary>
-    private async void TabChip_PointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (_dragTab is null) return;
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) { _dragTab = null; return; }
-
-        var now = e.GetPosition(this);
-        if (Math.Abs(now.X - _dragTabOrigin.X) + Math.Abs(now.Y - _dragTabOrigin.Y) < 8) return;
-
-        var tab = _dragTab;
-        _dragTab = null;   // one drag per press
-
-        var data = new DataTransfer();
-        data.Add(DataTransferItem.Create(TabIdFormat, tab.Id));
-        await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
-    }
 
     // ---- item reorder by dragging a tile onto a tile ----
 
@@ -397,16 +356,68 @@ public partial class PanelWindow : Window
     private void Window_PointerPressedTunnel(object? sender, PointerPressedEventArgs e)
     {
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
-        var edges = EdgeAt(e.GetPosition(this));
-        if (edges == 0) return;
 
-        if (!Win32.GetCursorPos(out var pt)) return;
-        _resizeEdges = edges;
-        _resizeOriginScreen = new Point(pt.X, pt.Y);
-        _resizeWindowOrigin = Position;
-        _resizeOriginalSize = new Size(Bounds.Width, Bounds.Height);
-        _arm.ArmResize();
-        e.Handled = true;   // a border press resizes; tiles and the chrome drag must not act
+        var edges = EdgeAt(e.GetPosition(this));
+        if (edges != 0)
+        {
+            if (!Win32.GetCursorPos(out var pt)) return;
+            _resizeEdges = edges;
+            _resizeOriginScreen = new Point(pt.X, pt.Y);
+            _resizeWindowOrigin = Position;
+            _resizeOriginalSize = new Size(Bounds.Width, Bounds.Height);
+            _arm.ArmResize();
+            e.Handled = true;   // a border press resizes; tiles and the chrome drag must not act
+            return;
+        }
+
+        // Tile and category-chip drags START here, not on the button itself.
+        //
+        // A Button's class handler marks PointerPressed handled (Button.cs: e.Handled = true for
+        // a left press), and the route only calls an instance handler when the event is unhandled
+        // (EventRoute.cs). So `PointerPressed="..."` on a tile or a chip is dead code - the
+        // handler never runs, the drag origin stays null, and the drag can never start. The
+        // tunnel phase runs BEFORE the class handler, which is why the chrome drag and the edge
+        // resize were always registered here; the reorder gestures belong in the same place.
+        // The hit element is usually a descendant of the button (label/icon), not the button,
+        // so the lookup walks up. The round new-category chip has no Tag and the placeholder
+        // tile is refused by IsAddTile - both fall through to the clearing default, which is
+        // exactly right: neither is draggable.
+        var point = e.GetPosition(this);
+        switch (DragButtonFrom(e.Source))
+        {
+            case Button { Tag: ItemViewModel { IsAddTile: false } tile }:
+                _dragTab = null;
+                _dragTile = tile;
+                _dragTileOrigin = point;
+                return;
+
+            case Button { Tag: TabViewModel tab }:
+                _dragTile = null;
+                _dragTab = tab;
+                _dragTabOrigin = point;
+                return;
+
+            default:
+                _dragTile = null;
+                _dragTab = null;
+                return;
+        }
+    }
+
+    /// <summary>
+    /// The draggable button a press really started on. The hit element is usually a descendant
+    /// of the tile (its label TextBlock or the icon Panel), never the Button itself, so the
+    /// search walks up. public like EdgesFor: pure, no dispatcher, asserted directly by probes.
+    /// </summary>
+    public static Button? DragButtonFrom(object? source)
+    {
+        var v = source as Visual;
+        while (v is not null)
+        {
+            if (v is Button { Tag: ItemViewModel or TabViewModel } hit) return hit;
+            v = v.GetVisualParent();
+        }
+        return null;
     }
 
     private int EdgeAt(Point p) => EdgesFor(new Size(Bounds.Width, Bounds.Height), p);
@@ -468,8 +479,30 @@ public partial class PanelWindow : Window
         {
             _dragging = false;
             _resizeEdges = 0;
+            _dragTile = null;
+            _dragTab = null;
             _arm.ButtonUpMoved();
             UpdateResizeCursor(e.GetPosition(this));
+            return;
+        }
+
+        // Tile and chip reorder drags START here, at the window. The window override is the one
+        // handler guaranteed to run for every move (it is the bubble terminus and Button does not
+        // mark PointerMoved handled), and the press that armed _dragTile/_dragTab came through
+        // the tunnel phase - the only place that sees a press before Button swallows it.
+        var dragPoint = e.GetPosition(this);
+        if (_dragTile is not null && PassedThreshold(dragPoint, _dragTileOrigin))
+        {
+            var tile = _dragTile;
+            _dragTile = null;   // one drag per press
+            StartMoveDrag(e, ItemIdFormat, tile.Id);
+            return;
+        }
+        if (_dragTab is not null && PassedThreshold(dragPoint, _dragTabOrigin))
+        {
+            var tab = _dragTab;
+            _dragTab = null;
+            StartMoveDrag(e, TabIdFormat, tab.Id);
             return;
         }
 
