@@ -9,4 +9,9 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Galah2/Galah2.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- A real icon for the tray-menu section: TrayService builds a Bitmap from a stream, and a
+         hand-rolled 1x1 PNG kept failing the decoder. This is the product's own app.ico. -->
+    <Content Include="app.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

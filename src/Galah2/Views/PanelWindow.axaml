@@ -21,7 +21,7 @@
       <!-- ===== custom chrome: drag area, menu, close ===== -->
       <Border DockPanel.Dock="Top" Background="{DynamicResource ElevatedBrush}" CornerRadius="10,10,0,0" Height="34"
               PointerPressed="Chrome_PointerPressed">
-        <Grid ColumnDefinitions="*,Auto,Auto">
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto">
           <!-- The corner shows the product name, not the active category: the chip row already
                says which category is open, and a title that changes with it reads like a document
                name. 1.x drew "Galah · 启动器" here for the same reason. -->
@@ -33,7 +33,17 @@
                        Foreground="{DynamicResource TextFaintBrush}" />
           </StackPanel>
 
-          <Button Grid.Column="1" Classes="chip" Content="☰" FontSize="15" Padding="8,0"
+          <!-- RandPass one-click entry (spec 2026-11-24-randpass): a vector keyhole - a Path,
+               not a font glyph, so it renders identically on every machine and themes with the
+               text brushes. Sits left of the ☰ menu; the menu keeps a RandPass row too. -->
+          <Button Grid.Column="1" Classes="chip" Padding="6,0" VerticalAlignment="Center"
+                  ToolTip.Tip="RandPass 密码生成"
+                  Command="{Binding ShowRandPassCommand}">
+            <Path Width="11" Height="13" Stretch="Uniform"
+                  Fill="{DynamicResource TextMutedBrush}"
+                  Data="M 5.5 0.6 A 3.2 3.2 0 1 1 5.49 0.6 Z M 4.1 4.9 L 6.9 4.9 L 8.6 12.4 L 2.4 12.4 Z" />
+          </Button>
+          <Button Grid.Column="2" Classes="chip" Content="☰" FontSize="15" Padding="8,0"
                   VerticalAlignment="Center">
             <Button.Flyout>
               <MenuFlyout Placement="BottomEdgeAlignedRight">
@@ -47,6 +57,7 @@
                 <MenuItem Header="删除分类" Command="{Binding DeleteTabCommand}" />
                 <Separator />
                 <MenuItem Header="维护与迁移…" Command="{Binding ShowMaintenanceCommand}" />
+                <MenuItem Header="RandPass" Command="{Binding ShowRandPassCommand}" />
                 <MenuItem Header="设置…" Command="{Binding ShowSettingsCommand}" />
                 <Separator />
                 <MenuItem Header="收起面板" Command="{Binding HideCommand}" />
@@ -55,7 +66,7 @@
             </Button.Flyout>
           </Button>
 
-          <Button Grid.Column="2" Classes="chip" Content="✕" FontSize="13" Padding="8,0"
+          <Button Grid.Column="3" Classes="chip" Content="✕" FontSize="13" Padding="8,0"
                   VerticalAlignment="Center" Margin="2,0,6,0"
                   Command="{Binding HideCommand}" />
         </Grid>

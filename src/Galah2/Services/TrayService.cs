@@ -18,14 +18,17 @@ public sealed class TrayService : IDisposable
 {
     private readonly TrayIcon _icon;
 
-    public TrayService(Stream iconStream, Action onActivate, Action onSettings, Action onExit)
+    /// <summary>The native tray icon (probe hook: the menu rows are asserted through it).</summary>
+    public TrayIcon Icon => _icon;
+
+    public TrayService(Stream iconStream, Action onActivate, Action onSettings, Action onRandPass, Action onExit)
     {
         _icon = new TrayIcon
         {
             Icon = new WindowIcon(new Bitmap(iconStream)),
             IsVisible = true,
             ToolTipText = "Galah",
-            Menu = BuildMenu(onSettings, onExit)
+            Menu = BuildMenu(onSettings, onRandPass, onExit)
         };
         _icon.Clicked += (_, _) => onActivate();
 
@@ -33,13 +36,19 @@ public sealed class TrayService : IDisposable
             TrayIcon.SetIcons(Application.Current, new TrayIcons { _icon });
     }
 
-    private static NativeMenu BuildMenu(Action onSettings, Action onExit)
+    private static NativeMenu BuildMenu(Action onSettings, Action onRandPass, Action onExit)
     {
         var menu = new NativeMenu();
 
         var settings = new NativeMenuItem("设置…");
         settings.Click += (_, _) => onSettings();
         menu.Items.Add(settings);
+
+        // RandPass generator entry (spec 2026-11-24-randpass) - the third of the three entries,
+        // beside the panel's ☰ menu row and the title-bar keyhole.
+        var randpass = new NativeMenuItem("RandPass");
+        randpass.Click += (_, _) => onRandPass();
+        menu.Items.Add(randpass);
 
         menu.Items.Add(new NativeMenuItemSeparator());
 

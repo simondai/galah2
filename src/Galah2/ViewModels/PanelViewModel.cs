@@ -31,6 +31,9 @@ public interface IPanelHost
     /// <summary>Open the maintenance window.</summary>
     void ShowMaintenance();
 
+    /// <summary>Open the RandPass generator (activate it if already open).</summary>
+    void ShowRandPass();
+
     /// <summary>Open settings.</summary>
     void ShowSettings();
 
@@ -210,6 +213,7 @@ public sealed class PanelViewModel : ObservableObject
         RetrySaveCommand = new RelayCommand(RetrySave);
         ShowSettingsCommand = new RelayCommand(() => _host.ShowSettings());
         ShowMaintenanceCommand = new RelayCommand(() => _host.ShowMaintenance());
+        ShowRandPassCommand = new RelayCommand(() => _host.ShowRandPass());
         HideCommand = new RelayCommand(() => _host.HidePanel());
         ExitCommand = new RelayCommand(() => ExitRequested?.Invoke());
 
@@ -253,6 +257,7 @@ public sealed class PanelViewModel : ObservableObject
     public ICommand RetrySaveCommand { get; }
     public ICommand ShowSettingsCommand { get; }
     public ICommand ShowMaintenanceCommand { get; }
+    public ICommand ShowRandPassCommand { get; }
     public ICommand HideCommand { get; }
     public ICommand ExitCommand { get; }
 

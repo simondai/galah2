@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Galah2.Persistence;
+using Galah2.ViewModels;
 using Galah2.Views;
 
 /// <summary>
@@ -161,7 +163,118 @@ internal static class Program
         Pump();
         Check("chrome close settles as dismiss", chromeCloseResult == false,
             chromeCloseResult?.ToString() ?? "no callback");
+
+        // ---- RandPass generator window (spec 2026-11-24-randpass) ----
+        // Structure + generation + the single-commit-on-close rule. A real double-tap copy needs
+        // synthetic pointer input (unavailable in-process), so the copy path is asserted at the
+        // MarkCopied contract level, same class of limitation as the earlier menu acceptances.
+        var rpRoot = Path.Combine(Path.GetTempPath(), "randpassprobe-" + Guid.NewGuid().ToString("N")[..8]);
+        var rpStore = new SettingsStore(new AppDataPaths(rpRoot).EnsureCreated());
+        var rpVm = new RandPassViewModel(rpStore);
+        var rp = new RandPassWindow { DataContext = rpVm };
+        rp.Show();
+        Pump();
+
+        Check("RandPass window is open", FindWindow<RandPassWindow>() is not null);
+        Check("RandPass window is borderless", rp.SystemDecorations == SystemDecorations.None);
+        var rpSurfaceOk = rp.TryFindResource("DialogSurfaceBrush", out var rpRes);
+        var rpRootBorder = rp.FindControl<Border>("RootBorder");
+        var rpSurface = rpRes as Avalonia.Media.IBrush;
+        Check("RandPass surface is the dialog fill on RootBorder",
+            rpSurfaceOk && rpSurface is not null && rpRootBorder is not null
+            && ReferenceEquals(rpRootBorder.Background, rpSurface));
+
+        var rpSpinners = rp.GetVisualDescendantsOfType<NumericUpDown>().ToList();
+        Check("RandPass has length+count spinners", rpSpinners.Count == 2, rpSpinners.Count + "");
+        // Spinner round-trip: the length control is a decimal and the property an int - the
+        // two-way binding must carry an edited value into the property and on into generation.
+        if (rpSpinners.Count == 2)
+        {
+            rpSpinners[0].Value = 24; // length (the first spinner in the left column)
+            Pump();
+            Check("length spinner writes back to the property", rpVm.Length == 24, rpVm.Length + "");
+            rpVm.Generate();
+            Pump();
+            Check("generation honors the edited length", rpVm.Results.All(r => r.Length == 24),
+                rpVm.Results.Count > 0 ? rpVm.Results[0].Length + " chars" : "empty");
+            rpSpinners[0].Value = 14; // restore the screenshot default
+            Pump();
+        }
+        var rpBoxes = rp.GetVisualDescendantsOfType<CheckBox>().ToList();
+        // Seven: lower/upper/digits/double-digit/no-confusables/custom-chars/custom-format.
+        Check("RandPass has the seven parameter checkboxes", rpBoxes.Count == 7, rpBoxes.Count + "");
+        var rpCombos = rp.GetVisualDescendantsOfType<ComboBox>().ToList();
+        Check("RandPass format combo offers exactly the two presets",
+            rpCombos.Count == 1 && rpCombos[0].Items.Count == 2,
+            rpCombos.Count + "/" + (rpCombos.Count > 0 ? rpCombos[0].Items.Count : 0) + "");
+        Check("RandPass combo presets are the spec two",
+            rpCombos.Count == 1 && rpCombos[0].Items.Cast<object>().SequenceEqual(
+                new object[] { "4-*-4", "2-*-4-*-2" }));
+
+        Check("RandPass loads the screenshot defaults",
+            rpVm.Length == 14 && rpVm.Count == 14 && rpVm.Lower && rpVm.Upper && rpVm.Digits
+            && rpVm.DoubleDigits && rpVm.NoConfusables && rpVm.CustomEnabled && !rpVm.UseFormat);
+
+        rpVm.Generate();
+        Pump();
+        var rpList = rp.FindControl<ListBox>("ResultList");
+        Check("generate fills the result list with Count rows",
+            rpVm.Results.Count == 14 && (rpList?.Items.Count ?? 0) == 14,
+            rpVm.Results.Count + "/" + (rpList?.Items.Count ?? -1) + "");
+        Check("default generation yields 14-char rows (no format)",
+            rpVm.Results.All(r => r.Length == 14));
+
+        // The custom-format switch reveals the combo and generation carries dashes.
+        rpVm.UseFormat = true;
+        rpVm.Generate();
+        Pump();
+        Check("format ON switches the output shape to 4-*-4 (16 chars, 2 dashes)",
+            rpVm.Results.All(r => r.Length == 16 && r.Count(c => c == '-') == 2),
+            rpVm.Results[0]);
+
+        // Copy contract: a successful clipboard write is reported as transient status.
+        rpVm.MarkCopied();
+        Check("MarkCopied raises the copied status", rpVm.HasCopied && rpVm.CopyStatus == "已复制");
+
+        // Closing commits the edited section exactly once.
+        rpVm.Length = 20;
+        rp.Close();
+        Pump();
+        Check("closing commits the RandPass section to settings",
+            rpStore.Current.RandPassLength == 20 && rpStore.Current.RandPassUseFormat == true,
+            rpStore.Current.RandPassLength + "/" + rpStore.Current.RandPassUseFormat);
+
+        // ---- tray menu (spec 2026-11-24-randpass entry 3) ----
+        // TrayService builds a real native tray icon, which needs the live product App this
+        // probe already configured. The menu rows are NativeMenuItems (outside any visual
+        // tree): Header + the Click contract are what a right-click user gets.
+        var trayIconFile = Path.Combine(AppContext.BaseDirectory, "app.ico");
+        using var tray = new Galah2.Services.TrayService(
+            File.OpenRead(trayIconFile),
+            onActivate: () => { },
+            onSettings: () => { },
+            onRandPass: () => { },
+            onExit: () => { });
+        // Items include a separator row; the actionable rows are the non-separator ones.
+        var trayItems = (tray.Icon.Menu?.Items.OfType<NativeMenuItem>().ToList() ?? new List<NativeMenuItem>())
+            .Where(m => m is not NativeMenuItemSeparator).ToList();
+        var trayTexts = trayItems.Select(m => m.Header).ToList();
+        Check("tray menu rows are 设置… / RandPass / 退出",
+            trayTexts.SequenceEqual(new[] { "设置…", "RandPass", "退出" }),
+            string.Join("|", trayTexts));
+        // NativeMenuItem.Click is a plain CLR event (the native menu dispatches it from the OS
+        // only), so a callback cannot be fired in-process. HasClickHandlers is the exact
+        // "is this row wired" contract - the same greyed-out-row failure mode the panel menus
+        // used to show when a row had no live command.
+        var trayRp = trayItems.FirstOrDefault(m => m.Header == "RandPass");
+        Check("tray RandPass row has a live click handler", trayRp is not null && trayRp.HasClickHandlers);
+        Check("tray 设置… row has a live click handler",
+            trayItems.FirstOrDefault(m => m.Header == "设置…")?.HasClickHandlers == true);
+        Check("tray 退出 row has a live click handler",
+            trayItems.FirstOrDefault(m => m.Header == "退出")?.HasClickHandlers == true);
     }
+
+
 
     private static void PressOk(PromptWindow window)
     {

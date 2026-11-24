@@ -157,6 +157,29 @@ internal static class Program
             Check("alt+space registers with the OS", osTookIt);
         }
 
+        // ---- RandPass section: Clone round-trip + Sanitized clamping (spec 2026-11-24-randpass) ----
+        store.Update(d =>
+        {
+            d.RandPassLength = 32;
+            d.RandPassCount = 5;
+            d.RandPassLower = false;
+            d.RandPassDoubleDigits = false;
+            d.RandPassCustomChars = "Xyz";
+            d.RandPassUseFormat = true;
+            d.RandPassFormat = "2-*-4-*-2";
+        });
+        var rpClone = store.Current.Clone();
+        Check("Clone carries the RandPass section",
+            rpClone.RandPassLength == 32 && rpClone.RandPassCount == 5 && !rpClone.RandPassLower
+            && !rpClone.RandPassDoubleDigits && rpClone.RandPassCustomChars == "Xyz"
+            && rpClone.RandPassUseFormat && rpClone.RandPassFormat == "2-*-4-*-2");
+
+        store.Update(d => { d.RandPassLength = 999; d.RandPassCount = 0; d.RandPassFormat = "bogus"; });
+        var rpSan = store.Current.Sanitized();
+        Check("Sanitized clamps the RandPass section to defaults",
+            rpSan.RandPassLength == 14 && rpSan.RandPassCount == 14 && rpSan.RandPassFormat == "4-*-4",
+            rpSan.RandPassLength + "/" + rpSan.RandPassCount + "/" + rpSan.RandPassFormat);
+
         window.Close();
         try { Directory.Delete(_root, true); } catch { }
     }

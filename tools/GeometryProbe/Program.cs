@@ -115,6 +115,7 @@ internal static class Program
         public void Prompt(string title, string initial, Action<string?> onAnswer) => onAnswer(null);
         public void Confirm(string title, string message, Action<bool> onAnswer) => onAnswer(false);
         public void ShowMaintenance() { }
+        public void ShowRandPass() { }
         public void ShowSettings() { }
         public bool Launch(CatalogItem item) => true;
         public Task<string?> PickFile(string title) => Task.FromResult<string?>(null);

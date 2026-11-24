@@ -70,7 +70,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
             ? File.OpenRead(iconPath)
             : OpenEmbeddedIcon();
 
-        _tray = new TrayService(iconStream, Toggle, ShowSettings, RequestExit);
+        _tray = new TrayService(iconStream, Toggle, ShowSettings, ShowRandPass, RequestExit);
 
         if (HotkeyParser.TryParse(_settings.Current.Hotkey, out var spec, out _) && spec is not null)
         {
@@ -332,6 +332,25 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     }
 
     void IPanelHost.ShowSettings() => ShowSettings();
+
+    /// <summary>RandPass generator, single instance: re-entry activates the open window.</summary>
+    private RandPassWindow? _randPassWindow;
+
+    void IPanelHost.ShowRandPass() => ShowRandPass();
+
+    private void ShowRandPass()
+    {
+        if (_randPassWindow is not null)
+        {
+            _randPassWindow.Activate();
+            return;
+        }
+
+        var vm = new RandPassViewModel(_settings);
+        _randPassWindow = new RandPassWindow { DataContext = vm };
+        _randPassWindow.Closed += (_, _) => _randPassWindow = null;
+        _randPassWindow.Show();
+    }
 
     /// <summary>File picker, owned by a visible window.</summary>
     async Task<string?> IPanelHost.PickFile(string title)

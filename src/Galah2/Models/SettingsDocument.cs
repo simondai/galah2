@@ -74,6 +74,30 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
     [JsonPropertyName("language")]
     public string Language { get; set; } = "zh-CN";
 
+    // ── RandPass (spec 2026-11-24-randpass) ──
+    [JsonPropertyName("randPassLength")]
+    public int RandPassLength { get; set; } = 14;
+    [JsonPropertyName("randPassCount")]
+    public int RandPassCount { get; set; } = 14;
+    [JsonPropertyName("randPassLower")]
+    public bool RandPassLower { get; set; } = true;
+    [JsonPropertyName("randPassUpper")]
+    public bool RandPassUpper { get; set; } = true;
+    [JsonPropertyName("randPassDigits")]
+    public bool RandPassDigits { get; set; } = true;
+    [JsonPropertyName("randPassDoubleDigits")]
+    public bool RandPassDoubleDigits { get; set; } = true;
+    [JsonPropertyName("randPassNoConfusables")]
+    public bool RandPassNoConfusables { get; set; } = true;
+    [JsonPropertyName("randPassCustomChars")]
+    public string RandPassCustomChars { get; set; } = PasswordOptions.DefaultCustomChars;
+    [JsonPropertyName("randPassCustomEnabled")]
+    public bool RandPassCustomEnabled { get; set; } = true;
+    [JsonPropertyName("randPassUseFormat")]
+    public bool RandPassUseFormat { get; set; }
+    [JsonPropertyName("randPassFormat")]
+    public string RandPassFormat { get; set; } = PasswordFormats.FourStarFour;
+
     /// <summary>Documented default hotkey (design §1.1 S1 — deliberately not the research subject's value).</summary>
     public const string DefaultHotkey = "alt+space";
 
@@ -90,6 +114,9 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
         if (Array.IndexOf(PanelMaterials.All, s.PanelMaterial) < 0) s.PanelMaterial = PanelMaterials.None;
         if (string.IsNullOrWhiteSpace(s.Hotkey)) s.Hotkey = DefaultHotkey;
         if (string.IsNullOrWhiteSpace(s.Language)) s.Language = "zh-CN";
+        if (s.RandPassLength is < PasswordOptions.MinLength or > PasswordOptions.MaxLength) s.RandPassLength = 14;
+        if (s.RandPassCount is < PasswordOptions.MinCount or > PasswordOptions.MaxCount) s.RandPassCount = 14;
+        if (Array.IndexOf(PasswordFormats.All, s.RandPassFormat) < 0) s.RandPassFormat = PasswordFormats.FourStarFour;
         return s;
     }
 
@@ -112,6 +139,17 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
         HideOnBlur = HideOnBlur,
         ShowAddTile = ShowAddTile,
         Language = Language,
+        RandPassLength = RandPassLength,
+        RandPassCount = RandPassCount,
+        RandPassLower = RandPassLower,
+        RandPassUpper = RandPassUpper,
+        RandPassDigits = RandPassDigits,
+        RandPassDoubleDigits = RandPassDoubleDigits,
+        RandPassNoConfusables = RandPassNoConfusables,
+        RandPassCustomChars = RandPassCustomChars,
+        RandPassCustomEnabled = RandPassCustomEnabled,
+        RandPassUseFormat = RandPassUseFormat,
+        RandPassFormat = RandPassFormat,
     };
 }
 
