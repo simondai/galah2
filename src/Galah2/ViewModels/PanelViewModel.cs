@@ -176,9 +176,12 @@ public sealed class PanelViewModel : ObservableObject
         NewTabCommand = new RelayCommand(NewTab);
         RenameTabCommand = new RelayCommand(() => RenameTab(_selectedTab));
         DeleteTabCommand = new RelayCommand(() => DeleteTab(_selectedTab));
-        // The chip's right-click menu targets the CHIP, not the selected tab.
-        RenameChipCommand = new RelayCommand(p => { if (p is TabViewModel t) RenameTab(t); });
-        DeleteChipCommand = new RelayCommand(p => { if (p is TabViewModel t) DeleteTabIfEmpty(t); });
+        // The chip's right-click menu targets the CHIP that was right-clicked, not the selected
+        // tab. The target arrives via SetChipMenuTarget (the ContextMenu's Opening handler),
+        // because command parameters cannot be bound across the popup boundary: $parent paths
+        // inside a ContextMenu die and grey every row (the 2026-11-24 grey-menu report).
+        RenameChipCommand = new RelayCommand(() => { if (_chipMenuTarget is TabViewModel t) RenameTab(t); });
+        DeleteChipCommand = new RelayCommand(() => { if (_chipMenuTarget is TabViewModel t) DeleteTabIfEmpty(t); });
         MoveTabLeftCommand = new RelayCommand(() => MoveTab(_selectedTab, -1));
         MoveTabRightCommand = new RelayCommand(() => MoveTab(_selectedTab, +1));
         RetrySaveCommand = new RelayCommand(RetrySave);
@@ -211,10 +214,24 @@ public sealed class PanelViewModel : ObservableObject
     public ICommand NewTabCommand { get; }
     public ICommand RenameTabCommand { get; }
     public ICommand DeleteTabCommand { get; }
-    /// <summary>Chip menu: rename the category the row points at (not the selected tab).</summary>
+    /// <summary>Chip menu: rename the right-clicked category (not the selected tab).</summary>
     public ICommand RenameChipCommand { get; }
-    /// <summary>Chip menu: delete the category only when it holds no entries (user rule).</summary>
+    /// <summary>Chip menu: delete the right-clicked category only while it holds no entries.</summary>
     public ICommand DeleteChipCommand { get; }
+
+    /// <summary>The chip whose menu is open, set by the ContextMenu's Opening handler.</summary>
+    private TabViewModel? _chipMenuTarget;
+
+    /// <summary>Drives the 删除分类 row's enabled state while a chip menu is open.</summary>
+    public bool ChipMenuTargetIsDeletable { get; private set; }
+
+    /// <summary>Remember which chip's menu is opening; the rows' commands act on it.</summary>
+    public void SetChipMenuTarget(TabViewModel? tab)
+    {
+        _chipMenuTarget = tab;
+        ChipMenuTargetIsDeletable = tab?.HasNoEntries ?? false;
+        Raise(nameof(ChipMenuTargetIsDeletable));
+    }
     public ICommand MoveTabLeftCommand { get; }
     public ICommand MoveTabRightCommand { get; }
     public ICommand RetrySaveCommand { get; }

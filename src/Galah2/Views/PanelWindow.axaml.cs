@@ -296,6 +296,19 @@ public partial class PanelWindow : Window
         if (sender is ContextMenu menu) GiveMenuTheViewModel(menu);
     }
 
+    /// <summary>
+    /// Category chip menu. Besides the DataContext swap it records WHICH chip was right-clicked:
+    /// the rows' commands act on that chip, not the selected tab. No command parameters are used -
+    /// binding them across the popup boundary is exactly what greyed the first version.
+    /// </summary>
+    private void ChipMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (sender is not ContextMenu menu) return;
+        if (DataContext is PanelViewModel vm)
+            vm.SetChipMenuTarget(menu.PlacementTarget is Button chip ? chip.DataContext as TabViewModel : null);
+        GiveMenuTheViewModel(menu);
+    }
+
     private void GiveMenuTheViewModel(ContextMenu menu) => menu.DataContext = DataContext;
 
     /// <summary>

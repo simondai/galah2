@@ -29,6 +29,20 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // Guard first: this probe configures the PRODUCT App, and the product single-instance-exits
+        // (code 0, no output) when a Galah2 is already running. Without this check a user's live
+        // test instance would make the whole probe vanish with zero lines and a passing exit code.
+        var running = System.Diagnostics.Process.GetProcessesByName("Galah2");
+        if (running.Length > 0)
+        {
+            Console.WriteLine("FAIL  no Galah2 instance may be running while this probe configures the product App  [found: "
+                + string.Join(",", running.Select(p => p.Id)) + "]");
+            foreach (var p in running) p.Dispose();
+            return 1;
+        }
+        foreach (var p in running) p.Dispose();
+        running = null!;
+
         // Use the product Application so Tokens.axaml is loaded exactly as it is in the real
         // app - the surface assertions only mean something against the real token dictionary.
         // A desktop lifetime is registered (never started) so shown windows are tracked.

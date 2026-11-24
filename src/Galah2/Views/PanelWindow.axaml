@@ -98,13 +98,12 @@
                       DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
                       Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
                       CommandParameter="{Binding}">
+                <!-- Same host rules as the horizontal strip (see that menu's comment). -->
                 <Button.ContextMenu>
-                  <ContextMenu DataContext="{Binding $parent[Button].((vm:PanelViewModel)DataContext)}">
-                    <MenuItem Header="重命名分类" Command="{Binding RenameChipCommand}"
-                              CommandParameter="{Binding $parent[Button].DataContext}" />
+                  <ContextMenu Opening="ChipMenu_Opening" x:DataType="vm:PanelViewModel">
+                    <MenuItem Header="重命名分类" Command="{Binding RenameChipCommand}" />
                     <MenuItem Header="删除分类" Command="{Binding DeleteChipCommand}"
-                              IsEnabled="{Binding $parent[Button].DataContext.HasNoEntries}"
-                              CommandParameter="{Binding $parent[Button].DataContext}" />
+                              IsEnabled="{Binding ChipMenuTargetIsDeletable}" />
                   </ContextMenu>
                 </Button.ContextMenu>
               </Button>
@@ -150,13 +149,17 @@
                       DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
                       Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
                       CommandParameter="{Binding}">
+                <!-- Same host rules as the tile menus: no $parent paths inside a ContextMenu -
+                     they die across the popup boundary and every row greys out (binding error ->
+                     MenuItem._commandCanExecute=false). The Opening handler swaps the DataContext
+                     to the PanelViewModel AND records this chip as the menu target; the rows then
+                     use plain bindings. x:DataType is load-bearing for the same reason as the
+                     add-tile menu: without it the compiled bindings resolve against TabViewModel. -->
                 <Button.ContextMenu>
-                  <ContextMenu DataContext="{Binding $parent[Button].((vm:PanelViewModel)DataContext)}">
-                    <MenuItem Header="重命名分类" Command="{Binding RenameChipCommand}"
-                              CommandParameter="{Binding $parent[Button].DataContext}" />
+                  <ContextMenu Opening="ChipMenu_Opening" x:DataType="vm:PanelViewModel">
+                    <MenuItem Header="重命名分类" Command="{Binding RenameChipCommand}" />
                     <MenuItem Header="删除分类" Command="{Binding DeleteChipCommand}"
-                              IsEnabled="{Binding $parent[Button].DataContext.HasNoEntries}"
-                              CommandParameter="{Binding $parent[Button].DataContext}" />
+                              IsEnabled="{Binding ChipMenuTargetIsDeletable}" />
                   </ContextMenu>
                 </Button.ContextMenu>
               </Button>

@@ -10,8 +10,20 @@
 
 - 菜单：ContextMenu（不是 MenuFlyout——flyout 项不在逻辑树，$parent 命令路径解析不到，
   MenuItem 会因 BindingError 置灰，见 2026-11-23 灰菜单修复的结论）。
-  DataContext 显式绑 `$parent[Button].((vm:PanelViewModel)DataContext)`，
-  行参数 CommandParameter 绑圆片的 TabViewModel——作用在被右键的圆片，不是当前选中分类。
+- **第一版翻车复盘（用户报"菜单全灰"）**：XAML 里给 ContextMenu 绑
+  `DataContext="{Binding $parent[Button]...}"` 失败——$parent 路径跨不过 popup 边界，
+  DataContext 解析不到 → 命令绑定 BindingError → 整菜单置灰。与磁贴菜单注释里
+  "the exact symptom reported twice" 同一症状。
+- **定稿（照磁贴菜单已验证模式）**：ContextMenu 不写任何 $parent 绑定；
+  `Opening` 处理器（ChipMenu_Opening）做两件事：
+  1. `SetChipMenuTarget(PlacementTarget.DataContext)`——把被右键的圆片记到 VM
+     （命令改无参，从目标执行，不再用 CommandParameter 跨边界传参）；
+  2. `menu.DataContext = PanelViewModel`——注入后行命令走裸绑定
+     `{Binding RenameChipCommand}` / `{Binding DeleteChipCommand}`。
+  `x:DataType="vm:PanelViewModel"` 写在 ContextMenu 上是承重件：缺了它编译绑定会按
+  模板数据类型 TabViewModel 解析而构建失败。
+- 删除双保险：菜单行 `IsEnabled` 绑 `ChipMenuTargetIsDeletable`（Opening 时按目标的
+  HasNoEntries 刷新）；命令层 `DeleteTabIfEmpty` 再查 catalog，>0 拒绝并 toast。
 - 重命名：复用 `RenameTab`（prompt 预填现名）。
 - 删除双保险：
   1. UI 层：菜单行 `IsEnabled` 绑 `TabViewModel.HasNoEntries`（有条目即置灰）；
@@ -23,9 +35,12 @@
 
 ## 3. 验证
 
-- PanelProbe 新增 5 条断言：HasNoEntries 投影正确；圆片菜单重命名的是圆片自己的分类；
-  空分类可删；非空分类拒绝（toast 文案含条目数）；窗口级每个圆片都带 2 行菜单
-  （结构锁定，菜单命令解析按既有结论留手工验收）。
+- PanelProbe 断言：HasNoEntries 投影正确；目标记录（空=可删/非空=不可删）；圆片菜单
+  重命名的是圆片自己的分类；空分类可删；非空分类拒绝（toast 文案含条目数）；窗口级
+  每个圆片都带 2 行菜单；**灰菜单契约**——模拟 Opening（反射调 ChipMenu_Opening，
+  手动补 PlacementTarget，因直接调用跳过了 ContextMenuService 的赋值）后
+  menu.DataContext 必须是 PanelViewModel、目标必须按条目数记录可删性。
+  菜单行的真实可点性仍留手工验收（进程内 popup 命令解析不可断言，既有结论）。
 - 探针状态纪律：新块只用一次性空分类做删改试验，保持探针假设的 `[默认, 测试分类]`
   布局——prompt 块用绝对索引 1 选 tab，动布局会把后续块全带偏（本次实测踩中）。
 - 待手工验收：圆片右键两行的真实可点性（进程内 popup 命令解析不可断言，既有结论）。

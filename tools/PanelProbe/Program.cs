@@ -123,19 +123,24 @@ internal static class Program
             emptyChip.HasNoEntries && !fullChip.HasNoEntries);
 
         host.PromptAnswer = "改过名";
-        vm.RenameChipCommand.Execute(emptyChip);
+        vm.SetChipMenuTarget(emptyChip);
+        Check("chip menu target is deletable while empty", vm.ChipMenuTargetIsDeletable);
+        vm.RenameChipCommand.Execute(null);
         Check("chip menu renames the chip's own category",
             host.LastPrompt == "重命名分类" && vm.Tabs.Any(t => t.Name == "改过名")
             && vm.Tabs.Count == 3,
             host.LastPrompt ?? "no prompt");
 
         // Refresh rebuilt the TabViewModels; re-fetch by name (the id is what the command uses).
-        vm.DeleteChipCommand.Execute(vm.Tabs.First(t => t.Name == "改过名"));
+        vm.SetChipMenuTarget(vm.Tabs.First(t => t.Name == "改过名"));
+        vm.DeleteChipCommand.Execute(null);
         Check("chip menu deletes an empty category",
             !vm.Tabs.Any(t => t.Name == "改过名") && vm.Tabs.Count == 2,
             vm.Tabs.Count + " tab(s)");
 
-        vm.DeleteChipCommand.Execute(vm.Tabs.First(t => t.Name == "测试分类"));
+        vm.SetChipMenuTarget(vm.Tabs.First(t => t.Name == "测试分类"));
+        Check("chip menu target is NOT deletable with entries", !vm.ChipMenuTargetIsDeletable);
+        vm.DeleteChipCommand.Execute(null);
         Check("chip menu refuses to delete a non-empty category",
             vm.Toast.IsOpen && vm.Tabs.Count == 2, vm.Toast.Message);
         vm.Toast.Close();
@@ -433,6 +438,27 @@ internal static class Program
                     .SequenceEqual(new[] { "重命名分类", "删除分类" });
             }),
             realizedChips.Count + " chip(s)");
+
+        // The grey-menu contract: when a chip menu opens, its DataContext MUST be swapped to the
+        // PanelViewModel and the right-clicked chip recorded as the target - without that swap the
+        // rows' plain {Binding ...Command} resolve against the TabViewModel and grey out. Simulate
+        // the Opening routed event a real right click would raise.
+        var injectChip = realizedChips.Last();
+        var injectMenu = injectChip.ContextMenu!;
+        var injectTab = (TabViewModel)injectChip.DataContext;
+        var injectCount = store.Current.Tabs.First(t => t.Id == injectTab.Id).Items.Count;
+        // Invoke the exact code-behind handler a real right click's Opening would call. The
+        // ContextMenuService normally assigns the PlacementTarget before raising Opening; a direct
+        // invoke skips the service, so mirror that assignment here.
+        injectMenu.PlacementTarget = injectChip;
+        var openingHandler = typeof(PanelWindow).GetMethod("ChipMenu_Opening",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        openingHandler.Invoke(window, new object?[] { injectMenu, new System.ComponentModel.CancelEventArgs() });
+        Check("chip menu opening injects the panel VM as DataContext",
+            ReferenceEquals(injectMenu.DataContext, vm));
+        Check("chip menu opening records the right-clicked chip",
+            vm.ChipMenuTargetIsDeletable == (injectCount == 0),
+            $"entries={injectCount}, deletable={vm.ChipMenuTargetIsDeletable}");
 
         // ---- new-category chip on the strip (1.x parity) ----
         // The + lives on the strip itself, not only in the context menu. It must be present in
