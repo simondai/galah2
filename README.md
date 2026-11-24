@@ -214,4 +214,8 @@ Galah（凤头鹦鹉）是作者家的宠物。粉红凤头鹦鹉聪明、话多
 
 ## 许可证
 
-MIT — 见 [LICENSE](LICENSE)。
+GNU General Public License v3.0 — 见 [LICENSE](LICENSE)。
+
+- 可以自由使用、修改和分发
+- 衍生作品必须以 GPL v3.0 相同许可证开源
+- 必须保留原始版权声明
