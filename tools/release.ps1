@@ -65,10 +65,10 @@ if (-not $SkipPublish) {
 }
 
 # --- verify the artifact: exactly the four runtime files, no pdb, no data -------------
-$exe = Get-ChildItem $artifact -Filter *.exe -ErrorAction SilentlyContinue
-if ($null -eq $exe) { throw "no exe in artifact/ - run without -SkipPublish first" }
-$files = Get-ChildItem $artifact -File | Where-Object { $_.Name -ne 'Galah2.exe' } + $exe
-$files = $files | Where-Object { $_.Extension -ne '.pdb' }
+if (-not (Get-ChildItem $artifact -Filter *.exe -ErrorAction SilentlyContinue)) {
+    throw "no exe in artifact/ - run without -SkipPublish first"
+}
+$files = @(Get-ChildItem $artifact -File | Where-Object { $_.Extension -ne '.pdb' })
 Write-Host ("artifact  : {0} file(s)" -f $files.Count)
 if ($files.Count -ne 4) { throw "expected the 4 green-build files (exe + 3 native dlls), found $($files.Count)" }
 
@@ -100,21 +100,30 @@ state outside the ``GalahData\`` folder next to the exe (created on first start)
 }
 Set-Content -Path $notesFile -Value $Notes -Encoding utf8
 
-$tag = "v$Version"
-$draftArg = @(); if ($Draft) { $draftArg = @('--draft') }
+# gh writes progress to stderr; under $ErrorActionPreference='Stop' (Windows PowerShell 5.1)
+# a stderr line from a native command throws NativeCommandError, so wrap every call.
+function Invoke-Gh {
+    param([Parameter(Position = 0)][string[]]$GhArgs)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $text = & gh @GhArgs 2>&1 | Out-String
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    return [pscustomobject]@{ Code = $code; Out = $text }
+}
 
-$existing = (gh release view $tag 2>$null); if ($LASTEXITCODE -eq 0) {
+$tag = "v$Version"
+$view = Invoke-Gh @('release', 'view', $tag)
+if ($view.Code -eq 0) {
     Write-Host "tag $tag already has a release - uploading the zip to it"
-    gh release upload $tag $zip --clobber
-    if ($LASTEXITCODE -ne 0) { throw "gh release upload failed" }
+    $up = Invoke-Gh @('release', 'upload', $tag, $zip, '--clobber')
+    if ($up.Code -ne 0) { throw "gh release upload failed:`n$($up.Out)" }
 } else {
     Write-Host "creating release $tag"
-    if ($Draft) {
-        gh release create $tag $zip --title "Galah2 v$Version - win-x64 green build" --notes-file $notesFile --draft
-    } else {
-        gh release create $tag $zip --title "Galah2 v$Version - win-x64 green build" --notes-file $notesFile
-    }
-    if ($LASTEXITCODE -ne 0) { throw "gh release create failed (is the current commit pushed? gh auth status?)" }
+    $createArgs = @('release', 'create', $tag, $zip, '--title', "Galah2 v$Version - win-x64 green build", '--notes-file', $notesFile)
+    if ($Draft) { $createArgs += '--draft' }
+    $cr = Invoke-Gh $createArgs
+    if ($cr.Code -ne 0) { throw "gh release create failed (is the current commit pushed? gh auth status?):`n$($cr.Out)" }
 }
 Write-Host ""
 Write-Host "done. release: https://github.com/simondai/galah2/releases/tag/$tag"
