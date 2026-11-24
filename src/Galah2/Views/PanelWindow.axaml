@@ -86,14 +86,28 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:TabViewModel">
               <!-- A drop target: dragging a tile onto a category moves the item there.
-                   FontSize follows the 分类名字号 setting (default 12 = the global Button size). -->
+                   FontSize follows the 分类名字号 setting (default 12 = the global Button size).
+                   Right-click: rename + delete (delete only while the category is empty).
+                   ContextMenu, not MenuFlyout: flyout items are not in the logical tree, so the
+                   $parent command path dies and MenuItem greys the row out. A ContextMenu is the
+                   logical child of its button, so $parent[Button] resolves on every open. -->
               <Button Classes="chip" Content="{Binding Name}" Tag="{Binding}"
                       FontSize="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).ChipFontSize}"
                       Classes.active="{Binding IsActive}"
                       DragDrop.AllowDrop="True"
                       DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
                       Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+                <Button.ContextMenu>
+                  <ContextMenu DataContext="{Binding $parent[Button].((vm:PanelViewModel)DataContext)}">
+                    <MenuItem Header="重命名分类" Command="{Binding RenameChipCommand}"
+                              CommandParameter="{Binding $parent[Button].DataContext}" />
+                    <MenuItem Header="删除分类" Command="{Binding DeleteChipCommand}"
+                              IsEnabled="{Binding $parent[Button].DataContext.HasNoEntries}"
+                              CommandParameter="{Binding $parent[Button].DataContext}" />
+                  </ContextMenu>
+                </Button.ContextMenu>
+              </Button>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
@@ -127,6 +141,7 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:TabViewModel">
+              <!-- Same right-click menu as the horizontal strip (rename + delete-while-empty). -->
               <Button Classes="chip" Content="{Binding Name}" Tag="{Binding}"
                       FontSize="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).ChipFontSize}"
                       Classes.active="{Binding IsActive}"
@@ -134,7 +149,17 @@
                       DragDrop.AllowDrop="True"
                       DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
                       Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+                <Button.ContextMenu>
+                  <ContextMenu DataContext="{Binding $parent[Button].((vm:PanelViewModel)DataContext)}">
+                    <MenuItem Header="重命名分类" Command="{Binding RenameChipCommand}"
+                              CommandParameter="{Binding $parent[Button].DataContext}" />
+                    <MenuItem Header="删除分类" Command="{Binding DeleteChipCommand}"
+                              IsEnabled="{Binding $parent[Button].DataContext.HasNoEntries}"
+                              CommandParameter="{Binding $parent[Button].DataContext}" />
+                  </ContextMenu>
+                </Button.ContextMenu>
+              </Button>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>

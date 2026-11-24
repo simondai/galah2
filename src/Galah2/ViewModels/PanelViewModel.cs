@@ -113,11 +113,13 @@ public sealed class ItemViewModel : ObservableObject
 public sealed class TabViewModel : ObservableObject
 {
     private bool _isActive;
+    private bool _hasNoEntries;
 
-    public TabViewModel(string id, string name)
+    public TabViewModel(string id, string name, bool hasNoEntries)
     {
         Id = id;
         Name = name;
+        _hasNoEntries = hasNoEntries;
     }
 
     public string Id { get; }
@@ -127,6 +129,16 @@ public sealed class TabViewModel : ObservableObject
     {
         get => _isActive;
         set => Set(ref _isActive, value);
+    }
+
+    /// <summary>
+    /// True when the category holds no entries. Drives the chip context menu's 删除分类 row:
+    /// a category with entries cannot be deleted from the chip (the rule is user-stated).
+    /// </summary>
+    public bool HasNoEntries
+    {
+        get => _hasNoEntries;
+        set => Set(ref _hasNoEntries, value);
     }
 }
 
@@ -164,6 +176,9 @@ public sealed class PanelViewModel : ObservableObject
         NewTabCommand = new RelayCommand(NewTab);
         RenameTabCommand = new RelayCommand(() => RenameTab(_selectedTab));
         DeleteTabCommand = new RelayCommand(() => DeleteTab(_selectedTab));
+        // The chip's right-click menu targets the CHIP, not the selected tab.
+        RenameChipCommand = new RelayCommand(p => { if (p is TabViewModel t) RenameTab(t); });
+        DeleteChipCommand = new RelayCommand(p => { if (p is TabViewModel t) DeleteTabIfEmpty(t); });
         MoveTabLeftCommand = new RelayCommand(() => MoveTab(_selectedTab, -1));
         MoveTabRightCommand = new RelayCommand(() => MoveTab(_selectedTab, +1));
         RetrySaveCommand = new RelayCommand(RetrySave);
@@ -196,6 +211,10 @@ public sealed class PanelViewModel : ObservableObject
     public ICommand NewTabCommand { get; }
     public ICommand RenameTabCommand { get; }
     public ICommand DeleteTabCommand { get; }
+    /// <summary>Chip menu: rename the category the row points at (not the selected tab).</summary>
+    public ICommand RenameChipCommand { get; }
+    /// <summary>Chip menu: delete the category only when it holds no entries (user rule).</summary>
+    public ICommand DeleteChipCommand { get; }
     public ICommand MoveTabLeftCommand { get; }
     public ICommand MoveTabRightCommand { get; }
     public ICommand RetrySaveCommand { get; }
@@ -237,7 +256,7 @@ public sealed class PanelViewModel : ObservableObject
 
         Tabs.Clear();
         foreach (var tab in _catalog.Current.TabsInOrder())
-            Tabs.Add(new TabViewModel(tab.Id, tab.Name));
+            Tabs.Add(new TabViewModel(tab.Id, tab.Name, tab.Items.Count == 0));
 
         SelectTab(Tabs.FirstOrDefault(t => t.Id == previous) ?? Tabs.FirstOrDefault());
         CheckSaveState();
@@ -507,6 +526,25 @@ public sealed class PanelViewModel : ObservableObject
             Refresh();
             CheckSaveState();
         });
+    }
+
+    /// <summary>
+    /// Chip-menu delete: a category can only be deleted while it holds no entries (user rule,
+    /// 2026-11-24). The menu row is also disabled by the HasNoEntries binding; this guard is the
+    /// second lock so the rule holds even if the row is ever re-enabled or called programmatically.
+    /// </summary>
+    private void DeleteTabIfEmpty(TabViewModel? tab)
+    {
+        if (tab is null) return;
+
+        var count = _catalog.Current.Tabs.FirstOrDefault(t => t.Id == tab.Id)?.Items.Count ?? 0;
+        if (count > 0)
+        {
+            Toast.Show($"分类「{tab.Name}」下还有 {count} 个条目，不能删除");
+            return;
+        }
+
+        DeleteTab(tab);
     }
 
     /// <summary>Move an item into another category (drag a tile onto a chip).</summary>

@@ -112,6 +112,35 @@ internal static class Program
         Check("first tab active", vm.Tabs.Any(t => t.IsActive));
         Check("active tab name shown", vm.ActiveTabName.Length > 0, vm.ActiveTabName);
 
+        // ---- chip context menu: rename + delete (delete only while empty, user rule) ----
+        // Operates on a throwaway tab: the rest of the probe assumes the layout
+        // [默认, 测试分类] (the prompt block below selects by ABSOLUTE index 1).
+        host.PromptAnswer = "探针空分类";
+        vm.NewTabCommand.Execute(null);
+        var emptyChip = vm.Tabs.First(t => t.Name == "探针空分类");
+        var fullChip = vm.Tabs.First(t => t.Name == "测试分类");
+        Check("chip knows whether its category is empty",
+            emptyChip.HasNoEntries && !fullChip.HasNoEntries);
+
+        host.PromptAnswer = "改过名";
+        vm.RenameChipCommand.Execute(emptyChip);
+        Check("chip menu renames the chip's own category",
+            host.LastPrompt == "重命名分类" && vm.Tabs.Any(t => t.Name == "改过名")
+            && vm.Tabs.Count == 3,
+            host.LastPrompt ?? "no prompt");
+
+        // Refresh rebuilt the TabViewModels; re-fetch by name (the id is what the command uses).
+        vm.DeleteChipCommand.Execute(vm.Tabs.First(t => t.Name == "改过名"));
+        Check("chip menu deletes an empty category",
+            !vm.Tabs.Any(t => t.Name == "改过名") && vm.Tabs.Count == 2,
+            vm.Tabs.Count + " tab(s)");
+
+        vm.DeleteChipCommand.Execute(vm.Tabs.First(t => t.Name == "测试分类"));
+        Check("chip menu refuses to delete a non-empty category",
+            vm.Toast.IsOpen && vm.Tabs.Count == 2, vm.Toast.Message);
+        vm.Toast.Close();
+        host.PromptAnswer = "答案"; // restore the probe default for the blocks below
+
 
         // Wheel navigation must move one step and be reversible, whichever tab happens to be
         // active (it wraps, so the starting point decides which neighbour comes next).
@@ -127,7 +156,9 @@ internal static class Program
         Check("ctrl+99 ignored", !vm.SelectTabByIndex(99));
 
         // ---- launch ----
-        vm.SelectTabByIndex(testTabIndex + 1);
+        // By NAME, not the stale testTabIndex: the chip-menu block above deleted 默认,
+        // which shifted every tab one slot to the left.
+        vm.SelectTabByIndex(vm.Tabs.ToList().FindIndex(t => t.Name == "测试分类") + 1);
         var tile = vm.Items[0];
         vm.LaunchTile(tile);
         Check("launch reached the host", host.LaunchCount == 1, host.LaunchCount + " call(s)");
@@ -191,10 +222,10 @@ internal static class Program
             vm.Items.Count == 1 && vm.Items[0].IsAddTile, vm.Items.Count + " cell(s)");
 
         // And the placeholder is projection-only: the document itself has zero entries there.
-        var emptyTab = store.Current.Tabs.FirstOrDefault(t => t.Name == "空分类探针");
+        var probeEmptyTab = store.Current.Tabs.FirstOrDefault(t => t.Name == "空分类探针");
         Check("placeholder never reaches the catalog",
-            emptyTab is not null && emptyTab.Items.Count == 0,
-            emptyTab?.Items.Count.ToString() ?? "tab missing");
+            probeEmptyTab is not null && probeEmptyTab.Items.Count == 0,
+            probeEmptyTab?.Items.Count.ToString() ?? "tab missing");
 
         // ---- drag reorder: chips onto chips, tiles onto tiles (2026-11-23) ----
         vm.SelectTabByIndex(vm.Tabs.ToList().FindIndex(t => t.Name == "测试分类") + 1);
@@ -387,6 +418,21 @@ internal static class Program
         }
         Check("chip font size follows the setting live", tabChip?.FontSize == 14,
             tabChip is null ? "no chip" : tabChip.FontSize.ToString());
+
+        // The chip's right-click menu: two rows (rename / delete-while-empty) on EVERY chip,
+        // both orientations. Same host-type lock as the placeholder menu: in-process a popup's
+        // command resolution is not assertable, so we lock the structure (ContextMenu + rows)
+        // and the behaviour through the command objects; acceptance of the real click is manual.
+        var realizedChips = window.GetVisualDescendants().OfType<Button>()
+            .Where(b => b.Classes.Contains("chip") && b.DataContext is TabViewModel).ToList();
+        Check("every category chip carries the 2-row right-click menu",
+            realizedChips.Count >= 2 && realizedChips.All(b =>
+            {
+                var m = b.ContextMenu;
+                return m is not null && m.Items.OfType<MenuItem>().Select(mi => mi.Header as string)
+                    .SequenceEqual(new[] { "重命名分类", "删除分类" });
+            }),
+            realizedChips.Count + " chip(s)");
 
         // ---- new-category chip on the strip (1.x parity) ----
         // The + lives on the strip itself, not only in the context menu. It must be present in
