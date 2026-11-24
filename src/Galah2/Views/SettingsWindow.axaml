@@ -63,7 +63,7 @@
                       SelectedIndex="{Binding TabFontSizeIndex, Mode=TwoWay}" />
           </Grid>
           <Grid ColumnDefinitions="110,196">
-            <TextBlock Grid.Column="0" Classes="label" Text="分类位置" />
+            <TextBlock Grid.Column="0" Classes="label" Text="主窗口布局" />
             <ComboBox Grid.Column="1" ItemsSource="{Binding TabPositionOptions}"
                       SelectedIndex="{Binding TabPositionIndex, Mode=TwoWay}" />
           </Grid>

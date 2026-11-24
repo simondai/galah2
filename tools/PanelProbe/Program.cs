@@ -263,6 +263,8 @@ internal static class Program
             vm.ChipFontSize.ToString());
         vm.ApplyLayout(new SettingsDocument { TabFontSize = ChipFontSizes.Large });
         Check("large chip font step", vm.ChipFontSize == 14, vm.ChipFontSize.ToString());
+        vm.ApplyLayout(new SettingsDocument { TabFontSize = ChipFontSizes.XLarge });
+        Check("extra-large chip font step", vm.ChipFontSize == 16, vm.ChipFontSize.ToString());
         vm.ApplyLayout(new SettingsDocument { TabFontSize = ChipFontSizes.Small });
         Check("small chip font step", vm.ChipFontSize == 11, vm.ChipFontSize.ToString());
         vm.ApplyLayout(new SettingsDocument());

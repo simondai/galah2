@@ -60,8 +60,9 @@ public sealed class SettingsViewModel : ObservableObject
     // ---- labels shown next to each combo, in the same order the index maps from ----
     public string[] ThemeOptions { get; } = ["跟随系统", "浅色", "深色"];
     public string[] IconSizeOptions { get; } = ["小", "中", "大"];
-    public string[] TabFontSizeOptions { get; } = ["小", "中", "大"];
-    public string[] TabPositionOptions { get; } = ["顶部", "左侧"];
+    public string[] TabFontSizeOptions { get; } = ["小", "中", "大", "特大"];
+    // 2026-11-24 用户改名：「分类位置 顶部/左侧」→「主窗口布局 横向/竖向」；存储值 top/left 不变。
+    public string[] TabPositionOptions { get; } = ["横向布局", "竖向布局"];
     public string[] ClickModeOptions { get; } = ["单击启动", "双击启动"];
     /// <summary>
     /// Only what the app can actually render: an opaque fill, or the same fill at 91% alpha
@@ -152,6 +153,7 @@ public sealed class SettingsViewModel : ObservableObject
             {
                 0 => ChipFontSizes.Small,
                 2 => ChipFontSizes.Large,
+                3 => ChipFontSizes.XLarge,
                 _ => ChipFontSizes.Medium
             };
             Commit();
@@ -319,6 +321,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             ChipFontSizes.Small => 0,
             ChipFontSizes.Large => 2,
+            ChipFontSizes.XLarge => 3,
             _ => 1
         };
         _tabPositionIndex = s.TabPosition == TabPositions.Left ? 1 : 0;

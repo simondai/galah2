@@ -158,22 +158,24 @@ public static class IconSizes
 }
 
 /// <summary>
-/// Category chip label size steps. Three steps like IconSizes, no free-form value: the strip is
-/// the panel's navigation spine and a runaway font size would break its row height. Medium is
-/// the shipped default (the global Button size of 12 DIP).
+/// Category chip label size steps. Four steps (11/12/14/16 DIP, user-fixed 2026-11-24), no
+/// free-form value: the strip is the panel's navigation spine and a runaway font size would
+/// break its row height. Medium is the shipped default (the global Button size of 12 DIP).
 /// </summary>
 public static class ChipFontSizes
 {
     public const string Small = "small";
     public const string Medium = "medium";
     public const string Large = "large";
-    public static readonly string[] All = [Small, Medium, Large];
+    public const string XLarge = "xlarge";
+    public static readonly string[] All = [Small, Medium, Large, XLarge];
 
     /// <summary>Label font size in DIPs for a step.</summary>
     public static double FontSize(string? size) => size switch
     {
         Small => 11,
         Large => 14,
+        XLarge => 16,
         _ => 12,
     };
 }

@@ -116,12 +116,13 @@
         </Button>
       </StackPanel>
 
-      <StackPanel Orientation="Vertical" Margin="10,10,8,10" Width="96"
+        <StackPanel Orientation="Vertical" Margin="10,10,8,10" Width="96"
                   DockPanel.Dock="Left" IsVisible="{Binding IsVerticalTabs}">
         <ItemsControl ItemsSource="{Binding Tabs}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <StackPanel Orientation="Vertical" Spacing="4" />
+              <!-- Spacing raised 4 → 8 (2026-11-24): the vertical rail rows felt cramped. -->
+              <StackPanel Orientation="Vertical" Spacing="8" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
