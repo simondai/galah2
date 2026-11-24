@@ -128,26 +128,46 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         _panel.Activate();
     }
 
-    private DispatcherTimer? _geometryTimer;
-
     /// <summary>
-    /// Persist the panel's position and size once the user stops moving it. Dragging and resizing
-    /// fire continuously, and a write per pixel would hammer the disk; the timer collapses a burst
-    /// of changes into one commit.
+    /// Collapses a burst of geometry changes into one debounced commit (dragging and resizing fire
+    /// continuously, and a write per pixel would hammer the disk), and offers an immediate commit
+    /// for the on-close path. One instance per window that remembers its geometry: the panel and
+    /// the RandPass window share this mechanism (the panel's 400 ms is unchanged).
     /// </summary>
-    private void ScheduleRememberGeometry()
+    private sealed class GeometryDebouncer
     {
-        _geometryTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
-        _geometryTimer.Stop();
-        _geometryTimer.Tick -= OnGeometrySettled;
-        _geometryTimer.Tick += OnGeometrySettled;
-        _geometryTimer.Start();
+        private readonly DispatcherTimer _timer;
+        private readonly Action _onSettled;
+
+        public GeometryDebouncer(Action onSettled, int debounceMs = 400)
+        {
+            _onSettled = onSettled;
+            _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(debounceMs) };
+            _timer.Tick += (_, _) => { _timer.Stop(); _onSettled(); };
+        }
+
+        /// <summary>Restart the debounce window; the burst becomes one commit.</summary>
+        public void Schedule()
+        {
+            _timer.Stop();
+            _timer.Start();
+        }
+
+        /// <summary>Drop the pending commit and write now (the window is closing).</summary>
+        public void CommitNow()
+        {
+            _timer.Stop();
+            _onSettled();
+        }
     }
 
-    private void OnGeometrySettled(object? sender, EventArgs e)
+    private GeometryDebouncer? _panelGeometry;
+
+    private void ScheduleRememberGeometry()
     {
-        _geometryTimer?.Stop();
-        RememberGeometry();
+        // Lazy: the timer must be created on the UI thread, and the panel may never open.
+        _panelGeometry ??= new GeometryDebouncer(RememberGeometry);
+        _panelGeometry.Schedule();
     }
 
     /// <summary>Write the live window geometry into ui-state.</summary>
@@ -335,6 +355,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
 
     /// <summary>RandPass generator, single instance: re-entry activates the open window.</summary>
     private RandPassWindow? _randPassWindow;
+    private GeometryDebouncer? _randPassGeometry;
 
     void IPanelHost.ShowRandPass() => ShowRandPass();
 
@@ -348,8 +369,103 @@ public sealed class AppRuntime : IDisposable, IPanelHost
 
         var vm = new RandPassViewModel(_settings);
         _randPassWindow = new RandPassWindow { DataContext = vm };
-        _randPassWindow.Closed += (_, _) => _randPassWindow = null;
+        _randPassGeometry = new GeometryDebouncer(RememberRandPassGeometry);
+
+        // The XAML carries no startup location: this is the single place that decides where the
+        // window opens — the remembered geometry, else centred (PlacePanel's fallback policy).
+        PlaceRandPassWindow();
+
+        _randPassWindow.SizeChanged += (_, _) => _randPassGeometry?.Schedule();
+        _randPassWindow.PositionChanged += (_, _) => _randPassGeometry?.Schedule();
+        _randPassWindow.Closed += (_, _) =>
+        {
+            // One more commit on the way out: a resize that finished mid-debounce would
+            // otherwise be lost, and the next open would restore the stale geometry.
+            _randPassGeometry?.CommitNow();
+            _randPassGeometry = null;
+            _randPassWindow = null;
+        };
         _randPassWindow.Show();
+    }
+
+    /// <summary>
+    /// Restore the RandPass window's remembered geometry (spec 2026-11-24-randpass §7), or
+    /// centre it on the pointer's work area.
+    ///
+    /// X/Y are stored in the units of Window.Position (device pixels) and Width/Height in the
+    /// units of Window.Width (DIPs) — the same split as the panel's ui-state entry. The validity
+    /// check therefore converts the centre into device pixels with the CURRENT system scale
+    /// before comparing it against the (device-pixel) work areas; a monitor change or a DPI
+    /// change since the save makes the old centre land nowhere, which reads as "no valid save".
+    /// </summary>
+    private void PlaceRandPassWindow()
+    {
+        var window = _randPassWindow;
+        if (window is null) return;
+
+        if (TryGetSavedRandPassGeometry(out var x, out var y, out var w, out var h))
+        {
+            window.Width = w;
+            window.Height = h;
+            window.Position = new PixelPoint((int)x!, (int)y!);
+            return;
+        }
+
+        // No usable save: centre on the work area that holds the pointer, else the primary,
+        // else the first — the same fallback chain PlacePanel uses (PanelPlacement.AreaFor),
+        // with the window's XAML default size.
+        var scale = MonitorGeometry.SystemScale();
+        var area = PanelPlacement.AreaFor(PanelPlacement.CursorPoint());
+        var (mx, my) = PanelPlacement.Resolve(
+            PanelPositions.Center, null, null, area, window.Width * scale, window.Height * scale);
+        window.Position = new PixelPoint((int)mx, (int)my);
+    }
+
+    /// <summary>
+    /// Sanitize the saved RandPass geometry on read: a non-finite coordinate, a too-small size,
+    /// or a centre that no longer lands on any work area all read as "no valid save" and the
+    /// caller falls back to the default placement.
+    /// </summary>
+    private bool TryGetSavedRandPassGeometry(out double? x, out double? y, out double w, out double h)
+    {
+        x = y = null;
+        w = h = 0;
+
+        var s = _uiState.Current.RandPassWindow;
+        s.SanitizePosition();
+        if (s.X is not double sx || s.Y is not double sy) return false;
+        if (!double.IsFinite(sx) || !double.IsFinite(sy)) return false;
+        if (!double.IsFinite(s.Width) || !double.IsFinite(s.Height)) return false;
+
+        // A too-small size is corruption, not a user action: the window cannot shrink below its
+        // MinWidth/MinHeight (480x400), so a sane write is always at or above that.
+        if (s.Width < 480 || s.Height < 400) return false;
+
+        var scale = MonitorGeometry.SystemScale();
+        var cx = sx + s.Width * scale / 2;
+        var cy = sy + s.Height * scale / 2;
+        var onScreen = MonitorGeometry.EnumerateWorkAreas().Any(a =>
+            cx >= a.Left && cx <= a.Right && cy >= a.Top && cy <= a.Bottom);
+        if (!onScreen) return false;
+
+        x = sx;
+        y = sy;
+        w = s.Width;
+        h = s.Height;
+        return true;
+    }
+
+    /// <summary>Write the RandPass window's live geometry into ui-state (schema 3).</summary>
+    private void RememberRandPassGeometry()
+    {
+        if (_randPassWindow is null) return;
+
+        var saved = _uiState.Current.RandPassWindow;
+        saved.X = _randPassWindow.Position.X;
+        saved.Y = _randPassWindow.Position.Y;
+        saved.Width = _randPassWindow.Bounds.Width;
+        saved.Height = _randPassWindow.Bounds.Height;
+        _uiState.Save();
     }
 
     /// <summary>File picker, owned by a visible window.</summary>

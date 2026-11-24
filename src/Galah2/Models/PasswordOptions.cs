@@ -1,8 +1,9 @@
 namespace Galah2.Models;
 
 /// <summary>
-/// RandPass generation parameters (user-stated defaults = the RandPass Lite screenshot state:
-/// everything checked, length 14, count 14, custom chars "@#$", format off).
+/// RandPass generation parameters (defaults: everything checked, length 8, count 10, custom
+/// chars "@#$", format off. The 2026-11-24 follow-up changed length/count from the original
+/// 14/14 screenshot state — see spec 2026-11-24-randpass §7.)
 /// </summary>
 public sealed class PasswordOptions
 {
@@ -13,10 +14,10 @@ public sealed class PasswordOptions
     public const string DefaultCustomChars = "@#$";
 
     /// <summary>Password length (content characters; format dashes are extra).</summary>
-    public int Length { get; set; } = 14;
+    public int Length { get; set; } = 8;
 
     /// <summary>How many passwords one 生成密码 click produces.</summary>
-    public int Count { get; set; } = 14;
+    public int Count { get; set; } = 10;
 
     /// <summary>a–z in the pool.</summary>
     public bool Lower { get; set; } = true;

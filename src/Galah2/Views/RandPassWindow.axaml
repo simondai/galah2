@@ -4,13 +4,15 @@
         x:Class="Galah2.Views.RandPassWindow"
         x:DataType="vm:RandPassViewModel"
         Title="RandPass"
-        Width="580" Height="440"
-        MinWidth="480" MinHeight="380"
-        WindowStartupLocation="CenterScreen"
+        Width="580" Height="540"
+        MinWidth="480" MinHeight="400"
         SystemDecorations="None"
         Background="Transparent">
   <!-- The sixth sibling dialog: borderless surface + custom title bar, same grammar as the
-       other five (see DialogChrome). Left = parameters, right = results (spec 2026-11-24-randpass). -->
+       other five (see DialogChrome). Layout v2 (spec 2026-11-24-randpass §7): the generate
+       button leads the left column, length/count are −/value/+ steppers, and a draggable
+       hairline splits parameters (3*) from results (2*). The XAML carries no startup location:
+       AppRuntime restores the remembered geometry or centres the window (PlacePanel's policy). -->
   <Border x:Name="RootBorder" Background="{DynamicResource DialogSurfaceBrush}"
           CornerRadius="10" BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1">
     <DockPanel>
@@ -26,23 +28,47 @@
         </Grid>
       </Border>
 
-      <DockPanel Margin="16,12,16,14">
-        <!-- ── parameters (left) ── -->
-        <Border DockPanel.Dock="Left" Width="242" Margin="0,0,14,0"
-                BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,0,1,0"
-                Padding="0,0,14,0">
+      <!-- 60/40 parameter/result split with a draggable hairline between the columns. -->
+      <Grid Margin="16,12,16,14" ColumnDefinitions="3*,Auto,2*">
+        <!-- ── parameters (left): button first, then the two steppers, then the checkboxes.
+             The ScrollViewer is only a fallback for a shrunken window: at the default size the
+             content fits, so no scrollbar may appear. ── -->
+        <Border Grid.Column="0" MinWidth="240" Padding="0,0,8,0">
           <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel Spacing="10">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <StackPanel Width="88">
-                  <TextBlock Text="密码长度" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" />
-                  <NumericUpDown Value="{Binding Length}" Minimum="4" Maximum="64" FontSize="12" />
-                </StackPanel>
-                <StackPanel>
-                  <TextBlock Text="密码数量" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" />
-                  <NumericUpDown Value="{Binding Count}" Minimum="1" Maximum="100" FontSize="12" />
-                </StackPanel>
-              </StackPanel>
+              <Button Content="生成密码" Command="{Binding GenerateCommand}"
+                      HorizontalAlignment="Center" Padding="28,6"
+                      Background="{DynamicResource AccentSurfaceBrush}"
+                      Foreground="{DynamicResource WindowBrush}" />
+              <TextBlock Text="{Binding CopyStatus}" FontSize="11" HorizontalAlignment="Center"
+                         Foreground="{DynamicResource TextMutedBrush}"
+                         IsVisible="{Binding HasCopied}" />
+
+              <!-- length stepper: label left, [− value ＋] right (spec §7) -->
+              <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                <TextBlock Grid.Column="0" Text="密码长度" FontSize="11"
+                           Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="chip" Content="−" FontSize="12" Padding="6,1"
+                        Command="{Binding DecLengthCommand}" />
+                <TextBox Grid.Column="2" Width="40" Margin="4,0" FontSize="12"
+                         VerticalAlignment="Center" HorizontalContentAlignment="Center"
+                         Text="{Binding Length, UpdateSourceTrigger=PropertyChanged}" />
+                <Button Grid.Column="3" Classes="chip" Content="＋" FontSize="12" Padding="6,1"
+                        Command="{Binding IncLengthCommand}" />
+              </Grid>
+
+              <!-- count stepper -->
+              <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                <TextBlock Grid.Column="0" Text="密码数量" FontSize="11"
+                           Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="chip" Content="−" FontSize="12" Padding="6,1"
+                        Command="{Binding DecCountCommand}" />
+                <TextBox Grid.Column="2" Width="40" Margin="4,0" FontSize="12"
+                         VerticalAlignment="Center" HorizontalContentAlignment="Center"
+                         Text="{Binding Count, UpdateSourceTrigger=PropertyChanged}" />
+                <Button Grid.Column="3" Classes="chip" Content="＋" FontSize="12" Padding="6,1"
+                        Command="{Binding IncCountCommand}" />
+              </Grid>
 
               <CheckBox IsChecked="{Binding Lower}" FontSize="12">
                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -88,23 +114,26 @@
                 <ComboBox ItemsSource="{Binding FormatOptions}" SelectedItem="{Binding Format}"
                           IsVisible="{Binding UseFormat}" FontSize="12" />
               </StackPanel>
-
-              <Button Content="生成密码" Command="{Binding GenerateCommand}" Margin="0,6,0,0"
-                      Background="{DynamicResource AccentSurfaceBrush}"
-                      Foreground="{DynamicResource WindowBrush}" />
-              <TextBlock Text="{Binding CopyStatus}" FontSize="11" Margin="0,6,0,0"
-                         Foreground="{DynamicResource TextMutedBrush}"
-                         IsVisible="{Binding HasCopied}" />
             </StackPanel>
           </ScrollViewer>
         </Border>
 
+        <!-- draggable hairline: the GridSplitter (a direct child of this grid, so it resizes
+             the 3*/2* columns) carries the drag, and the 1px Border carries the visible line —
+             the splitter's own template paints only a flat Background, which would read as an
+             8px slab, not a hairline. -->
+        <GridSplitter Grid.Column="1" Width="8" Background="Transparent" Focusable="False"
+                      ResizeDirection="Columns" />
+        <Border Grid.Column="1" Width="1" HorizontalAlignment="Center"
+                Background="{DynamicResource HairlineBrush}" />
+
         <!-- ── results (right): one password per row; double-click a row to copy it ── -->
-        <ListBox x:Name="ResultList" FontFamily="Consolas, monospace" FontSize="12"
+        <ListBox x:Name="ResultList" Grid.Column="2" MinWidth="150"
+                 FontFamily="Consolas, monospace" FontSize="12"
                  DoubleTapped="ResultList_DoubleTapped"
                  ItemsSource="{Binding Results}"
                  ScrollViewer.VerticalScrollBarVisibility="Auto" />
-      </DockPanel>
+      </Grid>
     </DockPanel>
   </Border>
 </Window>

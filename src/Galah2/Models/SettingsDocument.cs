@@ -74,11 +74,11 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
     [JsonPropertyName("language")]
     public string Language { get; set; } = "zh-CN";
 
-    // ── RandPass (spec 2026-11-24-randpass) ──
+    // ── RandPass (spec 2026-11-24-randpass; length/count changed to 8/10 in §7) ──
     [JsonPropertyName("randPassLength")]
-    public int RandPassLength { get; set; } = 14;
+    public int RandPassLength { get; set; } = 8;
     [JsonPropertyName("randPassCount")]
-    public int RandPassCount { get; set; } = 14;
+    public int RandPassCount { get; set; } = 10;
     [JsonPropertyName("randPassLower")]
     public bool RandPassLower { get; set; } = true;
     [JsonPropertyName("randPassUpper")]
@@ -114,8 +114,8 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
         if (Array.IndexOf(PanelMaterials.All, s.PanelMaterial) < 0) s.PanelMaterial = PanelMaterials.None;
         if (string.IsNullOrWhiteSpace(s.Hotkey)) s.Hotkey = DefaultHotkey;
         if (string.IsNullOrWhiteSpace(s.Language)) s.Language = "zh-CN";
-        if (s.RandPassLength is < PasswordOptions.MinLength or > PasswordOptions.MaxLength) s.RandPassLength = 14;
-        if (s.RandPassCount is < PasswordOptions.MinCount or > PasswordOptions.MaxCount) s.RandPassCount = 14;
+        if (s.RandPassLength is < PasswordOptions.MinLength or > PasswordOptions.MaxLength) s.RandPassLength = 8;
+        if (s.RandPassCount is < PasswordOptions.MinCount or > PasswordOptions.MaxCount) s.RandPassCount = 10;
         if (Array.IndexOf(PasswordFormats.All, s.RandPassFormat) < 0) s.RandPassFormat = PasswordFormats.FourStarFour;
         return s;
     }

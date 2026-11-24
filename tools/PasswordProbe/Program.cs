@@ -139,10 +139,10 @@ internal static class Program
                 return s.Length == 16 && s.Replace("-", "").Length == 14;
             }));
 
-        // ── defaults match the screenshot state ──
+        // ── defaults match the shipped state (spec §7: 14/14 → 8/10) ──
         var def = new PasswordOptions();
-        Check("defaults = screenshot state (14/14, all on, @#$, format off)",
-            def.Length == 14 && def.Count == 14 && def.Lower && def.Upper && def.Digits
+        Check("defaults = shipped state (8/10, all on, @#$, format off)",
+            def.Length == 8 && def.Count == 10 && def.Lower && def.Upper && def.Digits
             && def.DoubleDigits && def.NoConfusables && def.CustomEnabled && def.CustomChars == "@#$"
             && !def.UseFormat && def.Format == "4-*-4");
 

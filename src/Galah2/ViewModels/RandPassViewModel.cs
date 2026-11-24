@@ -50,6 +50,18 @@ public sealed class RandPassViewModel : ObservableObject
         _format = d.RandPassFormat;
 
         GenerateCommand = new RelayCommand(Generate);
+
+        // Stepper buttons: ±1 with clamping. The TextBox path deliberately does NOT clamp (see
+        // the Length/Count properties) — a stepper is a discrete action and clamping there is
+        // what makes −/＋ impossible to overdrive.
+        void StepLength(int delta) =>
+            Length = Math.Clamp(Length + delta, PasswordOptions.MinLength, PasswordOptions.MaxLength);
+        void StepCount(int delta) =>
+            Count = Math.Clamp(Count + delta, PasswordOptions.MinCount, PasswordOptions.MaxCount);
+        IncLengthCommand = new RelayCommand(() => StepLength(1));
+        DecLengthCommand = new RelayCommand(() => StepLength(-1));
+        IncCountCommand = new RelayCommand(() => StepCount(1));
+        DecCountCommand = new RelayCommand(() => StepCount(-1));
     }
 
     /// <summary>One 生成密码 click: (re)fill the result list with Count fresh passwords.</summary>
@@ -81,6 +93,10 @@ public sealed class RandPassViewModel : ObservableObject
     public IReadOnlyList<string> FormatOptions => PasswordFormats.All;
 
     // ── parameters ──
+    // Length/Count are NOT clamped in the setters: the length TextBox types digit by digit, and
+    // clamping would turn the intermediate "6" of a "64" into 4. Out-of-range values are clamped
+    // where they matter — CurrentOptions (generation) and Commit (persistence) — both of which
+    // Math.Clamp against PasswordOptions' min/max.
     public int Length { get => _length; set => Set(ref _length, value); }
     public int Count { get => _count; set => Set(ref _count, value); }
     public bool Lower { get => _lower; set => Set(ref _lower, value); }
@@ -97,6 +113,12 @@ public sealed class RandPassViewModel : ObservableObject
     public ObservableCollection<string> Results { get; } = new();
 
     public ICommand GenerateCommand { get; }
+
+    // ── length/count stepper buttons (−/+ one step, clamped) ──
+    public ICommand IncLengthCommand { get; }
+    public ICommand DecLengthCommand { get; }
+    public ICommand IncCountCommand { get; }
+    public ICommand DecCountCommand { get; }
 
     /// <summary>Drives the visibility of the CopyStatus label.</summary>
     public bool HasCopied => CopyStatus.Length > 0;

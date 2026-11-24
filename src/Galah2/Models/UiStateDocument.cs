@@ -5,19 +5,29 @@ namespace Galah2.Models;
 /// <summary>
 /// Document model of ui-state.json: window geometry, visibility and the last active category
 /// (design §3.1 — the high-frequency, cheap state is deliberately isolated from the authoritative
-/// content library). Schema 2 added <c>activeTabId</c> and the maximised flag; schema-1 files
-/// still load, the new fields simply default.
+/// content library). Schema 2 added <c>activeTabId</c> and the maximised flag; schema 3 added
+/// the RandPass window's own geometry (<c>randPassWindow</c>); older files still load, the new
+/// fields simply default (spec 2026-11-24-randpass §7).
 /// </summary>
 public sealed class UiStateDocument : Persistence.ISchemaBearing
 {
     /// <summary>Schema version written by this build.</summary>
-    public const int CurrentSchema = 2;
+    public const int CurrentSchema = 3;
 
     [JsonPropertyName("schema")]
     public int Schema { get; set; } = CurrentSchema;
 
     [JsonPropertyName("window")]
     public WindowState Window { get; set; } = new();
+
+    /// <summary>
+    /// The RandPass window's geometry (schema 3). The defaults are RandPass's own window size,
+    /// not the panel's: a file without this node (every schema ≤2 file) must deserialize to
+    /// "opens at the XAML default size, no remembered position" — and a missing JSON node leaves
+    /// the property initializer untouched.
+    /// </summary>
+    [JsonPropertyName("randPassWindow")]
+    public WindowState RandPassWindow { get; set; } = new() { Width = 580, Height = 540 };
 
     /// <summary>Id of the category that was selected last (null when never selected).</summary>
     [JsonPropertyName("activeTabId")]
@@ -28,6 +38,7 @@ public sealed class UiStateDocument : Persistence.ISchemaBearing
     {
         Schema = Schema,
         Window = Window.Clone(),
+        RandPassWindow = RandPassWindow.Clone(),
         ActiveTabId = ActiveTabId,
     };
 }

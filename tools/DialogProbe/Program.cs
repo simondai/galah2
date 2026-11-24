@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+using Galah2.Models;
 using Galah2.Persistence;
 using Galah2.ViewModels;
 using Galah2.Views;
@@ -184,21 +186,68 @@ internal static class Program
             rpSurfaceOk && rpSurface is not null && rpRootBorder is not null
             && ReferenceEquals(rpRootBorder.Background, rpSurface));
 
+        // Layout v2 (spec §7): the two NumericUpDowns are gone; length/count are −/value/+ rows.
         var rpSpinners = rp.GetVisualDescendantsOfType<NumericUpDown>().ToList();
-        Check("RandPass has length+count spinners", rpSpinners.Count == 2, rpSpinners.Count + "");
-        // Spinner round-trip: the length control is a decimal and the property an int - the
-        // two-way binding must carry an edited value into the property and on into generation.
-        if (rpSpinners.Count == 2)
+        Check("RandPass carries no NumericUpDown", rpSpinners.Count == 0, rpSpinners.Count + "");
+        // The steppers are the replacement: two rows of [− value ＋], so exactly four chip
+        // buttons carrying the minus/plus glyphs, all visible after layout.
+        var rpMinus = rp.GetVisualDescendantsOfType<Button>()
+            .Where(b => (b.Content as string) == "−").ToList();
+        var rpPlus = rp.GetVisualDescendantsOfType<Button>()
+            .Where(b => (b.Content as string) == "＋").ToList();
+        Check("RandPass has the four stepper buttons (−/＋ ×2), all visible",
+            rpMinus.Count == 2 && rpPlus.Count == 2
+            && rpMinus.All(b => b.IsVisible) && rpPlus.All(b => b.IsVisible),
+            "minus=" + rpMinus.Count + " plus=" + rpPlus.Count);
+        // Stepper round-trip through the real XAML wiring: the first ＋ in visual order must be
+        // the length row's button (binding identity). A synthetic pointer click is not available
+        // in-process, so the button's resolved Command is executed directly — the binding and the
+        // command are the two product-owned links; the Button's own click plumbing is framework.
+        if (rpPlus.Count == 2)
         {
-            rpSpinners[0].Value = 24; // length (the first spinner in the left column)
+            // Visual order is [length row, count row]; every button must be bound to its own
+            // command, or a row swap would silently drive the wrong parameter.
+            Check("stepper bindings map to the right commands",
+                ReferenceEquals(rpMinus[0].Command, rpVm.DecLengthCommand)
+                && ReferenceEquals(rpMinus[1].Command, rpVm.DecCountCommand)
+                && ReferenceEquals(rpPlus[0].Command, rpVm.IncLengthCommand)
+                && ReferenceEquals(rpPlus[1].Command, rpVm.IncCountCommand));
+            rpPlus[0].Command?.Execute(rpPlus[0].CommandParameter);
             Pump();
-            Check("length spinner writes back to the property", rpVm.Length == 24, rpVm.Length + "");
-            rpVm.Generate();
-            Pump();
-            Check("generation honors the edited length", rpVm.Results.All(r => r.Length == 24),
-                rpVm.Results.Count > 0 ? rpVm.Results[0].Length + " chars" : "empty");
-            rpSpinners[0].Value = 14; // restore the screenshot default
-            Pump();
+            Check("length ＋ steps the property (8→9)", rpVm.Length == 9, rpVm.Length + "");
+            // The TextBox is the other half of the same binding: it shows the stepped value, and
+            // an edited value reaches the property (un-clamped in transit — CurrentOptions/Commit
+            // clamp, the setter must not, so typing "64" is not crushed to "4" mid-keystroke).
+            var rpLenBox = rp.GetVisualDescendantsOfType<TextBox>().FirstOrDefault();
+            Check("length TextBox shows the stepped value", rpLenBox?.Text == "9", rpLenBox?.Text ?? "no TextBox");
+            // −/+ must clamp to the documented range (4–64 / 1–100), not wrap or overshoot.
+            rpVm.Length = PasswordOptions.MaxLength;
+            rpPlus[0].Command?.Execute(null);
+            Check("length ＋ clamps at 64", rpVm.Length == 64, rpVm.Length + "");
+            rpVm.Count = PasswordOptions.MinCount;
+            rpMinus[1].Command?.Execute(null);
+            Check("count − clamps at 1", rpVm.Count == 1, rpVm.Count + "");
+
+            if (rpLenBox is not null)
+            {
+                rpLenBox.Text = "24";
+                Pump();
+                Check("length TextBox writes back to the property", rpVm.Length == 24, rpVm.Length + "");
+                rpVm.Generate();
+                Pump();
+                Check("generation honors the edited length", rpVm.Results.All(r => r.Length == 24),
+                    rpVm.Results.Count > 0 ? rpVm.Results[0].Length + " chars" : "empty");
+                // Restore the shipped defaults before the defaults check below (the length
+                // through the box — one more round-trip; the count went to 1 via the clamp test).
+                rpLenBox.Text = "8";
+                rpVm.Count = 10;
+                Pump();
+            }
+            else
+            {
+                rpVm.Length = 8;
+                rpVm.Count = 10;
+            }
         }
         var rpBoxes = rp.GetVisualDescendantsOfType<CheckBox>().ToList();
         // Seven: lower/upper/digits/double-digit/no-confusables/custom-chars/custom-format.
@@ -211,26 +260,68 @@ internal static class Program
             rpCombos.Count == 1 && rpCombos[0].Items.Cast<object>().SequenceEqual(
                 new object[] { "4-*-4", "2-*-4-*-2" }));
 
-        Check("RandPass loads the screenshot defaults",
-            rpVm.Length == 14 && rpVm.Count == 14 && rpVm.Lower && rpVm.Upper && rpVm.Digits
+        // Layout v2 positions (spec §7): after an arrange pass the generate button leads the
+        // left column, above the first checkbox, and the splitter sits in the middle column
+        // between the parameter border (col 0) and the result list (col 2).
+        rp.UpdateLayout();
+        var rpGen = rp.GetVisualDescendantsOfType<Button>()
+            .FirstOrDefault(b => (b.Content as string) == "生成密码");
+        Check("RandPass has a 生成密码 button", rpGen is not null);
+        var rpFirstCheck = rpBoxes.FirstOrDefault();
+        // TranslatePoint returns null while the visual has no laid-out bounds; the window is
+        // shown and UpdateLayout'd above, so both points must exist — a null here is a layout
+        // failure, not a "equal position".
+        var genPt = rpGen?.TranslatePoint(new Point(0, 0), rp);
+        var chkPt = rpFirstCheck?.TranslatePoint(new Point(0, 0), rp);
+        Check("generate button sits above the first checkbox",
+            genPt is not null && chkPt is not null && genPt.Value.Y < chkPt.Value.Y,
+            genPt?.ToString() + " vs " + chkPt?.ToString());
+
+        var rpSplitters = rp.GetVisualDescendantsOfType<GridSplitter>().ToList();
+        Check("RandPass splitter sits between the columns",
+            rpSplitters.Count == 1
+            && rpSplitters[0].GetVisualParent() is Grid { } rpSplitGrid
+            && Grid.GetColumn(rpSplitters[0]) == 1
+            && rpSplitGrid.Children.Any(c => c is Border && Grid.GetColumn(c) == 0)
+            && rpSplitGrid.Children.Any(c => c is ListBox && Grid.GetColumn(c) == 2),
+            rpSplitters.Count + " splitter(s)");
+
+        // The frameless window resizes from its 6px edges: pure maths, all eight zones plus a
+        // centre that must NOT match (the PanelWindow probe's pattern, spec §7).
+        var rpSz = new Size(580, 540);
+        bool RpHas(int edges, int flag) => (edges & flag) != 0;
+        Check("RandPass west edge zone", RpHas(RandPassWindow.EdgesFor(rpSz, new Point(0, 270)), RandPassWindow.EdgeW));
+        Check("RandPass east edge zone", RpHas(RandPassWindow.EdgesFor(rpSz, new Point(579, 270)), RandPassWindow.EdgeE));
+        Check("RandPass north edge zone", RpHas(RandPassWindow.EdgesFor(rpSz, new Point(290, 0)), RandPassWindow.EdgeN));
+        Check("RandPass south edge zone", RpHas(RandPassWindow.EdgesFor(rpSz, new Point(290, 539)), RandPassWindow.EdgeS));
+        Check("RandPass north-west corner", RandPassWindow.EdgesFor(rpSz, new Point(0, 0)) == (RandPassWindow.EdgeN | RandPassWindow.EdgeW));
+        Check("RandPass north-east corner", RandPassWindow.EdgesFor(rpSz, new Point(579, 0)) == (RandPassWindow.EdgeN | RandPassWindow.EdgeE));
+        Check("RandPass south-west corner", RandPassWindow.EdgesFor(rpSz, new Point(0, 539)) == (RandPassWindow.EdgeS | RandPassWindow.EdgeW));
+        Check("RandPass south-east corner", RandPassWindow.EdgesFor(rpSz, new Point(579, 539)) == (RandPassWindow.EdgeS | RandPassWindow.EdgeE));
+        Check("RandPass centre is not a resize zone", RandPassWindow.EdgesFor(rpSz, new Point(290, 270)) == 0);
+
+        Check("RandPass loads the shipped defaults",
+            rpVm.Length == 8 && rpVm.Count == 10 && rpVm.Lower && rpVm.Upper && rpVm.Digits
             && rpVm.DoubleDigits && rpVm.NoConfusables && rpVm.CustomEnabled && !rpVm.UseFormat);
 
         rpVm.Generate();
         Pump();
         var rpList = rp.FindControl<ListBox>("ResultList");
         Check("generate fills the result list with Count rows",
-            rpVm.Results.Count == 14 && (rpList?.Items.Count ?? 0) == 14,
+            rpVm.Results.Count == 10 && (rpList?.Items.Count ?? 0) == 10,
             rpVm.Results.Count + "/" + (rpList?.Items.Count ?? -1) + "");
-        Check("default generation yields 14-char rows (no format)",
-            rpVm.Results.All(r => r.Length == 14));
+        Check("default generation yields 8-char rows (no format)",
+            rpVm.Results.All(r => r.Length == 8));
 
         // The custom-format switch reveals the combo and generation carries dashes.
         rpVm.UseFormat = true;
         rpVm.Generate();
         Pump();
-        Check("format ON switches the output shape to 4-*-4 (16 chars, 2 dashes)",
-            rpVm.Results.All(r => r.Length == 16 && r.Count(c => c == '-') == 2),
-            rpVm.Results[0]);
+        // Length is 8 (spec §7 default): the 4-*-4 star segment is 0 and drops, leaving [4,4]
+        // plus one dash — 9 chars total (the 14-char 16/2 shape is now the Length=14 case).
+        Check("format ON switches the output shape to 4-*-4 @8 (9 chars, 1 dash)",
+            rpVm.Results.All(r => r.Length == 9 && r.Count(c => c == '-') == 1),
+            rpVm.Results.Count > 0 ? rpVm.Results[0] : "empty");
 
         // Copy contract: a successful clipboard write is reported as transient status.
         rpVm.MarkCopied();
@@ -243,6 +334,46 @@ internal static class Program
         Check("closing commits the RandPass section to settings",
             rpStore.Current.RandPassLength == 20 && rpStore.Current.RandPassUseFormat == true,
             rpStore.Current.RandPassLength + "/" + rpStore.Current.RandPassUseFormat);
+        try { Directory.Delete(rpRoot, true); } catch { }
+
+        // ---- ui-state schema 3: the randPassWindow node round-trips (spec §7) ----
+        // The geometry memory's read side is what restores the window; here the exact contract
+        // is proven: write → serialize → reload → equal, and a schema-2 file (no node at all,
+        // i.e. every ui-state.json that exists today) loads at the window's own default size
+        // with no remembered position — not the panel's 720x460.
+        var uiRoot = Path.Combine(Path.GetTempPath(), "randpass-ui-" + Guid.NewGuid().ToString("N")[..8]);
+        var uiPaths = new AppDataPaths(uiRoot).EnsureCreated();
+        var uiStore = new UiStateStore(uiPaths);
+        uiStore.Load();
+        uiStore.Current.RandPassWindow = new Galah2.Models.WindowState { X = 120, Y = 80, Width = 580, Height = 540 };
+        Check("ui-state writes schema 3 with the randPassWindow node",
+            uiStore.FileStore.CurrentSchema == 3 && uiStore.Save(),
+            "schema=" + uiStore.FileStore.CurrentSchema);
+        var uiReread = new UiStateStore(uiPaths);
+        uiReread.Load();
+        Check("randPassWindow geometry survives a reload",
+            uiReread.Current.Schema == 3
+            && uiReread.Current.RandPassWindow.X == 120
+            && uiReread.Current.RandPassWindow.Y == 80
+            && Math.Abs(uiReread.Current.RandPassWindow.Width - 580) < 0.001
+            && Math.Abs(uiReread.Current.RandPassWindow.Height - 540) < 0.001,
+            "schema=" + uiReread.Current.Schema
+            + " pos=" + uiReread.Current.RandPassWindow.X + "," + uiReread.Current.RandPassWindow.Y
+            + " size=" + uiReread.Current.RandPassWindow.Width + "x" + uiReread.Current.RandPassWindow.Height);
+
+        File.WriteAllText(uiPaths.UiStateFile,
+            "{\"schema\": 2, \"window\": {\"x\": 1, \"y\": 2, \"width\": 720, \"height\": 460}, \"activeTabId\": null}");
+        var uiLegacy = new UiStateStore(uiPaths);
+        uiLegacy.Load();
+        Check("a schema-2 file loads with the RandPass default size, no position",
+            uiLegacy.Current.Schema == 3
+            && uiLegacy.Current.RandPassWindow.Width == 580
+            && uiLegacy.Current.RandPassWindow.Height == 540
+            && uiLegacy.Current.RandPassWindow.X is null
+            && uiLegacy.Current.Window.Width == 720,
+            uiLegacy.Current.RandPassWindow.Width + "x" + uiLegacy.Current.RandPassWindow.Height
+            + " x=" + uiLegacy.Current.RandPassWindow.X);
+        try { Directory.Delete(uiRoot, true); } catch { }
 
         // ---- tray menu (spec 2026-11-24-randpass entry 3) ----
         // TrayService builds a real native tray icon, which needs the live product App this

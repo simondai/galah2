@@ -176,8 +176,9 @@ internal static class Program
 
         store.Update(d => { d.RandPassLength = 999; d.RandPassCount = 0; d.RandPassFormat = "bogus"; });
         var rpSan = store.Current.Sanitized();
+        // The Sanitized fallback is the shipped default (8/10 since spec §7, was 14/14).
         Check("Sanitized clamps the RandPass section to defaults",
-            rpSan.RandPassLength == 14 && rpSan.RandPassCount == 14 && rpSan.RandPassFormat == "4-*-4",
+            rpSan.RandPassLength == 8 && rpSan.RandPassCount == 10 && rpSan.RandPassFormat == "4-*-4",
             rpSan.RandPassLength + "/" + rpSan.RandPassCount + "/" + rpSan.RandPassFormat);
 
         window.Close();
