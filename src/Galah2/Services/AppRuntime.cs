@@ -357,6 +357,17 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     private RandPassWindow? _randPassWindow;
     private GeometryDebouncer? _randPassGeometry;
 
+    // The last geometry the window actually had, captured from its LIVE events. This exists
+    // because the platform resets Window.Position to (0,0) DURING the close sequence: the
+    // probe reads (100,100) in Closing but (0,0) in Closed for the same window (spec §9.1).
+    // Reading the window after it starts closing hands the rememberer (0,0), which the next
+    // open then faithfully "restores" — the top-left pinning bug. The panel avoids the same
+    // trap by capturing in Closing (it hides instead of closing); RandPass closes for real,
+    // so it captures into fields while alive and commits from Closing.
+    private PixelPoint _randPassLivePosition;
+    private Size _randPassLiveSize;
+    private bool _randPassClosing;
+
     void IPanelHost.ShowRandPass() => ShowRandPass();
 
     private void ShowRandPass()
@@ -373,19 +384,39 @@ public sealed class AppRuntime : IDisposable, IPanelHost
 
         // The XAML carries no startup location: this is the single place that decides where the
         // window opens — the remembered geometry, else centred (PlacePanel's fallback policy).
+        // It also seeds the live-geometry fields with the intended values.
         PlaceRandPassWindow();
 
-        _randPassWindow.SizeChanged += (_, _) => _randPassGeometry?.Schedule();
-        _randPassWindow.PositionChanged += (_, _) => _randPassGeometry?.Schedule();
+        _randPassWindow.SizeChanged += RandPass_GeometryLive;
+        _randPassWindow.PositionChanged += RandPass_GeometryLive;
+        _randPassWindow.Closing += (_, _) =>
+        {
+            // Commit from Closing, never from Closed: by the time Closed fires, Position has
+            // already reset to (0,0). Closing also settles a resize that finished mid-debounce.
+            // The flag stops the close sequence's own reset events from scheduling a LATE
+            // commit that would write the (0,0) the reset reports.
+            _randPassClosing = true;
+            _randPassGeometry?.CommitNow();
+        };
         _randPassWindow.Closed += (_, _) =>
         {
-            // One more commit on the way out: a resize that finished mid-debounce would
-            // otherwise be lost, and the next open would restore the stale geometry.
-            _randPassGeometry?.CommitNow();
+            _randPassClosing = false;
             _randPassGeometry = null;
             _randPassWindow = null;
         };
         _randPassWindow.Show();
+    }
+
+    /// <summary>Follow the window's live geometry into fields (the values a close-time read cannot give).</summary>
+    private void RandPass_GeometryLive(object? sender, EventArgs e)
+    {
+        if (_randPassClosing) return;   // the close sequence resets Position to (0,0); never follow it
+        var window = _randPassWindow;
+        if (window is null || ReferenceEquals(sender, window) is not true) return;
+        _randPassLivePosition = window.Position;
+        if (window.Bounds.Width > 0 && window.Bounds.Height > 0)
+            _randPassLiveSize = new Size(window.Bounds.Width, window.Bounds.Height);
+        _randPassGeometry?.Schedule();
     }
 
     /// <summary>
@@ -420,6 +451,11 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         pos ??= CenterOnPointerArea(w, h);
         window.Position = pos.Value;
         window.IntendedGeometry = (pos, new Size(w, h));
+
+        // Seed the live-geometry fields with the intended values; the window's live events
+        // refresh them while it is open (RandPass_GeometryLive).
+        _randPassLivePosition = pos.Value;
+        _randPassLiveSize = new Size(w, h);
     }
 
     /// <summary>
@@ -470,16 +506,21 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         return true;
     }
 
-    /// <summary>Write the RandPass window's live geometry into ui-state (schema 3).</summary>
+    /// <summary>
+    /// Write the RandPass window's geometry into ui-state (schema 3) — from the LIVE-GEOMETRY
+    /// FIELDS, never from the window itself. By the time this runs (Closing / a debounce that
+    /// settles during close), Window.Position has already reset to (0,0) and Bounds may be
+    /// collapsing; the fields hold the last true values the window's live events reported.
+    /// </summary>
     private void RememberRandPassGeometry()
     {
-        if (_randPassWindow is null) return;
+        if (_randPassLiveSize.Width <= 0 || _randPassLiveSize.Height <= 0) return;
 
         var saved = _uiState.Current.RandPassWindow;
-        saved.X = _randPassWindow.Position.X;
-        saved.Y = _randPassWindow.Position.Y;
-        saved.Width = _randPassWindow.Bounds.Width;
-        saved.Height = _randPassWindow.Bounds.Height;
+        saved.X = _randPassLivePosition.X;
+        saved.Y = _randPassLivePosition.Y;
+        saved.Width = _randPassLiveSize.Width;
+        saved.Height = _randPassLiveSize.Height;
         _uiState.Save();
     }
 

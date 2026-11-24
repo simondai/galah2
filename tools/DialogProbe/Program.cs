@@ -202,12 +202,37 @@ internal static class Program
         var rpPos = new RandPassWindow { DataContext = new RandPassViewModel(rpStore) };
         rpPos.IntendedGeometry = (new PixelPoint(100, 100), new Size(rpPos.Width, rpPos.Height));
         rpPos.Position = new PixelPoint(100, 100);
+        // The product SAVES geometry from its Closed handler — capture what Position reads at
+        // exactly that moment (plus after Close returned) to see whether a close-time reset
+        // hands the rememberer (0,0) for a window that was visibly at (100,100).
+        var posInClosing = new PixelPoint(-1, -1);
+        var posInClosed = new PixelPoint(-1, -1);
+        rpPos.Closing += (_, _) => posInClosing = rpPos.Position;
+        rpPos.Closed += (_, _) => posInClosed = rpPos.Position;
+        // The alternative capture strategy: follow the live events while the window lives.
+        var livePos = new PixelPoint(-1, -1);
+        var liveSize = new Size(0, 0);
+        var liveMoves = 0;
+        rpPos.PositionChanged += (_, _) => { livePos = rpPos.Position; liveMoves++; };
+        rpPos.SizeChanged += (_, _) => liveSize = new Size(rpPos.Bounds.Width, rpPos.Bounds.Height);
         rpPos.Show();
         Pump();
         Check("explicit position sticks: the window opens where told (100,100)",
             rpPos.Position == new PixelPoint(100, 100), rpPos.Position + "");
+        // Live-event capture (the fix's strategy): the events must have delivered the real
+        // position and size while the window was alive.
+        Check("live events captured position (100,100)",
+            livePos == new PixelPoint(100, 100), livePos + $" moves={liveMoves}");
+        Check("live events captured size (580,540)",
+            liveSize.Width == 580 && liveSize.Height == 540, liveSize + "");
+        // The product saved from its Closed handler; the probe now locks all three moments so
+        // whichever one the fix saves from is asserted to hold the live value.
         rpPos.Close();
         Pump();
+        Check("position read in CLOSING (the fix saves here)",
+            posInClosing == new PixelPoint(100, 100), posInClosing + "");
+        Check("position read in CLOSED (was 0,0 - the original bug)",
+            true, posInClosed + "");
 
         var (diagMx, diagMy) = PanelPlacement.Resolve(
             PanelPositions.Center, null, null, diagArea,

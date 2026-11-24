@@ -87,10 +87,11 @@ public static class PanelPlacement
     /// first area — and never a degenerate (zero-size) one. The single fallback policy for
     /// placement; callers do not invent their own.
     ///
-    /// The guard is load-bearing, not paranoia: Resolve(Centre) against a (0,0,0,0) area clamps
-    /// to exactly (0,0), so one transient monitor glitch (observed on an RDP session,
-    /// spec 2026-11-24-randpass §9) silently parked RandPass in the top-left corner, where the
-    /// position rememberer then pinned it for every following open.
+    /// The guard is defensive: Resolve(Centre) against a (0,0,0,0) area clamps to exactly (0,0)
+    /// (probe-locked), so a transient monitor glitch during an RDP session could silently park
+    /// a window in the top-left corner. Added during the top-left investigation
+    /// (spec 2026-11-24-randpass §9); the CONFIRMED root cause of that bug was the close-time
+    /// Position reset, not a degenerate area (§9.1) — the guard stays as cheap insurance.
     /// </summary>
     /// <param name="cursor">Cursor point in device pixels, or null.</param>
     public static WorkArea AreaFor((double X, double Y)? cursor)
