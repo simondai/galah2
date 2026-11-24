@@ -98,12 +98,12 @@
                       DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
                       Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
                       CommandParameter="{Binding}">
-                <!-- Same host rules as the horizontal strip (see that menu's comment). -->
+                <!-- Same menu as the horizontal strip (see its comment). -->
                 <Button.ContextMenu>
-                  <ContextMenu Opening="ChipMenu_Opening" x:DataType="vm:PanelViewModel">
-                    <MenuItem Header="重命名分类" Command="{Binding RenameChipCommand}" />
-                    <MenuItem Header="删除分类" Command="{Binding DeleteChipCommand}"
-                              IsEnabled="{Binding ChipMenuTargetIsDeletable}" />
+                  <ContextMenu>
+                    <MenuItem Header="重命名分类" Command="{Binding RenameCommand}" />
+                    <MenuItem Header="删除分类" Command="{Binding DeleteCommand}"
+                              IsEnabled="{Binding HasNoEntries}" />
                   </ContextMenu>
                 </Button.ContextMenu>
               </Button>
@@ -149,17 +149,17 @@
                       DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
                       Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
                       CommandParameter="{Binding}">
-                <!-- Same host rules as the tile menus: no $parent paths inside a ContextMenu -
-                     they die across the popup boundary and every row greys out (binding error ->
-                     MenuItem._commandCanExecute=false). The Opening handler swaps the DataContext
-                     to the PanelViewModel AND records this chip as the menu target; the rows then
-                     use plain bindings. x:DataType is load-bearing for the same reason as the
-                     add-tile menu: without it the compiled bindings resolve against TabViewModel. -->
+                <!-- The rows bind to the CHIP'S OWN TabViewModel (rename/delete commands wired by
+                     the PanelViewModel in Refresh). A ContextMenu can only reach what it inherits
+                     from its host control: $parent paths die at the popup boundary, and
+                     XAML-attached Opening handlers never fire on a ContextMenu - both proven in
+                     the 2026-11-24 grey-menu round, where this exact menu shipped grey while
+                     every in-process probe passed (they never exercised the real open path). -->
                 <Button.ContextMenu>
-                  <ContextMenu Opening="ChipMenu_Opening" x:DataType="vm:PanelViewModel">
-                    <MenuItem Header="重命名分类" Command="{Binding RenameChipCommand}" />
-                    <MenuItem Header="删除分类" Command="{Binding DeleteChipCommand}"
-                              IsEnabled="{Binding ChipMenuTargetIsDeletable}" />
+                  <ContextMenu>
+                    <MenuItem Header="重命名分类" Command="{Binding RenameCommand}" />
+                    <MenuItem Header="删除分类" Command="{Binding DeleteCommand}"
+                              IsEnabled="{Binding HasNoEntries}" />
                   </ContextMenu>
                 </Button.ContextMenu>
               </Button>
@@ -227,23 +227,13 @@
                       Click="AddTile_Click"
                       DragDrop.AllowDrop="True"
                       DragDrop.DragOver="Tile_DragOver" DragDrop.Drop="AddTile_Drop">
-                <!-- A ContextMenu, not a MenuFlyout: flyout items are not in the logical tree,
-                     so the $parent[ItemsControl] command path resolves to nothing and MenuItem
-                     greys the item out on the binding error (Avalonia MenuItem.cs: BindingError
-                     -> _commandCanExecute=false). The tile ContextMenus below prove this host
-                     works; a left click opens the same menu from code. -->
-                <!-- Commands bind straight to the ContextMenu's own DataContext, injected as the
-                     PanelViewModel on BOTH open paths (Opening for right-click, AddTile_Click for
-                     the programmatic left-click open - Opening does not fire for Open()). This
-                     button's DataContext is the sentinel ItemViewModel, so any binding that
-                     inherits it resolves to nothing and MenuItem greys the row out - the exact
-                     symptom reported twice. The blank-space menu on TileScroll proves the plain
-                     DataContext pattern works. -->
+                <!-- A ContextMenu, not a MenuFlyout: flyout items are not in the logical tree.
+                     The rows bind the SENTINEL'S OWN add commands (wired by the PanelViewModel),
+                     so no $parent path and no DataContext swap is involved - the one pattern
+                     proven live in the shipped app (the blank-space menu). A left click opens
+                     this same menu from code (AddTile_Click). -->
                 <Button.ContextMenu>
-                  <!-- x:DataType here is load-bearing: the template's data type is ItemViewModel,
-                       so compiled bindings would resolve against the sentinel and fail to build.
-                       The Opening handler swaps the DataContext to the PanelViewModel at runtime. -->
-                  <ContextMenu Opening="AddTileMenu_Opening" x:DataType="vm:PanelViewModel">
+                  <ContextMenu>
                     <MenuItem Header="添加快捷方式…" Command="{Binding AddPickerCommand}" />
                     <MenuItem Header="添加文件…" Command="{Binding AddFileCommand}" />
                     <MenuItem Header="添加文件夹…" Command="{Binding AddFolderCommand}" />
@@ -273,25 +263,19 @@
                       Click="Tile_Click" DoubleTapped="Tile_DoubleTapped"
                       DragDrop.AllowDrop="True"
                       DragDrop.DragOver="Tile_DragOver" DragDrop.Drop="Tile_Drop">
+                <!-- The rows bind the TILE'S OWN ItemViewModel commands (wired by the
+                     PanelViewModel in SelectTab). The old $parent[ItemsControl] paths could never
+                     resolve across the popup boundary - this menu was grey in the real app the
+                     whole time it existed, and no in-process probe could see it (2026-11-24). -->
                 <Button.ContextMenu>
                   <ContextMenu>
-                    <MenuItem Header="打开"
-                              Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).LaunchCommand}"
-                              CommandParameter="{Binding}" />
-                    <MenuItem Header="编辑…"
-                              Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).EditItemCommand}"
-                              CommandParameter="{Binding}" />
+                    <MenuItem Header="打开" Command="{Binding OpenCommand}" />
+                    <MenuItem Header="编辑…" Command="{Binding EditCommand}" />
                     <Separator />
-                    <MenuItem Header="左移"
-                              Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).MoveItemLeftCommand}"
-                              CommandParameter="{Binding}" />
-                    <MenuItem Header="右移"
-                              Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).MoveItemRightCommand}"
-                              CommandParameter="{Binding}" />
+                    <MenuItem Header="左移" Command="{Binding MoveLeftCommand}" />
+                    <MenuItem Header="右移" Command="{Binding MoveRightCommand}" />
                     <Separator />
-                    <MenuItem Header="删除"
-                              Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).DeleteItemCommand}"
-                              CommandParameter="{Binding}" />
+                    <MenuItem Header="删除" Command="{Binding DeleteCommand}" />
                   </ContextMenu>
                 </Button.ContextMenu>
                 <StackPanel Width="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).TileWidth}" Spacing="6">

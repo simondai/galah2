@@ -121,26 +121,23 @@ internal static class Program
         var fullChip = vm.Tabs.First(t => t.Name == "测试分类");
         Check("chip knows whether its category is empty",
             emptyChip.HasNoEntries && !fullChip.HasNoEntries);
+        Check("every chip carries its own rename/delete commands",
+            vm.Tabs.All(t => t.RenameCommand is not null && t.DeleteCommand is not null));
 
         host.PromptAnswer = "改过名";
-        vm.SetChipMenuTarget(emptyChip);
-        Check("chip menu target is deletable while empty", vm.ChipMenuTargetIsDeletable);
-        vm.RenameChipCommand.Execute(null);
+        emptyChip.RenameCommand.Execute(null);
         Check("chip menu renames the chip's own category",
             host.LastPrompt == "重命名分类" && vm.Tabs.Any(t => t.Name == "改过名")
             && vm.Tabs.Count == 3,
             host.LastPrompt ?? "no prompt");
 
-        // Refresh rebuilt the TabViewModels; re-fetch by name (the id is what the command uses).
-        vm.SetChipMenuTarget(vm.Tabs.First(t => t.Name == "改过名"));
-        vm.DeleteChipCommand.Execute(null);
+        // Refresh rebuilt the TabViewModels; re-fetch by name.
+        vm.Tabs.First(t => t.Name == "改过名").DeleteCommand.Execute(null);
         Check("chip menu deletes an empty category",
             !vm.Tabs.Any(t => t.Name == "改过名") && vm.Tabs.Count == 2,
             vm.Tabs.Count + " tab(s)");
 
-        vm.SetChipMenuTarget(vm.Tabs.First(t => t.Name == "测试分类"));
-        Check("chip menu target is NOT deletable with entries", !vm.ChipMenuTargetIsDeletable);
-        vm.DeleteChipCommand.Execute(null);
+        vm.Tabs.First(t => t.Name == "测试分类").DeleteCommand.Execute(null);
         Check("chip menu refuses to delete a non-empty category",
             vm.Toast.IsOpen && vm.Tabs.Count == 2, vm.Toast.Message);
         vm.Toast.Close();
@@ -439,26 +436,108 @@ internal static class Program
             }),
             realizedChips.Count + " chip(s)");
 
-        // The grey-menu contract: when a chip menu opens, its DataContext MUST be swapped to the
-        // PanelViewModel and the right-clicked chip recorded as the target - without that swap the
-        // rows' plain {Binding ...Command} resolve against the TabViewModel and grey out. Simulate
-        // the Opening routed event a real right click would raise.
-        var injectChip = realizedChips.Last();
-        var injectMenu = injectChip.ContextMenu!;
-        var injectTab = (TabViewModel)injectChip.DataContext;
-        var injectCount = store.Current.Tabs.First(t => t.Id == injectTab.Id).Items.Count;
-        // Invoke the exact code-behind handler a real right click's Opening would call. The
-        // ContextMenuService normally assigns the PlacementTarget before raising Opening; a direct
-        // invoke skips the service, so mirror that assignment here.
-        injectMenu.PlacementTarget = injectChip;
-        var openingHandler = typeof(PanelWindow).GetMethod("ChipMenu_Opening",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        openingHandler.Invoke(window, new object?[] { injectMenu, new System.ComponentModel.CancelEventArgs() });
-        Check("chip menu opening injects the panel VM as DataContext",
-            ReferenceEquals(injectMenu.DataContext, vm));
-        Check("chip menu opening records the right-clicked chip",
-            vm.ChipMenuTargetIsDeletable == (injectCount == 0),
-            $"entries={injectCount}, deletable={vm.ChipMenuTargetIsDeletable}");
+        // ---- REAL menu open: the 2026-11-24 blind spot ----
+        // The probe runs on a real desktop with a real window, so each ContextMenu can be
+        // genuinely opened and its realized rows inspected. This is the one thing structural
+        // checks cannot see: whether the rows' Command bindings survive the open. A failure
+        // here greys every row in the shipped app while every structural check passes - the
+        // user report (chip AND tile menus greyed) was exactly this blind spot. The rows now
+        // bind each control's OWN commands (no $parent - dies at the popup boundary; no XAML
+        // Opening swap - the handler never fires), so a plain Open() must already yield live,
+        // enabled rows bound to the right object.
+        bool OpenAndPump(ContextMenu m)
+        {
+            m.Open();
+            for (var i = 0; i < 40; i++)
+            {
+                Dispatcher.UIThread.RunJobs();
+                Thread.Sleep(100);
+                if (m.IsOpen) return true;
+            }
+            return false;
+        }
+        void CloseAndPump(ContextMenu m)
+        {
+            m.Close();
+            for (var i = 0; i < 20; i++)
+            {
+                Dispatcher.UIThread.RunJobs();
+                Thread.Sleep(50);
+                if (!m.IsOpen) break;
+            }
+        }
+
+        // (1) chip menu - rows bind the chip's own TabViewModel commands.
+        var realChip = realizedChips.First(c => c.IsVisible);
+        var realMenu = realChip.ContextMenu!;
+        var realTab = (TabViewModel)realChip.DataContext;
+        Check("chip menu actually opens", OpenAndPump(realMenu));
+        Check("chip menu DataContext is the chip's own TabViewModel",
+            ReferenceEquals(realMenu.DataContext, realTab),
+            realMenu.DataContext?.GetType().Name ?? "null");
+        var renameRow = realMenu.Items.OfType<MenuItem>().First(m => m.Header as string == "重命名分类");
+        var deleteRow = realMenu.Items.OfType<MenuItem>().First(m => m.Header as string == "删除分类");
+        Check("chip rename row holds a live command after a real open",
+            renameRow.Command is not null, renameRow.Command?.GetType().Name ?? "null");
+        Check("chip rename row is enabled after a real open", renameRow.IsEnabled);
+        var realTabCount = store.Current.Tabs.First(t => t.Id == realTab.Id).Items.Count;
+        Check("chip delete row enabled state matches its entries",
+            deleteRow.IsEnabled == (realTabCount == 0),
+            $"entries={realTabCount}, enabled={deleteRow.IsEnabled}");
+        CloseAndPump(realMenu);
+
+        // (2) tile menu - rows bind the tile's own ItemViewModel commands.
+        var realTile = window.GetVisualDescendants().OfType<Button>()
+            .First(b => b.Classes.Contains("tile") && !b.Classes.Contains("addtile")
+                        && b.DataContext is ItemViewModel { IsAddTile: false });
+        var tileMenu = realTile.ContextMenu!;
+        Check("tile menu actually opens", OpenAndPump(tileMenu));
+        var tileOpenRow = tileMenu.Items.OfType<MenuItem>().First(m => m.Header as string == "打开");
+        var tileDeleteRow = tileMenu.Items.OfType<MenuItem>().First(m => m.Header as string == "删除");
+        Check("tile 打开 row holds a live command after a real open",
+            tileOpenRow.Command is not null, tileOpenRow.Command?.GetType().Name ?? "null");
+        Check("tile 打开 row is enabled after a real open", tileOpenRow.IsEnabled);
+        Check("tile 删除 row holds a live command after a real open",
+            tileDeleteRow.Command is not null, tileDeleteRow.Command?.GetType().Name ?? "null");
+        Check("tile menu delete row is the tile's own DeleteCommand",
+            ReferenceEquals(tileDeleteRow.Command,
+                ((ItemViewModel)realTile.DataContext).DeleteCommand));
+        CloseAndPump(tileMenu);
+
+        // (3) sentinel add-tile menu - rows bind the sentinel's own add commands. The
+        // placeholder block above left ShowAddTile OFF; enable it, test, restore.
+        vm.ApplySettings(new SettingsDocument { ShowAddTile = true });
+        Button? sentinel = null;
+        for (var i = 0; i < 40; i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(100);
+            sentinel = window.GetVisualDescendants().OfType<Button>()
+                .FirstOrDefault(b => b.Classes.Contains("addtile") && b.IsVisible);
+            if (sentinel is not null) break;
+        }
+        Check("sentinel add tile present to carry its add menu", sentinel is not null);
+        if (sentinel is not null)
+        {
+            var sentMenu = sentinel.ContextMenu!;
+            Check("sentinel add menu actually opens", OpenAndPump(sentMenu));
+            Check("sentinel add rows all hold live commands after a real open",
+                sentMenu.Items.OfType<MenuItem>().Count(m => m.Command is null) == 0
+                && sentMenu.Items.OfType<MenuItem>().All(m => m.IsEnabled),
+                sentMenu.Items.OfType<MenuItem>().Count(m => m.Command is null) + " null row(s)");
+            Check("sentinel add rows bind the sentinel's own add commands",
+                ReferenceEquals(sentMenu.Items.OfType<MenuItem>().First().Command,
+                    ((ItemViewModel)sentinel.DataContext).AddPickerCommand));
+            CloseAndPump(sentMenu);
+        }
+        vm.ApplySettings(new SettingsDocument { ShowAddTile = false });
+        for (var i = 0; i < 20; i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(50);
+            if (window.GetVisualDescendants().OfType<Button>()
+                    .All(b => !b.Classes.Contains("addtile") || !b.IsVisible)) break;
+        }
 
         // ---- new-category chip on the strip (1.x parity) ----
         // The + lives on the strip itself, not only in the context menu. It must be present in

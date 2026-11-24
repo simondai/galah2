@@ -274,42 +274,16 @@ public partial class PanelWindow : Window
 
     /// <summary>
     /// The placeholder's gesture is its menu. A ContextMenu opens on right-click by itself;
-    /// the left click that the button reports must open the same menu explicitly.
+    /// the left click that the button reports must open the same menu explicitly. No DataContext
+    /// work is needed: the rows bind the sentinel's own add commands (PanelViewModel wires them).
+    /// NOTE (2026-11-24): the earlier design swapped the menu's DataContext in Opening - that
+    /// handler was never attached, because XAML event wiring on a ContextMenu does not fire.
     /// </summary>
     private void AddTile_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button { ContextMenu: { } menu }) return;
-        // The programmatic Open() does NOT raise Opening (ContextMenu.cs: CancelOpening is only
-        // on the right-click path), so the DataContext must be fixed HERE as well as in Opening.
-        GiveMenuTheViewModel(menu);
         menu.Open();   // IsOpen has a protected setter; Open() is the public door.
     }
-
-    /// <summary>
-    /// Give the add-menu the PanelViewModel as its DataContext. The button's own DataContext is
-    /// the sentinel ItemViewModel, so the menu's command bindings would resolve to nothing and
-    /// every row would grey out. Called from both open paths: Opening (right click) and
-    /// AddTile_Click (left click), because Opening alone misses the programmatic open.
-    /// </summary>
-    private void AddTileMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
-    {
-        if (sender is ContextMenu menu) GiveMenuTheViewModel(menu);
-    }
-
-    /// <summary>
-    /// Category chip menu. Besides the DataContext swap it records WHICH chip was right-clicked:
-    /// the rows' commands act on that chip, not the selected tab. No command parameters are used -
-    /// binding them across the popup boundary is exactly what greyed the first version.
-    /// </summary>
-    private void ChipMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
-    {
-        if (sender is not ContextMenu menu) return;
-        if (DataContext is PanelViewModel vm)
-            vm.SetChipMenuTarget(menu.PlacementTarget is Button chip ? chip.DataContext as TabViewModel : null);
-        GiveMenuTheViewModel(menu);
-    }
-
-    private void GiveMenuTheViewModel(ContextMenu menu) => menu.DataContext = DataContext;
 
     /// <summary>
     /// The custom drag format for tile moves. Both ends of the drag share this one static

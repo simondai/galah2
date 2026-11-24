@@ -98,6 +98,26 @@ public sealed class ItemViewModel : ObservableObject
 
     public bool HasIcon => _icon is not null;
 
+    // ── context-menu commands ─────────────────────────────────────────────────
+    // A ContextMenu's rows can only bind against what the menu inherits from its host control -
+    // for a tile, that is this ItemViewModel. Nothing else reaches the menu: $parent paths die at
+    // the popup boundary, and XAML-attached events on a ContextMenu (Opening="...") never fire at
+    // all (both proven in the 2026-11-24 grey-menu round, where the tile menu and the chip menu
+    // shipped grey to the user while every in-process probe passed). So every row command lives
+    // here, and the owning PanelViewModel fills it in when it creates the tile. The no-op
+    // defaults keep an owner-less tile inert instead of throwing.
+    public ICommand OpenCommand { get; set; } = new RelayCommand(() => { });
+    public ICommand EditCommand { get; set; } = new RelayCommand(() => { });
+    public ICommand MoveLeftCommand { get; set; } = new RelayCommand(() => { });
+    public ICommand MoveRightCommand { get; set; } = new RelayCommand(() => { });
+    public ICommand DeleteCommand { get; set; } = new RelayCommand(() => { });
+    // The sentinel placeholder carries the four add commands (the same ones the ☰ menu and the
+    // blank-space menu expose). Real tiles never use them - their menu branch is hidden.
+    public ICommand AddPickerCommand { get; set; } = new RelayCommand(() => { });
+    public ICommand AddFileCommand { get; set; } = new RelayCommand(() => { });
+    public ICommand AddFolderCommand { get; set; } = new RelayCommand(() => { });
+    public ICommand AddUrlCommand { get; set; } = new RelayCommand(() => { });
+
     private async Task LoadIconAsync(CatalogItem item, int iconEdge)
     {
         try
@@ -140,6 +160,12 @@ public sealed class TabViewModel : ObservableObject
         get => _hasNoEntries;
         set => Set(ref _hasNoEntries, value);
     }
+
+    // The chip's right-click menu rows bind to THIS tab's own commands (the menu inherits the
+    // chip button's DataContext and nothing else can reach it - see ItemViewModel's comment).
+    // Wired by the PanelViewModel in Refresh; the no-op defaults keep a lone tab inert.
+    public ICommand RenameCommand { get; set; } = new RelayCommand(() => { });
+    public ICommand DeleteCommand { get; set; } = new RelayCommand(() => { });
 }
 
 /// <summary>
@@ -176,12 +202,9 @@ public sealed class PanelViewModel : ObservableObject
         NewTabCommand = new RelayCommand(NewTab);
         RenameTabCommand = new RelayCommand(() => RenameTab(_selectedTab));
         DeleteTabCommand = new RelayCommand(() => DeleteTab(_selectedTab));
-        // The chip's right-click menu targets the CHIP that was right-clicked, not the selected
-        // tab. The target arrives via SetChipMenuTarget (the ContextMenu's Opening handler),
-        // because command parameters cannot be bound across the popup boundary: $parent paths
-        // inside a ContextMenu die and grey every row (the 2026-11-24 grey-menu report).
-        RenameChipCommand = new RelayCommand(() => { if (_chipMenuTarget is TabViewModel t) RenameTab(t); });
-        DeleteChipCommand = new RelayCommand(() => { if (_chipMenuTarget is TabViewModel t) DeleteTabIfEmpty(t); });
+        // The chip's right-click menu no longer needs panel-level commands: each TabViewModel
+        // carries its own RenameCommand/DeleteCommand (wired in Refresh), because a ContextMenu
+        // can only bind against its host's DataContext - see WireTileMenu's comment.
         MoveTabLeftCommand = new RelayCommand(() => MoveTab(_selectedTab, -1));
         MoveTabRightCommand = new RelayCommand(() => MoveTab(_selectedTab, +1));
         RetrySaveCommand = new RelayCommand(RetrySave);
@@ -214,23 +237,16 @@ public sealed class PanelViewModel : ObservableObject
     public ICommand NewTabCommand { get; }
     public ICommand RenameTabCommand { get; }
     public ICommand DeleteTabCommand { get; }
-    /// <summary>Chip menu: rename the right-clicked category (not the selected tab).</summary>
-    public ICommand RenameChipCommand { get; }
-    /// <summary>Chip menu: delete the right-clicked category only while it holds no entries.</summary>
-    public ICommand DeleteChipCommand { get; }
-
-    /// <summary>The chip whose menu is open, set by the ContextMenu's Opening handler.</summary>
-    private TabViewModel? _chipMenuTarget;
-
-    /// <summary>Drives the 删除分类 row's enabled state while a chip menu is open.</summary>
-    public bool ChipMenuTargetIsDeletable { get; private set; }
-
-    /// <summary>Remember which chip's menu is opening; the rows' commands act on it.</summary>
-    public void SetChipMenuTarget(TabViewModel? tab)
+    /// <summary>Chip menu (bound per tab): rename that category by id.</summary>
+    private void RenameTabById(string id)
     {
-        _chipMenuTarget = tab;
-        ChipMenuTargetIsDeletable = tab?.HasNoEntries ?? false;
-        Raise(nameof(ChipMenuTargetIsDeletable));
+        if (Tabs.FirstOrDefault(t => t.Id == id) is TabViewModel t) RenameTab(t);
+    }
+
+    /// <summary>Chip menu (bound per tab): delete that category by id, only while empty.</summary>
+    private void DeleteTabIfEmptyById(string id)
+    {
+        if (Tabs.FirstOrDefault(t => t.Id == id) is TabViewModel t) DeleteTabIfEmpty(t);
     }
     public ICommand MoveTabLeftCommand { get; }
     public ICommand MoveTabRightCommand { get; }
@@ -273,7 +289,16 @@ public sealed class PanelViewModel : ObservableObject
 
         Tabs.Clear();
         foreach (var tab in _catalog.Current.TabsInOrder())
-            Tabs.Add(new TabViewModel(tab.Id, tab.Name, tab.Items.Count == 0));
+        {
+            // The chip menu binds each tab's own commands (the menu cannot reach this VM), so
+            // every tab must carry its own, captured by id - a Refresh mid-menu must not make
+            // a stale row act on the wrong category.
+            var tabId = tab.Id;
+            var tabVm = new TabViewModel(tabId, tab.Name, tab.Items.Count == 0);
+            tabVm.RenameCommand = new RelayCommand(() => RenameTabById(tabId));
+            tabVm.DeleteCommand = new RelayCommand(() => DeleteTabIfEmptyById(tabId));
+            Tabs.Add(tabVm);
+        }
 
         SelectTab(Tabs.FirstOrDefault(t => t.Id == previous) ?? Tabs.FirstOrDefault());
         CheckSaveState();
@@ -362,13 +387,48 @@ public sealed class PanelViewModel : ObservableObject
         Items.Clear();
         var source = _catalog.Current.FindTab(tab.Id);
         if (source is not null)
+        {
             foreach (var item in _catalog.Current.ItemsInOrder(source))
-                Items.Add(new ItemViewModel(item, _iconEdge));
+            {
+                var tile = new ItemViewModel(item, _iconEdge);
+                WireTileMenu(tile);
+                Items.Add(tile);
+            }
+        }
 
         // The add-entry placeholder is the last cell when the setting asks for it, in an empty
         // category too. With the setting off (the default) the grid ends with the real entries
         // and adding goes through the blank-space right-click or the ☰ menu.
-        if (_showAddTile) Items.Add(ItemViewModel.AddTile());
+        if (_showAddTile)
+        {
+            var sentinel = ItemViewModel.AddTile();
+            WireSentinelMenu(sentinel);
+            Items.Add(sentinel);
+        }
+    }
+
+    /// <summary>
+    /// A ContextMenu's rows can only bind against the menu's inherited DataContext (the tile's
+    /// ItemViewModel) - $parent paths die at the popup boundary and XAML-attached events on a
+    /// ContextMenu never fire (2026-11-24 grey-menu round). So the tile carries its own menu
+    /// commands, wired here at creation time.
+    /// </summary>
+    private void WireTileMenu(ItemViewModel tile)
+    {
+        tile.OpenCommand = new RelayCommand(() => LaunchTile(tile));
+        tile.EditCommand = new RelayCommand(() => EditItem(tile));
+        tile.MoveLeftCommand = new RelayCommand(() => MoveItem(tile, -1));
+        tile.MoveRightCommand = new RelayCommand(() => MoveItem(tile, +1));
+        tile.DeleteCommand = new RelayCommand(() => DeleteItem(tile));
+    }
+
+    /// <summary>The sentinel's add menu: the same four commands as the ☰ menu (current category).</summary>
+    private void WireSentinelMenu(ItemViewModel sentinel)
+    {
+        sentinel.AddPickerCommand = AddPickerCommand;
+        sentinel.AddFileCommand = AddFileCommand;
+        sentinel.AddFolderCommand = AddFolderCommand;
+        sentinel.AddUrlCommand = AddUrlCommand;
     }
 
     /// <summary>
