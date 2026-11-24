@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Galah2.Models;
 using Galah2.Persistence;
+using Galah2.Services;
 using Galah2.ViewModels;
 using Galah2.Views;
 
@@ -179,6 +180,48 @@ internal static class Program
 
         Check("RandPass window is open", FindWindow<RandPassWindow>() is not null);
         Check("RandPass window is borderless", rp.SystemDecorations == SystemDecorations.None);
+
+        // ---- placement contracts (spec 2026-11-24-randpass §9): the window must open where
+        // AppRuntime told it to. Regression history: one RDP session resolved the centred
+        // fallback against a degenerate (zero-size) work area, the window opened at (0,0), and
+        // the geometry rememberer pinned it there on every following open. Two contracts are
+        // locked here against a REAL platform window: (a) an explicit off-centre position
+        // sticks, (b) the centred fallback lands exactly where the maths said.
+        var diagScale = MonitorGeometry.SystemScale();
+        var diagArea = PanelPlacement.AreaFor(PanelPlacement.CursorPoint());
+        Check("AreaFor never yields a degenerate work area",
+            !PanelPlacement.Degenerate(diagArea),
+            $"area=({diagArea.Left},{diagArea.Top},{diagArea.Right},{diagArea.Bottom})");
+        // The poison itself, documented: centring inside a (0,0,0,0) area clamps to (0,0).
+        var (degX, degY) = PanelPlacement.Resolve(
+            PanelPositions.Center, null, null,
+            new WorkArea(0, 0, 0, 0, true), 580 * diagScale, 540 * diagScale);
+        Check("Resolve(Centre) on a degenerate area pins (0,0) - why AreaFor guards",
+            degX == 0 && degY == 0, $"({degX},{degY})");
+
+        var rpPos = new RandPassWindow { DataContext = new RandPassViewModel(rpStore) };
+        rpPos.IntendedGeometry = (new PixelPoint(100, 100), new Size(rpPos.Width, rpPos.Height));
+        rpPos.Position = new PixelPoint(100, 100);
+        rpPos.Show();
+        Pump();
+        Check("explicit position sticks: the window opens where told (100,100)",
+            rpPos.Position == new PixelPoint(100, 100), rpPos.Position + "");
+        rpPos.Close();
+        Pump();
+
+        var (diagMx, diagMy) = PanelPlacement.Resolve(
+            PanelPositions.Center, null, null, diagArea,
+            rpPos.Width * diagScale, rpPos.Height * diagScale);
+        var rpCentre = new RandPassWindow { DataContext = new RandPassViewModel(rpStore) };
+        rpCentre.Position = new PixelPoint((int)diagMx, (int)diagMy);
+        rpCentre.Show();
+        Pump();
+        Check("centred fallback lands on the computed centre",
+            Math.Abs(rpCentre.Position.X - (int)diagMx) <= 1
+            && Math.Abs(rpCentre.Position.Y - (int)diagMy) <= 1,
+            $"actual={rpCentre.Position} expected=({(int)diagMx},{(int)diagMy})");
+        rpCentre.Close();
+        Pump();
         var rpSurfaceOk = rp.TryFindResource("DialogSurfaceBrush", out var rpRes);
         var rpRootBorder = rp.FindControl<Border>("RootBorder");
         var rpSurface = rpRes as Avalonia.Media.IBrush;

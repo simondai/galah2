@@ -54,6 +54,17 @@ public partial class RandPassWindow : Window
         // A flyout or dialog taking activation ends any in-flight press, even though the
         // release event will arrive on the popup and never here.
         Deactivated += (_, _) => _arm.Deactivated();
+
+        // Placement self-heal (spec 2026-11-24-randpass §9): the platform window exists now, so
+        // re-asserting the intended geometry is a live SetWindow that cannot be dropped.
+        if (_intendedSize is { } size &&
+            (Math.Abs(Width - size.Width) > 0.5 || Math.Abs(Height - size.Height) > 0.5))
+        {
+            Width = size.Width;
+            Height = size.Height;
+        }
+        if (_intendedPosition is { } pos && Position != pos)
+            Position = pos;
     }
 
     // Borderless chrome (the system title bar is gone): forward to the shared handlers.
@@ -217,4 +228,28 @@ public partial class RandPassWindow : Window
         if (DataContext is RandPassViewModel vm) vm.Commit();
         base.OnClosed(e);
     }
+
+    // ── placement self-heal (spec 2026-11-24-randpass §9) ──
+    //
+    // AppRuntime places the window (Position/Width/Height) BEFORE Show. A position set before
+    // the platform window exists can be dropped by some platform states: on one RDP session
+    // the centred fallback never stuck, the window opened in the top-left corner, and the
+    // geometry rememberer then "restored" (0,0) on every following open. The window is the
+    // only party that knows the platform window exists, so it re-asserts its intended
+    // geometry once on Opened — a set at that moment is a plain live SetWindow that cannot
+    // be lost. The probe asserts the real post-Show position equals the intent.
+    private Avalonia.PixelPoint? _intendedPosition;
+    private Avalonia.Size? _intendedSize;
+
+    /// <summary>The rectangle the caller placed this window at, for the Opened-time re-assert.</summary>
+    public (Avalonia.PixelPoint? Position, Avalonia.Size? Size) IntendedGeometry
+    {
+        get => (_intendedPosition, _intendedSize);
+        set
+        {
+            _intendedPosition = value.Position;
+            _intendedSize = value.Size;
+        }
+    }
+
 }

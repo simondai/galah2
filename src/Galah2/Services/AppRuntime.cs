@@ -389,42 +389,59 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     }
 
     /// <summary>
-    /// Restore the RandPass window's remembered geometry (spec 2026-11-24-randpass §7), or
-    /// centre it on the pointer's work area.
+    /// Open RandPass where it was last closed (spec 2026-11-24-randpass §7/§9), or — when no
+    /// usable save exists — centred on the work area that holds the pointer (the same fallback
+    /// chain PlacePanel uses). Either way the intended rectangle is handed to the window, which
+    /// re-asserts it on Opened: a Position set before the platform window exists can be dropped
+    /// by some platform states, and the window is the only party that can guarantee it stuck.
     ///
-    /// X/Y are stored in the units of Window.Position (device pixels) and Width/Height in the
-    /// units of Window.Width (DIPs) — the same split as the panel's ui-state entry. The validity
-    /// check therefore converts the centre into device pixels with the CURRENT system scale
-    /// before comparing it against the (device-pixel) work areas; a monitor change or a DPI
-    /// change since the save makes the old centre land nowhere, which reads as "no valid save".
+    /// X/Y are stored in the units of Window.Position (device pixels), Width/Height in the units
+    /// of Window.Width (DIPs) — the same split as the panel's ui-state entry.
     /// </summary>
     private void PlaceRandPassWindow()
     {
         var window = _randPassWindow;
         if (window is null) return;
 
-        if (TryGetSavedRandPassGeometry(out var x, out var y, out var w, out var h))
+        var w = window.Width;   // XAML defaults until a valid save says otherwise
+        var h = window.Height;
+        PixelPoint? pos = null;
+
+        if (TryGetSavedRandPassGeometry(out var sx, out var sy, out var sw, out var sh))
         {
-            window.Width = w;
-            window.Height = h;
-            window.Position = new PixelPoint((int)x!, (int)y!);
-            return;
+            w = sw;
+            h = sh;
+            pos = new PixelPoint((int)sx!.Value, (int)sy!.Value);
         }
 
-        // No usable save: centre on the work area that holds the pointer, else the primary,
-        // else the first — the same fallback chain PlacePanel uses (PanelPlacement.AreaFor),
-        // with the window's XAML default size.
+        window.Width = w;
+        window.Height = h;
+
+        pos ??= CenterOnPointerArea(w, h);
+        window.Position = pos.Value;
+        window.IntendedGeometry = (pos, new Size(w, h));
+    }
+
+    /// <summary>
+    /// Centre a DIP size on the work area holding the pointer (else primary, else first). The
+    /// work area is device pixels, the size DIPs — multiply by the current scale, the same
+    /// DIP/device-pixel split PlacePanel documents.
+    /// </summary>
+    private static PixelPoint CenterOnPointerArea(double widthDip, double heightDip)
+    {
         var scale = MonitorGeometry.SystemScale();
         var area = PanelPlacement.AreaFor(PanelPlacement.CursorPoint());
         var (mx, my) = PanelPlacement.Resolve(
-            PanelPositions.Center, null, null, area, window.Width * scale, window.Height * scale);
-        window.Position = new PixelPoint((int)mx, (int)my);
+            PanelPositions.Center, null, null, area, widthDip * scale, heightDip * scale);
+        return new PixelPoint((int)mx, (int)my);
     }
 
     /// <summary>
     /// Sanitize the saved RandPass geometry on read: a non-finite coordinate, a too-small size,
     /// or a centre that no longer lands on any work area all read as "no valid save" and the
-    /// caller falls back to the default placement.
+    /// caller falls back to centred placement. The too-small check uses the window's own
+    /// MinWidth/MinHeight (480x400): the window cannot shrink below that, so a sane write is
+    /// always at or above it.
     /// </summary>
     private bool TryGetSavedRandPassGeometry(out double? x, out double? y, out double w, out double h)
     {
@@ -437,8 +454,6 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         if (!double.IsFinite(sx) || !double.IsFinite(sy)) return false;
         if (!double.IsFinite(s.Width) || !double.IsFinite(s.Height)) return false;
 
-        // A too-small size is corruption, not a user action: the window cannot shrink below its
-        // MinWidth/MinHeight (480x400), so a sane write is always at or above that.
         if (s.Width < 480 || s.Height < 400) return false;
 
         var scale = MonitorGeometry.SystemScale();

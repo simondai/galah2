@@ -78,17 +78,32 @@ public static class PanelPlacement
     }
 
     /// <summary>
+    /// True when the area cannot host anything (zero/negative width or height).
+    /// </summary>
+    public static bool Degenerate(WorkArea area) => area.Width <= 0 || area.Height <= 0;
+
+    /// <summary>
     /// Work area that should host the summon: the cursor's monitor, else the primary, else the
-    /// first area. The single fallback policy for placement - callers do not invent their own.
+    /// first area — and never a degenerate (zero-size) one. The single fallback policy for
+    /// placement; callers do not invent their own.
+    ///
+    /// The guard is load-bearing, not paranoia: Resolve(Centre) against a (0,0,0,0) area clamps
+    /// to exactly (0,0), so one transient monitor glitch (observed on an RDP session,
+    /// spec 2026-11-24-randpass §9) silently parked RandPass in the top-left corner, where the
+    /// position rememberer then pinned it for every following open.
     /// </summary>
     /// <param name="cursor">Cursor point in device pixels, or null.</param>
     public static WorkArea AreaFor((double X, double Y)? cursor)
     {
-        if (cursor is not null && MonitorGeometry.WorkAreaAtCursor() is { } at)
-            return at;
+        var at = cursor is not null ? MonitorGeometry.WorkAreaAtCursor() : null;
+        if (at is { } a && !Degenerate(a)) return a;
         var areas = MonitorGeometry.EnumerateWorkAreas();
         foreach (var area in areas)
-            if (area.IsPrimary) return area;
-        return areas[0];
+            if (area.IsPrimary && !Degenerate(area)) return area;
+        foreach (var area in areas)
+            if (!Degenerate(area)) return area;
+        // Every area is degenerate (should not happen): hand back whatever the cursor saw,
+        // else the raw first — the caller's clamp keeps the window somewhere finite.
+        return at ?? areas[0];
     }
 }
