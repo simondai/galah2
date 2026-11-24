@@ -33,15 +33,19 @@
                        Foreground="{DynamicResource TextFaintBrush}" />
           </StackPanel>
 
-          <!-- RandPass one-click entry (spec 2026-11-24-randpass): a vector keyhole - a Path,
-               not a font glyph, so it renders identically on every machine and themes with the
-               text brushes. Sits left of the ☰ menu; the menu keeps a RandPass row too. -->
+          <!-- RandPass one-click entry (spec 2026-11-24-randpass): a vector shield with a
+               keyhole punched through it. Avalonia 11's Path has no FillRule property (WPF
+               does), so the holes come from WINDING: shield drawn clockwise, the circle and
+               slot subpaths drawn counter-clockwise -> the default nonzero rule cuts them out
+               (user chose this over the bare keyhole, 2026-11-24). A Path, not a font glyph,
+               so it renders identically on every machine and themes with the text brushes.
+               Sits left of the ☰ menu; the menu keeps a RandPass row too. -->
           <Button Grid.Column="1" Classes="chip" Padding="6,0" VerticalAlignment="Center"
                   ToolTip.Tip="RandPass 密码生成"
                   Command="{Binding ShowRandPassCommand}">
             <Path Width="11" Height="13" Stretch="Uniform"
                   Fill="{DynamicResource TextMutedBrush}"
-                  Data="M 5.5 0.6 A 3.2 3.2 0 1 1 5.49 0.6 Z M 4.1 4.9 L 6.9 4.9 L 8.6 12.4 L 2.4 12.4 Z" />
+                  Data="M 5.5 0.4 L 10.4 2.2 L 10.4 6.4 C 10.4 9.7 8.4 11.9 5.5 12.8 C 2.6 11.9 0.6 9.7 0.6 6.4 L 0.6 2.2 Z M 5.5 3.3 A 1.55 1.55 0 1 0 5.49 3.3 Z M 4.85 5.7 L 4.2 10.1 L 6.8 10.1 L 6.15 5.7 Z" />
           </Button>
           <Button Grid.Column="2" Classes="chip" Content="☰" FontSize="15" Padding="8,0"
                   VerticalAlignment="Center">
