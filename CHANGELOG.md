@@ -39,7 +39,7 @@
 - 结构性重构：`Directory.Build.props`、发布双路径整合、边缘缩放去重、`--no-build` 优化
 - Avalonia / Win32 / AOT 运行时语义（`OnOpened` 累积注册、事件派发顺序、COM stub）待实机验证
 
-## 未发布 — 2.0（v2 分支）
+## v2.1.0 — 2026-11-25
 
 ### 新增
 - Avalonia 11 + NativeAOT 重写，产物约 43.6 MB（4 文件绿色版），1.x 是 68.6 MB 单文件
