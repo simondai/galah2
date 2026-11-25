@@ -4,7 +4,7 @@ Windows 桌面启动器（launcher），以作者家的宠物凤头鹦鹉命名�
 
 用 **Avalonia 11 + NativeAOT** 重写；1.x 是 WPF 版本，在另一个仓库 [simondai/galah](https://github.com/simondai/galah)。
 
-![平台](https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-Windows-blue) ![产物](https://img.shields.io/badge/%E4%BA%A7%E7%89%A9-43.2%20MB-success) ![运行时](https://img.shields.io/badge/%E8%BF%90%E8%A1%8C%E6%97%B6-%E6%97%A0%E9%9C%80%E5%AE%89%E8%A3%85-success)
+![平台](https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-Windows-blue) ![产物](https://img.shields.io/badge/%E4%BA%A7%E7%89%A9-43.6%20MB-success) ![运行时](https://img.shields.io/badge/%E8%BF%90%E8%A1%8C%E6%97%B6-%E6%97%A0%E9%9C%80%E5%AE%89%E8%A3%85-success)
 
 ## 它是什么
 
@@ -12,14 +12,14 @@ Windows 桌面启动器（launcher），以作者家的宠物凤头鹦鹉命名�
 单击/双击启动，托盘常驻后台，全局热键（Alt+Space）随时唤出。
 所有数据（分类、条目、设置、窗口状态）都落在 exe 同目录的 `GalahData/` 文件夹，随文件夹一起搬走。
 
-- **绿色免安装**：4 个文件共 43.2 MB，原生编译，不装 .NET 运行时、不写注册表、不留后台服务
+- **绿色免安装**：4 个文件共约 43.6 MB（本次实测 45,701,776 B），原生编译，不装 .NET 运行时、不写注册表、不留后台服务
 - **默认不联网**：没有任何自动网络行为；唯一的联网操作是你在编辑网址条目时手动点"获取网站图标"，且只访问该站点本身
-- **持久可靠**：写盘原子替换 + 双备份轮换（`.bak.1`/`.bak.2`），损坏自动隔离，一次用户动作一次写盘
-- **可直接读 1.x 数据**：`GalahData/` 格式未变，两个版本可以互相读对方的数据
+- **持久可靠**：写盘原子替换 + 双备份轮换（`.bak.1`/`.bak.2`），字段级 `null` 归一、设置全字段校正、损坏自动隔离，一次用户动作一次写盘
+- **内置 RandPass**：面板标题栏、☰ 菜单、托盘菜单三个入口打开同一生成器，参数持久化，双击结果即复制
 
 > **先读 [FINDINGS-2.0.md](FINDINGS-2.0.md)，别默认这次重写省内存。**
 > 实测下来内存并不是立项时想的那样：**待机反而比 1.x 更费**，面板只省 5~13%。
-> 2.0 真正兑现的是 **体积小 37%**（68.6 MB → 43.2 MB）、**不依赖 .NET 运行时**、
+> 2.0 真正兑现的是 **体积小约 36%**（68.6 MB → 43.6 MB）、**不依赖 .NET 运行时**、
 > 以及原生启动速度。
 
 ---
@@ -31,13 +31,16 @@ Windows 桌面启动器（launcher），以作者家的宠物凤头鹦鹉命名�
 
 ## 产物与发布
 
-自己构建的话，产物在仓库根目录的 **`artifact/`**（4 个文件，43.2 MB）：
+自己构建的话，产物在仓库根目录的 **`artifact/`**（4 个文件，约 43.6 MB）：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/publish-aot.ps1
 ```
 
-绿色版怎么用、为什么不是单文件、CI 曾经怎么把包做坏，都写在 **[PORTABLE.md](PORTABLE.md)**。
+`artifact/GalahData/` 是程序运行时生成的用户数据，不进发布包；`tools/release.ps1 -Version <版本>`
+会把 4 个文件打成 `dist/Galah2-v<版本>-win-x64.zip`，CI 在打 tag 时另出
+`Galah2-windows-x64.zip`。绿色版怎么用、为什么不是单文件、CI 曾经怎么把包做坏，
+以及两条发布路径的差异，都写在 **[PORTABLE.md](PORTABLE.md)**。
 
 ## 功能状态
 
@@ -46,34 +49,39 @@ powershell -ExecutionPolicy Bypass -File tools/publish-aot.ps1
 | 托盘图标、左键唤出、右键原生菜单 | 可用 |
 | 全局热键（消息窗常驻，面板从未显示也能唤出） | 可用 |
 | 单实例 + 转发 toggle | 可用 |
-| 面板：标题栏、☰ 菜单、条目网格、右键菜单、拖动 | 可用 |
-| 分类条顶部/左侧切换，图标三档尺寸 | 可用 |
+| 面板：自定义标题栏、☰ 菜单、条目网格、右键菜单、拖动 | 可用 |
+| 分类条顶部/左侧切换，图标三档尺寸、分类名字号四档 | 可用 |
 | 直接读 1.x 的 `GalahData/catalog.json` | 可用 |
-| 条目启动（exe / lnk / url / protocol） | 可用 |
-| 桌面快捷方式读写，**不用 `ComImport`** | 可用，11/11 探针 |
-| 图标提取 + PNG 缓存（含 .msc） | 可用，12/12 探针 |
-| 设置（主题、图标尺寸、分类位置、材质、点击方式、面板位置、热键、自启、快捷方式） | 可用，27 条断言 |
+| 条目启动（exe / lnk / url / protocol；`.msi`/`.bat`/`.cmd`/`.com` 走 Shell） | 可用 |
+| 桌面快捷方式读写，**不用 `ComImport`** | 可用，11 调用点 |
+| 图标提取 + PNG 缓存（含 .msc） | 可用，8 调用点 / 12 条 PASS |
+| 设置（主题、图标尺寸、布局、材质、点击方式、面板位置、热键、自启、快捷方式、分类名字号、添加占位磁贴、滚轮/数字键开关） | 可用，27 调用点 / 28 条 PASS |
 | 开机自启（写 HKCU Run，启动时再断言） | 可用 |
-| 添加选择器（4 个来源、搜索、多选） | 可用 |
+| 添加选择器（4 个来源、搜索、多选、列表带图标） | 可用 |
 | 编辑对话框（带提交校验门） | 可用 |
 | 库维护：扫描、清失效、去重、排序、重建图标缓存 | 可用 |
 | 整库导出与导入 | 可用 |
 | 提示框与确认框 | 可用 |
+| 对话框无边框自绘标题栏、Esc/Enter、不进任务栏 | 可用，60 调用点（DialogProbe） |
 | 拖放文件、粘贴 URL | 可用 |
 | 启动失败的 toast 提示 | 可用 |
-| URL 条目抓取站点图标（仅手动按钮触发） | 可用 |
+| URL 条目抓取站点图标（仅手动按钮触发，支持 http→https 跳转与超时提示） | 可用 |
 | 浏览按钮：选文件、选目录、选图标图片 | 可用 |
-| 面板命令面 | 可用，126 条断言 |
-| 进程级验收（托盘、toggle、关闭后重开） | 可用，11/11 |
-| 绿色版自检 | 可用，9/9 |
-| 回滚兼容性（1.x ↔ 2.0 数据） | 可用，9/9 |
-| 对话框（提示、确认） | 可用，60 条断言 |
-| 面板可缩放、位置与尺寸记忆 | 可用，14 条断言 |
-| 面板材质：不透明 / 半透明 | 可用，4/4 探针 |
-| 添加选择器列表带图标 | 可用 |
-| Ctrl+1..9 直达分类，滚轮切分类 | 可用 |
-| 跨分类拖动条目（把瓦片拖到分类标签上） | 可用 |
-| Ctrl+Tab / Ctrl+Shift+Tab 循环切换分类 | 可用 |
+| 面板命令面 | 可用，126 调用点 |
+| 进程级验收（托盘、toggle、关闭后重开） | 可用，11 调用点 |
+| 绿色版自检 | 可用，9 调用点 |
+| 回滚兼容性（1.x ↔ 2.0 数据） | 可用，9/9（`tools/rollback-check.ps1`） |
+| 面板可缩放、位置与尺寸记忆（高 DPI 单位统一） | 可用，14 调用点 |
+| 面板材质：不透明 / 半透明 | 可用，5 调用点 / 4 条 PASS |
+| 分类圆片右键菜单（重命名 / 删除，空分类守卫） | 可用 |
+| 「＋ 添加」占位磁贴（默认关闭，设置可开） | 可用 |
+| 拖拽排序：分类换位、磁贴换位、跨分类移动 | 可用，DragArmProbe 10 + InteractionProbe 19 调用点 |
+| 键盘导航：Ctrl+1..9 / 小键盘 / 方向键，列表边缘滚轮切分类 | 可用 |
+| Ctrl+Tab / Ctrl+Shift+Tab 回绕切换分类 | 可用 |
+| RandPass 密码生成器（三入口、参数持久化、双击复制） | 可用，22 调用点 |
+| 数据健壮性：字段级 `null` 归一、设置全字段校正、导入整份替换、导出中文不转义 | 可用（2026-11-25 审计整改） |
+| 主题「跟随系统」实时跟随、退出幂等释放 | 可用 |
+| 协议白名单（`search-ms:` / `ms-about:`） | 可用 |
 | **最大化状态记忆** | **不适用**（无边框面板不提供最大化） |
 | NativeAOT 发布 | 可用，见 [PORTABLE.md](PORTABLE.md) |
 
@@ -110,27 +118,30 @@ dotnet publish src/Galah2 -c Release -r win-x64 -p:PublishAot=true -o artifact
 
 ## 验收
 
-`tools/` 下共 **12 个探针**，全部可独立运行。`Galah2.sln` 目前只收录 10 个，
+`tools/` 下共 **12 个探针**，全部可独立运行。`Galah2.sln` 收录主项目与 **10 个探针项目**；
 `DragArmProbe` / `PasswordProbe` 需按项目路径单独运行（CI 已补上这两步）。
 
 ```bash
 dotnet run --project tools/ComProbe         -c Release   # COM 往返（11）
-dotnet run --project tools/IconProbe        -c Release   # 图标提取（8 调用点 / 12 行输出）
-dotnet run --project tools/SettingsProbe    -c Release   # 设置与主题（27 调用点 / 29 行输出）
+dotnet run --project tools/IconProbe        -c Release   # 图标提取（8 调用点 / 12 条 PASS）
+dotnet run --project tools/SettingsProbe    -c Release   # 设置与主题（27 调用点 / 28 条 PASS）
 dotnet run --project tools/PanelProbe       -c Release   # 面板命令面（126）
-dotnet run --project tools/UiAcceptance     -c Release -- <exe>       # 进程级（11）
+dotnet run --project tools/UiAcceptance     -c Release -- src/Galah2/bin/x64/Release/net8.0/Galah2.exe  # 进程级（11）
 dotnet run --project tools/PortableCheck    -c Release -- artifact     # 绿色版（9）
 dotnet run --project tools/DialogProbe      -c Release   # 对话框（60）
 dotnet run --project tools/GeometryProbe    -c Release   # 几何（14）
-dotnet run --project tools/MaterialProbe    -c Release   # 材质（5 调用点 / 4 行输出）
+dotnet run --project tools/MaterialProbe    -c Release   # 材质（5 调用点 / 4 条 PASS）
 dotnet run --project tools/InteractionProbe -c Release   # 输入路由（19）
 dotnet run --project tools/DragArmProbe     -c Release   # 拖拽状态机（10）
 dotnet run --project tools/PasswordProbe    -c Release   # 密码生成（22）
 ```
 
-括号内是源码里 `Check(` **调用点**数（合计 **322**）。循环展开会让实际输出行数不同：
-上表标出了 Icon / Material / Settings 三处。CI（`build2.yml`）跑全部 12 个；
-`--no-build` 优化与 sln 补录属于 `docs/PLAN-2026-11-25-REMEDIATION.md` 的阶段 B。
+`UiAcceptance` 与 `PortableCheck` 的参数都可省略：前者自动在 `bin/Release` 或
+`bin/x64/Release` 下找 `Galah2.exe`，后者默认找仓库根目录的 `artifact/`。
+
+括号内是源码里 `Check(` **调用点**数（合计 **322**）。循环展开与条件分支会让实际
+PASS 行数与调用点数不同：命令表标出了 Icon / Material / Settings 三处。CI（`build2.yml`）跑全部 12 个；
+`--no-build` 优化与 sln 补录属于 `FIX-REPORT-2026-11-25.md` 的阶段 B 遗留项。
 
 内存测量：
 
@@ -146,33 +157,52 @@ powershell -ExecutionPolicy Bypass -File tools/perf/measure.ps1
 ## 目录结构
 
 ```
+Galah2.sln                         主项目 + 10 个探针项目（另 2 个探针按项目路径单独跑）
+.github/workflows/build2.yml      CI：构建、12 个探针、AOT 发布、绿色版校验
 src/Galah2/
-  Services/Interop/ShellLinkCom.cs     手写 COM vtable（AOT 没有内置包装器）
-  Services/Interop/ShellIconHandler.cs  shell 图标处理器（.msc 那条路）
-  Services/Interop/Win32.cs            P/Invoke 面
-  Services/                            托盘、热键、单实例、位置、启动、主题、toast
-  Persistence/                         JSON 存储 + 源生成 JsonContext
-  Views/ ViewModels/                   Avalonia 界面
-  Styles/Tokens.axaml                  全部颜色 token（深浅两套）
-  Styles/Baseline.axaml                全部控件样式
-tools/ComProbe/                        COM 往返探针
-tools/IconProbe/                       图标提取探针
-tools/SettingsProbe/                   设置与主题探针
-tools/PanelProbe/                      面板命令面探针
-tools/UiAcceptance/                    进程级验收
-tools/PortableCheck/                   绿色版验证
-tools/DialogProbe/                     对话框探针
-tools/GeometryProbe/                   几何与选择器图标探针
-tools/MaterialProbe/                   面板材质探针
-tools/InteractionProbe/                输入路由探针
-tools/DragArmProbe/                    拖拽状态机探针
-tools/PasswordProbe/                   密码生成探针
-tools/rollback-check.ps1             1.x <-> 2.0 数据兼容
-docs/PROCESS-AUDIT.md                流程自查（缺口诚实记录）
-docs/specs/                          需求规格（每轮开发前写）
-CONTRIBUTING.md                      九步开发流程
-tools/perf/measure.ps1                 内存测量
-tools/publish-aot.ps1                  AOT 发布
+  App.axaml / App.axaml.cs        应用入口与资源
+  Program.cs / app.manifest
+  Galah2.csproj / aot.props       项目与 NativeAOT 配置
+  Assets/galah.ico
+  Models/                         Catalog / SettingsDocument / UiStateDocument / PasswordOptions
+  Persistence/                    AppDataPaths / JsonContext / JsonFileStore /
+                                  CatalogStore / SettingsStore / UiStateStore
+  Services/
+    AppRuntime.cs                 启动、托盘、热键、单实例、几何记忆
+    CatalogSources/               添加选择器的 4 个来源 + 聚合服务 + 种子数据
+    Interop/                      ShellLinkCom / ShellIconHandler / Win32
+    ...                           Launcher / Icon / Theme / Tray / Hotkey / AutoStart /
+                                  Migration / Import / Maintenance / Favicon /
+                                  PasswordGenerator / ProtocolSafety / TabNavigation /
+                                  Toast / DiagnosticsLog / ItemValidator / PanelPlacement
+  ViewModels/                     Panel / Settings / EditItem / AddPicker / Maintenance /
+                                  RandPass / Mvvm
+  Views/                          PanelWindow + 7 个对话框/工具窗口 +
+                                  DialogChrome / DragArmState
+  Styles/Tokens.axaml             全部颜色 token（深浅两套）
+  Styles/Baseline.axaml           全部控件样式
+  Properties/AssemblyInfo.cs
+tools/                            12 个独立探针
+  ComProbe/          COM 往返              IconProbe/        图标提取
+  SettingsProbe/     设置与主题            PanelProbe/       面板命令面
+  UiAcceptance/      进程级验收            PortableCheck/    绿色版验证
+  DialogProbe/       对话框                GeometryProbe/    几何与选择器图标
+  MaterialProbe/     面板材质              InteractionProbe/ 输入路由
+  DragArmProbe/      拖拽状态机            PasswordProbe/    密码生成
+  perf/measure.ps1               Private Working Set 内存测量
+  publish-aot.ps1                AOT 发布到 artifact/（自动删 .pdb）
+  release.ps1                    本地打 zip 到 dist/ 并上传 Release
+  rollback-check.ps1             1.x <-> 2.0 数据兼容
+docs/
+  specs/                         需求规格（每轮开发前写）
+  PROCESS-AUDIT.md               流程自查
+  PLAN-2026-11-25-REMEDIATION.md 审计整改计划
+evidence/                        实测截图（如 panel-aot.png）
+artifact/                        本地 AOT 产物：4 个文件 + 运行后生成的 GalahData/
+dist/                            release.ps1 生成的 zip 与 stage/（按需生成，.gitignore 忽略）
+根目录文档                       README / CHANGELOG / CONTRIBUTING / PORTABLE /
+                                 FINDINGS-2.0 / PLAN-2.0 / AUDIT-2026-11-25-FULL /
+                                 FIX-REPORT-2026-11-25 / REVIEW-2026-11-25 / LICENSE
 ```
 
 ## 系统要求
@@ -208,13 +238,20 @@ tools/publish-aot.ps1                  AOT 发布
 
 | 你要改的东西 | 去哪 |
 |---|---|
-| 面板长什么样、交互 | `src/Galah2/Views/PanelWindow.axaml` + `.axaml.cs` |
+| 面板外观与交互路由 | `src/Galah2/Views/PanelWindow.axaml` + `.axaml.cs` |
 | 颜色、深浅主题 | `src/Galah2/Styles/Tokens.axaml`（两套配色）+ `Baseline.axaml`（控件样式） |
 | 面板命令、分类与条目逻辑 | `src/Galah2/ViewModels/PanelViewModel.cs` |
-| 启动流程、托盘、热键、几何记忆 | `src/Galah2/Services/AppRuntime.cs` |
-| 图标提取（含 .msc 的 COM 路径） | `src/Galah2/Services/IconService.cs` |
-| JSON 存储与源生成器 | `src/Galah2/Persistence/` |
+| 设置窗口与设置归一化 | `src/Galah2/Views/SettingsWindow.axaml(.cs)` + `ViewModels/SettingsViewModel.cs` + `Persistence/SettingsStore.cs` |
+| 启动流程、托盘、热键、单实例、几何记忆 | `src/Galah2/Services/AppRuntime.cs` |
+| 图标提取（含 .msc 的 COM 路径） | `src/Galah2/Services/IconService.cs` + `Services/Interop/ShellIconHandler.cs` |
+| JSON 存储、源生成器、字段级 `null` 归一 | `src/Galah2/Persistence/` |
 | 手写 COM vtable（AOT 必需） | `src/Galah2/Services/Interop/` |
+| 添加选择器（4 个来源） | `src/Galah2/Services/CatalogSources/` + `Views/AddPickerWindow.axaml(.cs)` |
+| 拖拽排序与跨分类拖动 | `src/Galah2/Views/DragArmState.cs` + `Views/PanelWindow.axaml.cs` |
+| 键盘 / 滚轮分类导航 | `src/Galah2/Services/TabNavigation.cs` + `Views/PanelWindow.axaml.cs` |
+| RandPass 密码生成器 | `src/Galah2/Services/PasswordGenerator.cs` + `Views/RandPassWindow.axaml(.cs)` + `ViewModels/RandPassViewModel.cs` |
+| 整库导出 / 导入、备份兼容 | `src/Galah2/Services/MigrationService.cs` + `Services/ImportService.cs` |
+| 站点图标抓取、协议白名单 | `src/Galah2/Services/FaviconService.cs` + `Services/ProtocolSafety.cs` + `Services/UrlSafety.cs` |
 
 改完按 [CONTRIBUTING.md](CONTRIBUTING.md) 的九步流程走：先写 `docs/specs/`，再动代码，
 跑全套探针，最后提交。
