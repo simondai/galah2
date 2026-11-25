@@ -322,6 +322,18 @@ internal static class Program
         vm.LaunchTile(clickedTile, clickCount: 1);
         Check("single click launches in single mode", host.LaunchCount == launchedBefore + 1);
 
+        // Regression: Click and DoubleTapped both hit the same Button. In single-click mode the
+        // second (double-tap) event must not launch the item a second time.
+        launchedBefore = host.LaunchCount;
+        vm.LaunchTile(clickedTile, clickCount: 2);
+        Check("double tap does not launch again in single mode", host.LaunchCount == launchedBefore,
+            host.LaunchCount + " launch(es)");
+
+        // A non-gesture entry point (context-menu "Open") must launch in either click mode.
+        launchedBefore = host.LaunchCount;
+        vm.LaunchTile(clickedTile);
+        Check("context-menu Open launches regardless of click mode", host.LaunchCount == launchedBefore + 1);
+
         // ---- material and blur flags reach the view model ----
         vm.ApplySettings(new SettingsDocument
         {

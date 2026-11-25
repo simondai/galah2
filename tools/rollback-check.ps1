@@ -13,14 +13,22 @@
     The 2.0 artifact folder (Galah2.exe plus the three natives).
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools/rollback-check.ps1
+    powershell -ExecutionPolicy Bypass -File tools/rollback-check.ps1 -V1 <1.x 产物目录>
 #>
 param(
-    [string]$V1 = "D:\Rolan_desktop\galah\Galah\bin\Release\net8.0-windows",
-    [string]$V2 = "D:\Rolan_desktop\galah2\artifact"
+    [string]$V1 = "",
+    [string]$V2 = ""
 )
 
 $ErrorActionPreference = 'Stop'
+# V2 is this repository's AOT artifact; V1 lives in a separate repository and cannot have a
+# machine-independent default. Fail loudly with an actionable message instead of silently
+# probing a path that only exists on one developer's machine.
+$repoRoot = Split-Path -Parent $PSScriptRoot
+if ([string]::IsNullOrWhiteSpace($V2)) { $V2 = Join-Path $repoRoot "artifact" }
+if ([string]::IsNullOrWhiteSpace($V1)) {
+    throw "1.x build folder not configured: pass -V1 <path to Galah 1.x output> (the 1.x repository is separate)"
+}
 $script:fail = 0
 
 function Check($name, $ok, $detail) {

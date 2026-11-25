@@ -52,7 +52,7 @@ powershell -ExecutionPolicy Bypass -File tools/publish-aot.ps1
 | 条目启动（exe / lnk / url / protocol） | 可用 |
 | 桌面快捷方式读写，**不用 `ComImport`** | 可用，11/11 探针 |
 | 图标提取 + PNG 缓存（含 .msc） | 可用，12/12 探针 |
-| 设置（主题、图标尺寸、分类位置、材质、点击方式、面板位置、热键、自启、快捷方式） | 可用，17/17 探针 |
+| 设置（主题、图标尺寸、分类位置、材质、点击方式、面板位置、热键、自启、快捷方式） | 可用，27 条断言 |
 | 开机自启（写 HKCU Run，启动时再断言） | 可用 |
 | 添加选择器（4 个来源、搜索、多选） | 可用 |
 | 编辑对话框（带提交校验门） | 可用 |
@@ -63,12 +63,12 @@ powershell -ExecutionPolicy Bypass -File tools/publish-aot.ps1
 | 启动失败的 toast 提示 | 可用 |
 | URL 条目抓取站点图标（仅手动按钮触发） | 可用 |
 | 浏览按钮：选文件、选目录、选图标图片 | 可用 |
-| 面板命令面 | 可用，52/52 探针 |
+| 面板命令面 | 可用，126 条断言 |
 | 进程级验收（托盘、toggle、关闭后重开） | 可用，11/11 |
 | 绿色版自检 | 可用，9/9 |
 | 回滚兼容性（1.x ↔ 2.0 数据） | 可用，9/9 |
-| 对话框（提示、确认） | 可用，8/8 探针 |
-| 面板可缩放、位置与尺寸记忆 | 可用，7/7 探针 |
+| 对话框（提示、确认） | 可用，60 条断言 |
+| 面板可缩放、位置与尺寸记忆 | 可用，14 条断言 |
 | 面板材质：不透明 / 半透明 | 可用，4/4 探针 |
 | 添加选择器列表带图标 | 可用 |
 | Ctrl+1..9 直达分类，滚轮切分类 | 可用 |
@@ -110,16 +110,27 @@ dotnet publish src/Galah2 -c Release -r win-x64 -p:PublishAot=true -o artifact
 
 ## 验收
 
-六个工具，全部可独立运行：
+`tools/` 下共 **12 个探针**，全部可独立运行。`Galah2.sln` 目前只收录 10 个，
+`DragArmProbe` / `PasswordProbe` 需按项目路径单独运行（CI 已补上这两步）。
 
 ```bash
-dotnet run --project tools/ComProbe      -c Release   # 快捷方式 COM 往返（11 条）
-dotnet run --project tools/IconProbe     -c Release   # 图标提取（12 条）
-dotnet run --project tools/SettingsProbe -c Release   # 设置与主题（17 条）
-dotnet run --project tools/PanelProbe    -c Release   # 面板命令面（52 条）
-dotnet run --project tools/UiAcceptance  -c Release -- <exe>  # 进程级（11 条）
-dotnet run --project tools/PortableCheck -c Release -- artifact  # 绿色版（9 条）
+dotnet run --project tools/ComProbe         -c Release   # COM 往返（11）
+dotnet run --project tools/IconProbe        -c Release   # 图标提取（8 调用点 / 12 行输出）
+dotnet run --project tools/SettingsProbe    -c Release   # 设置与主题（27 调用点 / 29 行输出）
+dotnet run --project tools/PanelProbe       -c Release   # 面板命令面（126）
+dotnet run --project tools/UiAcceptance     -c Release -- <exe>       # 进程级（11）
+dotnet run --project tools/PortableCheck    -c Release -- artifact     # 绿色版（9）
+dotnet run --project tools/DialogProbe      -c Release   # 对话框（60）
+dotnet run --project tools/GeometryProbe    -c Release   # 几何（14）
+dotnet run --project tools/MaterialProbe    -c Release   # 材质（5 调用点 / 4 行输出）
+dotnet run --project tools/InteractionProbe -c Release   # 输入路由（19）
+dotnet run --project tools/DragArmProbe     -c Release   # 拖拽状态机（10）
+dotnet run --project tools/PasswordProbe    -c Release   # 密码生成（22）
 ```
+
+括号内是源码里 `Check(` **调用点**数（合计 **322**）。循环展开会让实际输出行数不同：
+上表标出了 Icon / Material / Settings 三处。CI（`build2.yml`）跑全部 12 个；
+`--no-build` 优化与 sln 补录属于 `docs/PLAN-2026-11-25-REMEDIATION.md` 的阶段 B。
 
 内存测量：
 
@@ -153,6 +164,9 @@ tools/PortableCheck/                   绿色版验证
 tools/DialogProbe/                     对话框探针
 tools/GeometryProbe/                   几何与选择器图标探针
 tools/MaterialProbe/                   面板材质探针
+tools/InteractionProbe/                输入路由探针
+tools/DragArmProbe/                    拖拽状态机探针
+tools/PasswordProbe/                   密码生成探针
 tools/rollback-check.ps1             1.x <-> 2.0 数据兼容
 docs/PROCESS-AUDIT.md                流程自查（缺口诚实记录）
 docs/specs/                          需求规格（每轮开发前写）
@@ -186,7 +200,7 @@ tools/publish-aot.ps1                  AOT 发布
 ### 本项目的开发工具链
 
 - **Alma**（AI 结对编程）：需求拆解、实现、测试与调试的主力
-- **Git + GitHub Actions**：版本管理；CI 自动跑构建、七个探针、AOT 发布与绿色版校验
+- **Git + GitHub Actions**：版本管理；CI 自动跑构建、12 个探针、AOT 发布与绿色版校验
 - **dotnet CLI**：构建、测试、AOT 发布，不依赖 IDE
 - **PowerShell + Win32/UIA**：进程级验收脚本与诊断
 

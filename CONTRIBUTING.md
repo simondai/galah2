@@ -35,12 +35,18 @@
 
 ```bash
 dotnet build Galah2.sln -c Release
-dotnet run --project tools/ComProbe      -c Release   # 11 条
-dotnet run --project tools/IconProbe     -c Release   # 12 条
-dotnet run --project tools/SettingsProbe -c Release   # 19 条
-dotnet run --project tools/PanelProbe    -c Release   # 52 条
-dotnet run --project tools/UiAcceptance  -c Release -- src/Galah2/bin/Release/net8.0/Galah2.exe
-dotnet run --project tools/PortableCheck -c Release -- artifact
+dotnet run --project tools/ComProbe         -c Release   # 11
+dotnet run --project tools/IconProbe        -c Release   # 8 调用点 / 12 行
+dotnet run --project tools/SettingsProbe    -c Release   # 27 调用点 / 29 行
+dotnet run --project tools/PanelProbe       -c Release   # 126
+dotnet run --project tools/DialogProbe      -c Release   # 60
+dotnet run --project tools/GeometryProbe    -c Release   # 14
+dotnet run --project tools/MaterialProbe    -c Release   # 5 调用点 / 4 行
+dotnet run --project tools/InteractionProbe -c Release   # 19
+dotnet run --project tools/DragArmProbe     -c Release   # 10
+dotnet run --project tools/PasswordProbe    -c Release   # 22
+dotnet run --project tools/UiAcceptance     -c Release -- src/Galah2/bin/x64/Release/net8.0/Galah2.exe
+dotnet run --project tools/PortableCheck    -c Release -- artifact
 ```
 
 涉及 UI 布局的改动，要用视觉树的 `Bounds` 实测，不要靠截图肉眼判读

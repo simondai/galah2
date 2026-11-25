@@ -19,12 +19,19 @@
     How many open/close cycles to run. Default 2.
 #>
 param(
-    [string]$Exe = "D:\Rolan_desktop\galah2\src\Galah2\bin\Release\net8.0\Galah2.exe",
+    [string]$Exe = "",
     [int]$Cycles = 2,
     [int]$SettleSeconds = 8
 )
 
-if (-not (Test-Path $Exe)) { throw "not found: $Exe" }
+# Resolve the default from the repository root instead of a developer machine's absolute path.
+# The solution builds Release|x64, so the managed build lands in bin/x64/Release/net8.0/.
+if ([string]::IsNullOrWhiteSpace($Exe)) {
+    $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+    $Exe = Join-Path $repoRoot "src\Galah2\bin\x64\Release\net8.0\Galah2.exe"
+}
+
+if (-not (Test-Path $Exe)) { throw "not found: $Exe (pass -Exe <path> to select a build)" }
 
 $dir = Split-Path -Parent $Exe
 $name = [System.IO.Path]::GetFileNameWithoutExtension($Exe)

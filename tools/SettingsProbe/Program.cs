@@ -78,7 +78,9 @@ internal static class Program
         using var service = new Galah2.Services.ThemeService();
 
         var dark = Galah2.Services.ThemeService.SystemPrefersDark();
-        Check("system theme is readable", true, dark ? "dark" : "light");
+        var darkAgain = Galah2.Services.ThemeService.SystemPrefersDark();
+        Check("system theme read is stable and does not throw", dark == darkAgain,
+            dark ? "dark" : "light");
 
         // Applying each mode must not throw and must leave a concrete variant selected.
         foreach (var mode in new[] { ThemeModes.System, ThemeModes.Light, ThemeModes.Dark })
@@ -87,6 +89,15 @@ internal static class Program
             var variant = Avalonia.Application.Current?.RequestedThemeVariant;
             Check("theme " + mode + " applies a variant", variant is not null, variant?.ToString() ?? "null");
         }
+
+        // Regression: switching to a fixed theme used to stop the watcher forever, because the
+        // dead Thread object stayed in _watcher and StartWatching() returned early.
+        service.Apply(ThemeModes.Light);
+        var stopped = !service.IsWatching;
+        service.Apply(ThemeModes.System);
+        Check("system watcher restarts after switching back from a fixed theme",
+            stopped && service.IsWatching,
+            "stopped=" + stopped + " restarted=" + service.IsWatching);
 
         service.Apply("not-a-mode");
         Check("unknown theme falls back to system",
@@ -147,7 +158,9 @@ internal static class Program
         vm.HotkeyChanged += s => registered = s;
         vm.HotkeyText = "ctrl+shift+F9";
         Check("valid hotkey accepted", registered is not null, store.Current.Hotkey);
-        Check("valid hotkey accepted", registered is not null, store.Current.Hotkey);
+        Check("valid hotkey carries modifiers and a virtual key",
+            registered is not null && registered.Modifiers != 0 && registered.VirtualKey != 0,
+            registered is null ? "null" : registered.Text);
 
         // The OS must accept the shipped default. A refusal here means another program owns the
         // combo; the settings page now says so instead of showing a hint that does nothing.
@@ -175,11 +188,44 @@ internal static class Program
             && rpClone.RandPassUseFormat && rpClone.RandPassFormat == "2-*-4-*-2");
 
         store.Update(d => { d.RandPassLength = 999; d.RandPassCount = 0; d.RandPassFormat = "bogus"; });
-        var rpSan = store.Current.Sanitized();
-        // The Sanitized fallback is the shipped default (8/10 since spec §7, was 14/14).
-        Check("Sanitized clamps the RandPass section to defaults",
-            rpSan.RandPassLength == 8 && rpSan.RandPassCount == 10 && rpSan.RandPassFormat == "4-*-4",
-            rpSan.RandPassLength + "/" + rpSan.RandPassCount + "/" + rpSan.RandPassFormat);
+        // Regression: the previous assertion checked Sanitized()'s *return value*, which stays
+        // correct even when the store never writes the correction back. Assert on the live
+        // snapshot instead — this one fails if the write-back is removed again.
+        var live = store.Current;
+        Check("Update writes the sanitized values back to Current",
+            live.RandPassLength == 8 && live.RandPassCount == 10 && live.RandPassFormat == "4-*-4",
+            live.RandPassLength + "/" + live.RandPassCount + "/" + live.RandPassFormat);
+
+        // The settings UI mutates Current in place and calls Commit(), not Update(). TabFontSize
+        // is one of the fields the old five-field copy silently dropped.
+        store.Current.RandPassLength = 9999;
+        store.Current.TabFontSize = "nonsense";
+        store.Commit();
+        Check("Commit normalizes every field, not just five",
+            store.Current.RandPassLength == 8 && store.Current.TabFontSize == "medium",
+            store.Current.RandPassLength + "/" + store.Current.TabFontSize);
+
+        // ---- Persistence hardening: explicit JSON nulls must not abort boot (AUDIT #1) ----
+        // A field-level null deserializes fine, so it never reaches QuarantineAndRecover; the
+        // store layer has to normalize it before any consumer dereferences it.
+        var nullPaths = new AppDataPaths(Path.Combine(_root, "nullcase")).EnsureCreated();
+        File.WriteAllText(nullPaths.UiStateFile,
+            "{\"schema\":3,\"window\":null,\"randPassWindow\":null,\"activeTabId\":null}");
+        File.WriteAllText(nullPaths.CatalogFile,
+            "{\"schema\":1,\"profileId\":null,\"tabs\":null}");
+        try
+        {
+            var ui = new UiStateStore(nullPaths).Load();
+            var cat = new CatalogStore(nullPaths).Load();
+            Check("explicit JSON nulls are normalized instead of throwing at boot",
+                ui.Data.Window is not null && ui.Data.RandPassWindow is not null && cat.Data.Tabs is not null,
+                "window=" + (ui.Data.Window is null ? "null" : "ok")
+                + " tabs=" + (cat.Data.Tabs is null ? "null" : cat.Data.Tabs.Count.ToString()));
+        }
+        catch (Exception ex)
+        {
+            Check("explicit JSON nulls are normalized instead of throwing at boot", false, ex.GetType().Name);
+        }
 
         window.Close();
         try { Directory.Delete(_root, true); } catch { }

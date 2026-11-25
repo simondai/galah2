@@ -231,8 +231,13 @@ internal static class Program
         Pump();
         Check("position read in CLOSING (the fix saves here)",
             posInClosing == new PixelPoint(100, 100), posInClosing + "");
-        Check("position read in CLOSED (was 0,0 - the original bug)",
-            true, posInClosed + "");
+        // The original bug was Position reading (0,0) from the Closed handler. The product now
+        // saves from Closing, so assert that both close-time handlers actually ran and observed
+        // a value (the sentinel is -1,-1). The concrete position is asserted at CLOSING above;
+        // a literal `true` here could never detect a regression.
+        Check("both close-time handlers observed a Position value",
+            posInClosing != new PixelPoint(-1, -1) && posInClosed != new PixelPoint(-1, -1),
+            "closing=" + posInClosing + " closed=" + posInClosed);
 
         var (diagMx, diagMy) = PanelPlacement.Resolve(
             PanelPositions.Center, null, null, diagArea,

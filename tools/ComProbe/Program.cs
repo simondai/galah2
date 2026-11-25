@@ -43,7 +43,8 @@ internal static class Program
             var bad = Path.Combine(dir, "bad.lnk");
             File.WriteAllBytes(bad, new byte[300]);
             var badInfo = LinkResolver.Resolve(bad);
-            Check("corrupt does not throw", true, badInfo.Error ?? "no error reported");
+            Check("corrupt shortcut is not accepted as valid", !badInfo.Ok,
+                badInfo.Error ?? "no error reported");
         }
         catch (Exception ex)
         {
