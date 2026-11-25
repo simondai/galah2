@@ -702,6 +702,79 @@ internal static class Program
         catch (MigrationException) { missing = true; }
         Check("missing file refused", missing);
 
+        // ---- import MERGE semantics (replace: false): merge, never delete, dedup by
+        // kind+target+args, corrupt items dropped with a count, fresh ids only for new items ----
+        var probeSettings = new SettingsStore(paths);
+        var liveTab = store.Current.Tabs.First();
+        var survivor = store.Current.Tabs.SelectMany(t => t.Items).First();
+        var mergeItemsBefore = store.Current.Tabs.Sum(t => t.Items.Count);
+        var idsBefore = store.Current.Tabs.SelectMany(t => t.Items.Select(i => i.Id)).ToHashSet();
+        // Earlier probe cases may have added more items with the survivor's target (the edit-dialog
+        // test commits a second calc.exe), so the duplicate check compares the SAME-target count
+        // before vs after the merge, not against a hardcoded 1.
+        var survivorTargetMatchesBefore = store.Current.Tabs.SelectMany(t => t.Items).Count(i =>
+            i.Kind == survivor.Kind
+            && i.Target.Trim().Equals(survivor.Target.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        var mergeBundle = new MigrationBundle
+        {
+            Catalog = new CatalogDocument
+            {
+                Tabs =
+                {
+                    new CatalogTab
+                    {
+                        Name = liveTab.Name,
+                        Items =
+                        {
+                            // a duplicate of an existing live item (same kind+target+args): must not land twice
+                            new CatalogItem { Id = "dup", Name = survivor.Name, Kind = survivor.Kind, Target = survivor.Target, Args = survivor.Args },
+                            // genuinely new
+                            new CatalogItem { Id = "fresh", Name = "导入新项", Kind = ItemKinds.App, Target = "C:/Windows/System32/mmc.exe" },
+                            // corrupt: empty target -> Sanitize drops it
+                            new CatalogItem { Id = "bad", Name = "坏项", Kind = ItemKinds.App, Target = "" },
+                        }
+                    },
+                    new CatalogTab
+                    {
+                        Name = "导入探针分类",
+                        Items = { new CatalogItem { Id = "newtab-item", Name = "探针项", Kind = ItemKinds.File, Target = "C:/Windows/win.ini" } }
+                    },
+                }
+            },
+            Settings = probeSettings.Current,
+        };
+
+        var outcome = MigrationService.Apply(store, probeSettings, mergeBundle, replace: false);
+        Check("import merge: exactly 2 added (duplicate and corrupt not counted)",
+            outcome.ItemsAdded == 2, outcome.ItemsAdded + " added");
+        Check("import merge: corrupt item dropped and counted", outcome.ItemsDropped == 1,
+            outcome.ItemsDropped + " dropped");
+        var liveNow = store.Current;
+        var survivorNow = liveNow.Tabs.SelectMany(t => t.Items).FirstOrDefault(i => i.Id == survivor.Id);
+        Check("import merge: existing item survives with its own id",
+            survivorNow is not null && survivorNow.Target == survivor.Target,
+            survivorNow?.Target ?? "gone");
+        Check("import merge: the duplicate did not land twice",
+            liveNow.Tabs.SelectMany(t => t.Items).Count(i => i.Kind == survivor.Kind
+                && i.Target.Trim().Equals(survivor.Target.Trim(), StringComparison.OrdinalIgnoreCase))
+                == survivorTargetMatchesBefore);
+        Check("import merge: new item landed in the matched tab",
+            liveNow.Tabs.First(t => t.Name == liveTab.Name).Items.Any(i => i.Target == "C:/Windows/System32/mmc.exe"));
+        Check("import merge: new tab created with its single item",
+            liveNow.Tabs.Any(t => t.Name == "导入探针分类" && t.Items.Count == 1));
+        var totalAfter = liveNow.Tabs.Sum(t => t.Items.Count);
+        Check("import merge: total = before + 2 (nothing deleted)", totalAfter == mergeItemsBefore + 2,
+            mergeItemsBefore + " -> " + totalAfter);
+        var liveIds = liveNow.Tabs.SelectMany(t => t.Items.Select(i => i.Id)).ToHashSet();
+        Check("import merge: every pre-existing id still present (nothing deleted or replaced)",
+            idsBefore.All(liveIds.Contains), idsBefore.Count + " before, " + liveIds.Count + " now");
+
+        // Idempotence: the same bundle a second time adds nothing.
+        var again = MigrationService.Apply(store, probeSettings, mergeBundle, replace: false);
+        Check("import merge: re-applying the same bundle adds nothing", again.ItemsAdded == 0,
+            again.ItemsAdded + " added");
+
         try { Directory.Delete(_root, true); } catch { }
     }
 }
