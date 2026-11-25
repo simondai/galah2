@@ -358,7 +358,9 @@ public sealed class SettingsViewModel : ObservableObject
 
     private void Commit()
     {
-        _store.Save();
+        // Go through the store's normalization gate rather than writing the mutated snapshot
+        // directly: every setter in this VM edits _store.Current in place.
+        _store.Commit();
         _apply(_store.Current);
     }
 }

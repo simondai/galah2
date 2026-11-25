@@ -3,6 +3,7 @@
 [Oo]bj/
 publish/
 artifact/
+dist/
 
 # user data lives beside the exe at runtime - never commit it
 GalahData/

@@ -38,9 +38,17 @@ public sealed class UiStateStore
     {
         var outcome = _store.Load();
         var doc = outcome.Data;
-        doc.Window.SanitizePosition();   // a hand-edited NaN/Infinity coordinate is treated as "never positioned"
-        if (!double.IsFinite(doc.Window.Width) || doc.Window.Width < 200) doc.Window.Width = 720;
-        if (!double.IsFinite(doc.Window.Height) || doc.Window.Height < 160) doc.Window.Height = 460;
+        // An explicit JSON null for a nested object deserializes without error: System.Text.Json
+        // overwrites the property initializer with null, and the NRE would surface after Load()
+        // has already left the quarantine chain. Normalize here, before touching any member.
+        if (doc.Window is null) doc.Window = new WindowState();
+        if (doc.RandPassWindow is null) doc.RandPassWindow = new WindowState { Width = 580, Height = 540 };
+        foreach (var state in new[] { doc.Window, doc.RandPassWindow })
+        {
+            state.SanitizePosition();   // a hand-edited NaN/Infinity coordinate is treated as "never positioned"
+            if (!double.IsFinite(state.Width) || state.Width < 200) state.Width = 720;
+            if (!double.IsFinite(state.Height) || state.Height < 160) state.Height = 460;
+        }
         Current = doc;
         _lastSaveError = null;
         return outcome;

@@ -47,12 +47,32 @@ public sealed class SettingsStore
     public bool Update(Action<SettingsDocument> mutate)
     {
         mutate(Current);
-        var sanitized = Current.Sanitized();
-        Current.Theme = sanitized.Theme;
-        Current.ClickMode = sanitized.ClickMode;
-        Current.IconSize = sanitized.IconSize;
-        Current.Hotkey = sanitized.Hotkey;
-        Current.Language = sanitized.Language;
+        return Commit();
+    }
+
+    /// <summary>
+    /// Normalize every field, then persist. This is the single write gate: the settings UI mutates
+    /// <see cref="Current"/> in place, so Commit (not Update) guarantees that no out-of-range or
+    /// hand-edited value reaches disk. Replacing the snapshot with Sanitized() covers all fields;
+    /// the previous implementation copied back only five of them and silently dropped the rest.
+    /// </summary>
+    public bool Commit()
+    {
+        Current = Current.Sanitized();
+        return Save();
+    }
+
+    /// <summary>
+    /// Replace the whole snapshot from a backup import. Copying field by field silently lost
+    /// every preference that was added after the import code was written, so replace the
+    /// document as a whole and let Sanitized() normalize it.
+    /// </summary>
+    public bool Replace(SettingsDocument snapshot)
+    {
+        Current = snapshot.Sanitized();
+        // A bundle can carry a newer settings schema. Persisting it would make the next boot
+        // refuse the whole domain (SealedForUpgrade), so always write the schema of this build.
+        Current.Schema = SettingsDocument.CurrentSchema;
         return Save();
     }
 

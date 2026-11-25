@@ -47,8 +47,40 @@ public sealed class CatalogStore
         Current = outcome.Data;
         _savePending = false;
         _lastSaveError = null;
+        NormalizeLoadedDocument();
         RepairDuplicateIds();
         return outcome;
+    }
+
+    /// <summary>
+    /// JSON allows an explicit null for any nested object or list member; System.Text.Json then
+    /// overwrites the property initializer with null. Deserialization itself succeeds, so the
+    /// damage escapes the quarantine chain and would surface as an NRE in RepairDuplicateIds,
+    /// Clone() or the launch path. Normalize in one place, before any consumer runs.
+    /// </summary>
+    private void NormalizeLoadedDocument()
+    {
+        Current.ProfileId ??= "local";
+        Current.Tabs ??= new List<CatalogTab>();
+        for (var t = Current.Tabs.Count - 1; t >= 0; t--)
+        {
+            var tab = Current.Tabs[t];
+            if (tab is null) { Current.Tabs.RemoveAt(t); continue; }
+            tab.Id ??= "";
+            tab.Name ??= "";
+            tab.Items ??= new List<CatalogItem>();
+            for (var i = tab.Items.Count - 1; i >= 0; i--)
+            {
+                var item = tab.Items[i];
+                if (item is null) { tab.Items.RemoveAt(i); continue; }
+                item.Id ??= "";
+                item.Kind ??= ItemKinds.App;
+                item.Name ??= "";
+                item.Target ??= "";
+                item.Icon ??= new IconReference();
+                item.Icon.Mode ??= IconModes.Auto;
+            }
+        }
     }
 
     /// <summary>
@@ -258,7 +290,8 @@ public sealed class CatalogStore
     /// <summary>Move an item to the end of another tab (kind/target are untouched, id stays).</summary>
     public void MoveItemToTab(string itemId, string targetTabId)
     {
-        if (itemId == targetTabId) return;
+        // Ids use different namespaces ("i-" vs "t-"), so comparing itemId with targetTabId
+        // could never be true. Same-tab moves are already rejected by the check below.
         var hit = Current.FindItem(itemId);
         var target = Current.FindTab(targetTabId);
         if (hit is null || target is null || hit.Value.Tab.Id == target.Id) return;

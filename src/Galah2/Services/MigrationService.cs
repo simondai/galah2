@@ -81,7 +81,11 @@ public static class MigrationService
             Catalog = catalog.CloneTabs(),
             Settings = settings.Clone(),
         };
-        File.WriteAllText(file, JsonSerializer.Serialize(bundle, JsonContext.Default.MigrationBundle));
+        // JsonOptions carries the AOT-safe TypeInfoResolver plus UnsafeRelaxedJsonEscaping, so
+        // Chinese text stays readable in the exported file (the source-generation attribute has
+        // no Encoder property). Using JsonContext.Default.MigrationBundle directly used the
+        // default encoder and escaped every non-ASCII character as \uXXXX.
+        File.WriteAllText(file, JsonSerializer.Serialize(bundle, JsonOptions));
         return file;
     }
 
@@ -98,7 +102,7 @@ public static class MigrationService
         try
         {
             bundle = JsonSerializer.Deserialize<MigrationBundle>(
-                File.ReadAllText(file), JsonContext.Default.MigrationBundle);
+                File.ReadAllText(file), JsonOptions);
         }
         catch (Exception ex)
         {
@@ -167,19 +171,11 @@ public static class MigrationService
             }
         }
 
+        // Import replaces the whole settings snapshot. Nine explicit assignments used to drop
+        // TabFontSize / PanelMaterial / PanelPlacement / the wheel+number-key switches / ShowAddTile
+        // and every RandPass preference without telling the user.
         var incoming = bundle.Settings.Sanitized();
-        settingsStore.Update(current =>
-        {
-            current.Hotkey = incoming.Hotkey;
-            current.AutoStart = incoming.AutoStart;
-            current.Theme = incoming.Theme;
-            current.ClickMode = incoming.ClickMode;
-            current.IconSize = incoming.IconSize;
-            current.TabPosition = incoming.TabPosition;
-            current.HideOnLaunch = incoming.HideOnLaunch;
-            current.HideOnBlur = incoming.HideOnBlur;
-            current.Language = incoming.Language;
-        });
+        settingsStore.Replace(incoming);
         return new ImportOutcome(bundle.Catalog.Tabs.Count, added, dropped, replace);
     }
 

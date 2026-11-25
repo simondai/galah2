@@ -130,6 +130,16 @@ public sealed class JsonFileStore<T> where T : class, ISchemaBearing, new()
         {
             return QuarantineAndRecover("主文件 JSON 损坏: " + ex.Message);
         }
+        catch (NotSupportedException ex)
+        {
+            // NativeAOT: a type missing from the source-generated context surfaces here instead
+            // of as JsonException. It must still reach the quarantine/backup chain.
+            return QuarantineAndRecover("主文件包含不支持的类型: " + ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return QuarantineAndRecover("主文件内容无效: " + ex.Message);
+        }
 
         if (doc is null) return QuarantineAndRecover("主文件内容为空");
 
@@ -143,7 +153,17 @@ public sealed class JsonFileStore<T> where T : class, ISchemaBearing, new()
         }
 
         doc.Schema = CurrentSchema;
-        _canonicalText = Serialize(doc);
+        try
+        {
+            _canonicalText = Serialize(doc);
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException or ArgumentException)
+        {
+            // Guard the AOT case where a persisted type is missing from JsonContext, plus any
+            // non-finite number that cannot be serialized. Field-level nulls DO serialize fine;
+            // those are normalized by each store (UiStateStore / CatalogStore), not here.
+            return QuarantineAndRecover("主文件内容无法规范化: " + ex.Message);
+        }
         return new LoadOutcome<T>(doc, LoadStatus.Loaded, null);
     }
 
@@ -157,18 +177,22 @@ public sealed class JsonFileStore<T> where T : class, ISchemaBearing, new()
             if (text is null) continue;
             T? doc;
             try { doc = JsonSerializer.Deserialize<T>(text, SerializerOptions); }
-            catch (JsonException) { continue; }
+            catch (Exception ex) when (ex is JsonException or NotSupportedException or ArgumentException) { continue; }
             if (doc is null || doc.Schema > CurrentSchema) continue;
 
             doc.Schema = CurrentSchema;
-            _canonicalText = Serialize(doc);
+            try { _canonicalText = Serialize(doc); }
+            catch (Exception ex) when (ex is JsonException or NotSupportedException or ArgumentException) { continue; }
             var detail = reason + (quarantined is null ? "" : "；坏件已保全为 " + Path.GetFileName(quarantined));
             return new LoadOutcome<T>(doc, LoadStatus.RecoveredFromBackup, detail);
         }
 
         var empty = _defaultsFactory();
-        var emptyText = Serialize(empty);
-        _canonicalText = emptyText;
+        try { _canonicalText = Serialize(empty); }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException or ArgumentException)
+        {
+            _canonicalText = null;   // no canonical snapshot yet; the next Save() will write one
+        }
         var detailText = reason + (quarantined is null ? "" : "；坏件已保全为 " + Path.GetFileName(quarantined)) + "；备份不可用，已从空库开始";
         return new LoadOutcome<T>(empty, LoadStatus.StartedEmpty, detailText);
     }
