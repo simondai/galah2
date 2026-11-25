@@ -4,16 +4,16 @@
 
 ## 产物在哪
 
-本地发布产物在仓库根目录的 **`artifact/`**：
+本地发布产物在仓库根目录的 **`artifact/`**（2026-11-25 重建实测）：
 
 ```
-D:\Rolan_desktop\galah2\artifact\
-  Galah2.exe              27.4 MB
+D:\galah2\artifact\
+  Galah2.exe              27.7 MB
   libSkiaSharp.dll         9.0 MB
   av_libglesv2.dll         5.2 MB
   libHarfBuzzSharp.dll     1.7 MB
   ────────────────────────────────
-  共 4 个文件              43.2 MB
+  共 4 个文件              43.6 MB
 ```
 
 生成方式：
@@ -37,6 +37,7 @@ artifact。整合方案见 `docs/PLAN-2026-11-25-REMEDIATION.md` 阶段 B。
 ## 怎么用
 
 **整个目录一起拷走**，放到哪都能跑。只拷 `Galah2.exe` 是打不开的——三个原生 dll 缺一不可。
+`artifact/GalahData/` 是运行时生成的用户数据，发布 zip 不会带上它。
 
 ## 实测结论
 
@@ -60,7 +61,7 @@ artifact。整合方案见 `docs/PLAN-2026-11-25-REMEDIATION.md` 阶段 B。
 | | 1.x | 2.0 |
 |---|---|---|
 | 形态 | 单个 `Galah.exe` | `Galah2.exe` + 3 个原生 dll |
-| 体积 | 68.6 MB | 43.2 MB |
+| 体积 | 68.6 MB | 43.6 MB |
 | 打包方式 | `PublishSingleFile=true` | 不能单文件 |
 
 原因是硬限制：**.NET 8 里 `PublishAot` 和 `PublishSingleFile` 互斥**，实测直接报错
@@ -73,7 +74,7 @@ artifact。整合方案见 `docs/PLAN-2026-11-25-REMEDIATION.md` 阶段 B。
 
 ### 2. 体积反而更小
 
-68.6 MB → 43.2 MB。单文件的牺牲换来的是原生编译省下的运行时体积。
+68.6 MB → 43.6 MB，约缩小 36%。单文件的牺牲换来的是原生编译省下的运行时体积。
 
 ## CI 曾经会把发布包做坏
 

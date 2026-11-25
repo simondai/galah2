@@ -42,7 +42,7 @@
 ## 未发布 — 2.0（v2 分支）
 
 ### 新增
-- Avalonia 11 + NativeAOT 重写，产物 43.2 MB（4 文件绿色版），1.x 是 68.6 MB 单文件
+- Avalonia 11 + NativeAOT 重写，产物约 43.6 MB（4 文件绿色版），1.x 是 68.6 MB 单文件
 - 托盘图标、右键原生菜单、全局热键、单实例转发
 - 面板自定义标题栏：显示产品名、☰ 菜单、关闭按钮、可拖动
 - 分类条支持顶部/左侧两种位置，图标支持小/中/大三档
@@ -133,7 +133,7 @@ dotnet run --project tools/ComProbe      -c Release
 dotnet run --project tools/IconProbe     -c Release
 dotnet run --project tools/SettingsProbe -c Release
 dotnet run --project tools/PanelProbe    -c Release
-dotnet run --project tools/UiAcceptance  -c Release -- src/Galah2/bin/Release/net8.0/Galah2.exe
+dotnet run --project tools/UiAcceptance  -c Release -- src/Galah2/bin/x64/Release/net8.0/Galah2.exe
 dotnet run --project tools/PortableCheck -c Release -- artifact
 ```
 
