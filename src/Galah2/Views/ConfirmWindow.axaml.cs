@@ -47,6 +47,25 @@ public partial class ConfirmWindow : Window
         Close();                // answering must also dismiss the window
     }
 
+    protected override void OnKeyDown(Avalonia.Input.KeyEventArgs e)
+    {
+        // Borderless windows have no system Esc/Enter handling. The docs promise
+        // "✕ / Escape = cancel"; without this override the keys were simply ignored.
+        if (e.Key == Avalonia.Input.Key.Escape)
+        {
+            Settle(false);
+            e.Handled = true;
+            return;
+        }
+        if (e.Key is Avalonia.Input.Key.Enter or Avalonia.Input.Key.Return)
+        {
+            Settle(true);
+            e.Handled = true;
+            return;
+        }
+        base.OnKeyDown(e);
+    }
+
     private void Ok_Click(object? sender, RoutedEventArgs e) => Settle(true);
 
     private void Cancel_Click(object? sender, RoutedEventArgs e) => Settle(false);

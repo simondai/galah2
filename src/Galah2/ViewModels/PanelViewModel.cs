@@ -440,13 +440,16 @@ public sealed class PanelViewModel : ObservableObject
     /// Launch a tile when the click count matches the configured click mode. Returns false when this
     /// click was only a selection, so the view knows not to treat it as an action.
     /// </summary>
-    public bool LaunchTile(ItemViewModel tile, int clickCount = 2)
+    public bool LaunchTile(ItemViewModel tile, int clickCount = -1)
     {
         // The placeholder tile has no target: its gesture is the menu, never a launch.
         if (tile.IsAddTile) return false;
 
         var wanted = ClickMode == ClickModes.Double ? 2 : 1;
-        if (clickCount < wanted)
+        // -1 marks a non-gesture entry point (context-menu "Open", commands, probes): those
+        // must launch regardless of ClickMode. Only explicit mouse gestures pass through the
+        // gate, where an exact match stops a double tap launching twice in single-click mode.
+        if (clickCount >= 0 && clickCount != wanted)
         {
             SelectedItem = tile;   // a single click in double-click mode only selects
             return false;

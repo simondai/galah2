@@ -142,19 +142,43 @@ public static class IconService
     /// </summary>
     private static Bitmap? ExtractViaShellHandler(string osPath, int size)
     {
-        IntPtr handle = IntPtr.Zero;
-        using var done = new ManualResetEventSlim(false);
+        const int Waiting = 0, Claimed = 1, Abandoned = 2;
+        var state = Waiting;                 // which side owns the HICON the worker publishes
+        var handle = IntPtr.Zero;
+        var done = new ManualResetEventSlim(false);
         var worker = new Thread(() =>
         {
-            try { handle = ShellIconHandler.Extract(osPath, large: true); }
-            catch (Exception) { handle = IntPtr.Zero; }
-            finally { done.Set(); }
+            IntPtr h = IntPtr.Zero;
+            try { h = ShellIconHandler.Extract(osPath, large: true); }
+            catch (Exception) { h = IntPtr.Zero; }
+            finally
+            {
+                handle = h;                  // publish before the state transition
+                if (h != IntPtr.Zero && Interlocked.CompareExchange(ref state, Claimed, Waiting) == Abandoned)
+                    Win32.DestroyIcon(h);    // caller gave up: this worker owns the handle
+                done.Set();
+                // The worker owns `done`: Set() and Dispose() run on the same thread in order,
+                // so a concurrent Dispose from the caller can never race with Set().
+                done.Dispose();
+            }
         })
         { IsBackground = true };                 // abandoned workers never block shutdown
         worker.SetApartmentState(ApartmentState.STA);
         worker.Start();
 
-        if (!done.Wait(ShellHandlerTimeout)) return null;   // fall back to the legacy routes
+        if (!done.Wait(ShellHandlerTimeout))
+        {
+            // A late worker may have published a handle just after the wait expired. Whoever
+            // wins this race destroys it. `done` is owned and disposed by the worker (above),
+            // so this path must not touch it.
+            if (Interlocked.CompareExchange(ref state, Abandoned, Waiting) == Claimed)
+            {
+                var late = handle;
+                if (late != IntPtr.Zero) Win32.DestroyIcon(late);
+            }
+            return null;                          // fall back to the legacy routes
+        }
+
         if (handle == IntPtr.Zero) return null;
 
         try { return FromIconHandle(handle, size); }

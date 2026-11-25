@@ -74,11 +74,19 @@ internal static class ShellLinkCom
                 _p, a, b, c, d, e);
         }
 
-        public int SetPath(string path)             => Call(SlotSetPath, Widen(path), default, default, default, default);
-        public int SetWorkingDirectory(string dir)  => Call(SlotSetWorkingDir, Widen(dir), default, default, default, default);
-        public int SetArguments(string args)        => Call(SlotSetArguments, Widen(args), default, default, default, default);
-        public int SetIconLocation(string icon, int index) =>
-            Call(SlotSetIconLocation, Widen(icon), (IntPtr)index, default, default, default);
+        /// <summary>Call a setter taking an LPWSTR. The COM callee copies the string, so the
+        /// CoTaskMem buffer we allocated must be freed after the call returns.</summary>
+        private int SetString(int slot, string value, IntPtr extra = default)
+        {
+            var p = Widen(value);
+            try { return Call(slot, p, extra, default, default, default); }
+            finally { Marshal.FreeCoTaskMem(p); }
+        }
+
+        public int SetPath(string path)             => SetString(SlotSetPath, path);
+        public int SetWorkingDirectory(string dir)  => SetString(SlotSetWorkingDir, dir);
+        public int SetArguments(string args)        => SetString(SlotSetArguments, args);
+        public int SetIconLocation(string icon, int index) => SetString(SlotSetIconLocation, icon, (IntPtr)index);
 
         public string GetPath() =>
             ReadBuffer(buf => Call(SlotGetPath, buf, (IntPtr)MaxPath, IntPtr.Zero, (IntPtr)0, default));
@@ -197,13 +205,21 @@ internal static class ShellLinkCom
         return false;
     }
 
-    /// <summary>Stable unmanaged copy of the IPersistFile IID, created once.</summary>
+    /// <summary>Stable unmanaged copy of the IPersistFile IID, allocated once (the COM call only
+    /// reads it, so it can be shared for the lifetime of the process).</summary>
+    private static IntPtr _iidPersistFilePtr;
+    private static readonly object _iidGate = new();
+
     private static IntPtr IidPersistFilePtr()
     {
-        var iid = IidPersistFile;
-        var p = Marshal.AllocHGlobal(16);
-        Marshal.StructureToPtr(iid, p, false);
-        return p;
+        lock (_iidGate)
+        {
+            if (_iidPersistFilePtr != IntPtr.Zero) return _iidPersistFilePtr;
+            var p = Marshal.AllocHGlobal(16);
+            Marshal.StructureToPtr(IidPersistFile, p, false);
+            _iidPersistFilePtr = p;
+            return p;
+        }
     }
 
     private static unsafe int QueryInterface(IntPtr obj, IntPtr iid, out IntPtr result)

@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace Galah2.Services;
 
 /// <summary>
@@ -15,12 +13,14 @@ public static class ProtocolSafety
         "ms-settings",      // Settings pages
         "ms-drive-to",      // Drive tuning (same family as ms-settings)
         "ms-msa",           // Account settings
-        "search",           // Search contract (search-ms:)
+        "search-ms",        // Windows Search contract (replaces the ineffective "search" entry)
         "shell",            // shell:startup, shell:downloads ...
-        "about",            // ms-about (edge)
+        "ms-about",         // Edge's about page (replaces "about", intentionally removed)
         "windowsdefender",  // Defender UI
         "ms-edge",          // Edge entry points
     ];
+
+    private const int MaxRestLength = 2048;
 
     /// <summary>
     /// True when <paramref name="target"/> is "scheme:rest" with a scheme on the allowlist.
@@ -36,6 +36,17 @@ public static class ProtocolSafety
         var candidate = target[..colon].Trim().ToLowerInvariant();
         if (candidate.Length == 0 || !UriSchemeChars(candidate)) return false;
         if (Array.IndexOf(AllowedSchemes, candidate) < 0) return false;
+
+        // ShellExecuteExW gets the whole target as lpFile. A stored value must not be able to
+        // carry control characters (line breaks in a log/toast, NUL truncation) or an unbounded
+        // payload, even though the scheme itself is trusted.
+        var rest = target[(colon + 1)..];
+        if (rest.Length > MaxRestLength) return false;
+        foreach (var c in rest)
+        {
+            if (char.IsControl(c)) return false;
+        }
+
         scheme = candidate;
         return true;
     }

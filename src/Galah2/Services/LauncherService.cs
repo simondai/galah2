@@ -56,6 +56,10 @@ public static class LauncherService
     /// what a resolved .lnk or a user-typed path legitimately points at).</summary>
     public static readonly string[] ExecutableExtensions = [".exe", ".lnk", ".msi", ".bat", ".cmd", ".com"];
 
+    /// <summary>App targets that are shell documents, not PE images. CreateProcessW cannot start
+    /// these (ERROR_BAD_EXE_FORMAT), so they must go through ShellExecuteExW like .lnk already did.</summary>
+    private static readonly string[] ShellLaunchedExtensions = [".lnk", ".msi", ".bat", ".cmd", ".com"];
+
     /// <summary>
     /// Launch one item snapshot: app → CreateProcess (args + cwd, default cwd = target parent dir),
     /// runAsAdmin → ShellExecute "runas", url → http/https only via ShellExecute, file/folder → ShellExecute open.
@@ -93,11 +97,12 @@ public static class LauncherService
                 return ShellOpen(target, request.Args, request.Workdir, request.RunAsAdmin);
 
             case ItemKinds.App:
-                // A .lnk that survived an older import is handed to the shell instead of CreateProcess.
-                if (HasExtension(target, ".lnk"))
+                // Only real PE images support args + working directory through CreateProcess.
+                // .lnk/.msi/.bat/.cmd/.com are shell documents and must be handed to the shell.
+                if (Array.Exists(ShellLaunchedExtensions, ext => HasExtension(target, ext)))
                 {
                     if (!File.Exists(target))
-                        return LaunchResult.Fail(LaunchStatus.NotFound, $"快捷方式不存在：{request.Target}");
+                        return LaunchResult.Fail(LaunchStatus.NotFound, $"目标不存在：{request.Target}");
                     return ShellOpen(target, request.Args, request.Workdir, request.RunAsAdmin);
                 }
                 return LaunchApplication(target, request.Args, request.Workdir, request.RunAsAdmin);
@@ -214,16 +219,18 @@ public static class LauncherService
         _ => LaunchResult.Fail(LaunchStatus.Error, $"启动失败（Win32 错误 {error}）：{displayedTarget}"),
     };
 
-    private static string ResolveWorkingDirectory(string osTarget, string? storedWorkdir)
+    private static string? ResolveWorkingDirectory(string osTarget, string? storedWorkdir)
     {
         if (!string.IsNullOrWhiteSpace(storedWorkdir))
         {
             var dir = PathNorm.ToOs(storedWorkdir);
             if (Directory.Exists(dir)) return dir;
         }
-        // spec §3.1: empty workdir → the directory that contains the target.
+        // spec §3.1: empty workdir → the directory that contains the target. Null (not "")
+        // tells CreateProcessW to inherit the parent's directory; an empty string marshals as a
+        // non-NULL L"\0" and fails with ERROR_DIRECTORY (267).
         var parent = Path.GetDirectoryName(osTarget);
-        return parent is not null && Directory.Exists(parent) ? parent : "";
+        return parent is not null && Directory.Exists(parent) ? parent : null;
     }
 
     /// <summary>Command line for CreateProcess: quoted program path + args verbatim (spec §2.3: args 原样存取).</summary>

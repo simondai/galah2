@@ -20,12 +20,13 @@ public static class PanelPlacement
     /// <param name="remembered">Stored (x, y) used by the remember mode; null when absent.</param>
     /// <param name="cursor">Cursor point in the same coordinate space, or null.</param>
     /// <param name="area">Work area to place and clamp inside.</param>
-    /// <param name="width">Window width.</param>
-    /// <param name="height">Window height.</param>
+    /// <param name="width">Window width, in device pixels.</param>
+    /// <param name="height">Window height, in device pixels.</param>
+    /// <param name="scale">Render scaling used to convert <see cref="EdgeMargin"/> from DIPs.</param>
     /// <returns>Top-left position, always inside the work area.</returns>
     public static (double X, double Y) Resolve(
         string mode, (double X, double Y)? remembered, (double X, double Y)? cursor,
-        WorkArea area, double width, double height)
+        WorkArea area, double width, double height, double scale = 1.0)
     {
         double x, y;
 
@@ -61,10 +62,12 @@ public static class PanelPlacement
         // Never let the panel hang off the usable desktop. A window larger than the work area
         // (tiny RDP session, huge saved size) would make the clamp bounds invert and throw,
         // so the lower bound is what is left when the fit is impossible.
-        var minX = Math.Min(area.Left + EdgeMargin, Math.Max(area.Left, area.Right - width));
-        var minY = Math.Min(area.Top + EdgeMargin, Math.Max(area.Top, area.Bottom - height));
-        var maxX = Math.Max(area.Left, area.Right - width - EdgeMargin);
-        var maxY = Math.Max(area.Top, area.Bottom - height - EdgeMargin);
+        if (scale <= 0) scale = 1.0;
+        var margin = EdgeMargin * scale;   // area/width/height are device pixels
+        var minX = Math.Min(area.Left + margin, Math.Max(area.Left, area.Right - width));
+        var minY = Math.Min(area.Top + margin, Math.Max(area.Top, area.Bottom - height));
+        var maxX = Math.Max(area.Left, area.Right - width - margin);
+        var maxY = Math.Max(area.Top, area.Bottom - height - margin);
         x = Math.Clamp(x, minX, Math.Max(minX, maxX));
         y = Math.Clamp(y, minY, Math.Max(minY, maxY));
         return (x, y);

@@ -49,7 +49,8 @@ public static class FaviconService
         {
             using var http = new HttpClient(new HttpClientHandler
             {
-                AllowAutoRedirect = false,          // one hop only: never chase a redirect chain
+                AllowAutoRedirect = true,           // http -> https is the common case for favicons
+                MaxAutomaticRedirections = 3,      // still bounded: never chase a long chain
                 UseCookies = false,
             })
             {
@@ -112,6 +113,13 @@ public static class FaviconService
 
             // a body that keeps streaming past the cap is rejected, not truncated
             return total > 0 && total <= MaxBytes ? buffer[..total] : null;
+        }
+        catch (OperationCanceledException)
+        {
+            // A timeout/cancellation is not "this site has no icon": rethrow so the outer
+            // handler can report it. The old catch (Exception) swallowed it and made the
+            // TaskCanceledException branches above unreachable.
+            throw;
         }
         catch (Exception)
         {

@@ -6,6 +6,7 @@
         Title="维护与迁移"
         Width="560" Height="574"
         WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="False"
         SystemDecorations="None"
         Background="Transparent">
   <Window.Styles>

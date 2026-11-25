@@ -46,7 +46,7 @@ internal static class ShellIconHandler
     private const int SOk = 0;
 
     /// <summary>Icon sizes to request: low word = large, high word = small (32/16 px).</summary>
-    public const uint IconSizeRequest = 0x20 | 0x10;
+    public const uint IconSizeRequest = 0x20 | (0x10 << 16);
 
     private delegate int GetIconLocationFn(IntPtr self, uint flags, IntPtr iconFile, int cchMax,
                                            out int index, out uint gilFlags);
@@ -119,7 +119,8 @@ internal static class ShellIconHandler
                     var filePtr = Marshal.StringToCoTaskMemUni(file);
                     try
                     {
-                        // "minus one" tells the handler to use the location/index it reported.
+                        // Pass the index reported by GetIconLocation verbatim (IExtractIconW::
+                        // Extract takes the index, not "index - 1"; the old comment was wrong).
                         var hr = extractFn(extract, filePtr, unchecked((uint)index), out var big, out var small,
                             IconSizeRequest);
 

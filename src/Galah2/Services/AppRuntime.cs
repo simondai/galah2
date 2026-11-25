@@ -209,7 +209,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         var scale = _panel.RenderScaling;
         var (x, y) = PanelPlacement.Resolve(
             _settings.Current.PanelPlacement, remembered, cursor, area,
-            _panel.Width * scale, _panel.Height * scale);
+            _panel.Width * scale, _panel.Height * scale, scale);
 
         _panel.Position = new Avalonia.PixelPoint((int)x, (int)y);
     }
@@ -468,7 +468,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         var scale = MonitorGeometry.SystemScale();
         var area = PanelPlacement.AreaFor(PanelPlacement.CursorPoint());
         var (mx, my) = PanelPlacement.Resolve(
-            PanelPositions.Center, null, null, area, widthDip * scale, heightDip * scale);
+            PanelPositions.Center, null, null, area, widthDip * scale, heightDip * scale, scale);
         return new PixelPoint((int)mx, (int)my);
     }
 
@@ -575,8 +575,13 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         return Avalonia.Platform.AssetLoader.Open(uri);
     }
 
+    private int _disposed;
+
     public void Dispose()
     {
+        // RequestExit() disposes and then calls desktop.Shutdown(); desktop.Exit disposes the
+        // runtime a second time. Enter the teardown only once.
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
         _shuttingDown = true;      // let the panel close for real on the way out
         _tray.Dispose();
         _hotkey.Dispose();

@@ -16,9 +16,12 @@ public static class TabNavigation
     public static int StepIndex(int count, int current, int delta)
     {
         if (count < 2) return -1;
-        var from = current < 0 ? 0 : current;
-        if (current < 0) return 0;
-        return (from + delta + count) % count;
+        // With nothing selected, step forward from "before the first" and backward from
+        // "at the first" so both directions wrap to the expected end.
+        var from = current < 0 ? (delta >= 0 ? -1 : 0) : current;
+        // A single "+ count" only covers delta = -1; normalize with a positive modulus so any
+        // delta (e.g. -5 with 4 tabs) still produces a valid index.
+        return ((from + delta) % count + count) % count;
     }
 
     /// <summary>

@@ -7,6 +7,7 @@
         Width="520" Height="514"
         CanResize="False"
         WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="False"
         SystemDecorations="None"
         Background="Transparent">
   <!-- Borderless surface: the same rounded RootBorder grammar as PanelWindow - the window

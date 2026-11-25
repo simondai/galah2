@@ -7,6 +7,7 @@
         Width="460" Height="534"
         CanResize="False"
         WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="False"
         SystemDecorations="None"
         Background="Transparent">
   <Window.Styles>

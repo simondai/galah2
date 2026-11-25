@@ -128,6 +128,9 @@ public partial class PanelWindow : Window
         if (!vm.WheelSwitchTab) return;
         if (e.KeyModifiers != KeyModifiers.None) return;
         if (sender is not ScrollViewer scroll) return;
+        // A purely horizontal wheel/trackpad gesture has no vertical intent; "> 0 ? -1 : 1"
+        // used to classify it as "scroll down" and switch the category at the bottom edge.
+        if (e.Delta.Y == 0) return;
 
         var direction = e.Delta.Y > 0 ? -1 : 1;
         var atTop = scroll.Offset.Y <= 0;
@@ -570,37 +573,43 @@ public partial class PanelWindow : Window
 
     private void ResizeTo(double cursorX, double cursorY)
     {
-        // Cursor deltas are physical pixels; the window geometry is in DIPs.
-        double dx = (cursorX - _resizeOriginScreen.X) / RenderScaling;
-        double dy = (cursorY - _resizeOriginScreen.Y) / RenderScaling;
+        // Position and work areas are device pixels; Width/Height are DIPs. Keep every
+        // computation in device pixels and convert back only when assigning Width/Height.
+        var scale = RenderScaling <= 0 ? 1.0 : RenderScaling;
+        var dx = cursorX - _resizeOriginScreen.X;
+        var dy = cursorY - _resizeOriginScreen.Y;
 
         var x = (double)_resizeWindowOrigin.X;
         var y = (double)_resizeWindowOrigin.Y;
-        var w = _resizeOriginalSize.Width;
-        var h = _resizeOriginalSize.Height;
+        var w = _resizeOriginalSize.Width * scale;
+        var h = _resizeOriginalSize.Height * scale;
 
         if ((_resizeEdges & EdgeE) != 0) w += dx;
         if ((_resizeEdges & EdgeS) != 0) h += dy;
         if ((_resizeEdges & EdgeW) != 0) { x += dx; w -= dx; }
         if ((_resizeEdges & EdgeN) != 0) { y += dy; h -= dy; }
 
-        if (w < MinWidth) w = MinWidth;
-        if (h < MinHeight) h = MinHeight;
+        var minW = MinWidth * scale;
+        var minH = MinHeight * scale;
+        if (w < minW) w = minW;
+        if (h < minH) h = minH;
 
         // Keep the whole window inside the work area it mostly sits on. When the min size or the
-        // screen stops a west/north resize, the position is re-derived so the opposite edge stays
-        // where the user left it.
+        // screen stops a west/north resize, re-derive the position so the opposite edge stays
+        // where the user left it — not pinned to the work-area border.
         var area = BestArea(x, y, w, h);
-        if (w > area.Width) { w = area.Width; }
-        if (h > area.Height) { h = area.Height; }
-        if ((_resizeEdges & EdgeW) != 0) x = area.Right - w;
-        if ((_resizeEdges & EdgeN) != 0) y = area.Bottom - h;
+        var rightEdge = x + w;
+        var bottomEdge = y + h;
+        if (w > area.Width) w = area.Width;
+        if (h > area.Height) h = area.Height;
+        if ((_resizeEdges & EdgeW) != 0) x = rightEdge - w;
+        if ((_resizeEdges & EdgeN) != 0) y = bottomEdge - h;
         x = Math.Clamp(x, area.Left, Math.Max(area.Left, area.Right - w));
         y = Math.Clamp(y, area.Top, Math.Max(area.Top, area.Bottom - h));
 
         Position = new PixelPoint((int)x, (int)y);
-        Width = w;
-        Height = h;
+        Width = w / scale;
+        Height = h / scale;
     }
 
     private static WorkArea BestArea(double x, double y, double w, double h)

@@ -55,6 +55,25 @@ public partial class PromptWindow : Window
         Close();                // answering must also dismiss the window
     }
 
+    protected override void OnKeyDown(Avalonia.Input.KeyEventArgs e)
+    {
+        // Escape cancels, Enter confirms with the current text. The TextBox does not handle
+        // either key by default, so the routed event reaches the window.
+        if (e.Key == Avalonia.Input.Key.Escape)
+        {
+            Settle(null);
+            e.Handled = true;
+            return;
+        }
+        if (e.Key is Avalonia.Input.Key.Enter or Avalonia.Input.Key.Return)
+        {
+            Settle(this.FindControl<TextBox>("Input")?.Text);
+            e.Handled = true;
+            return;
+        }
+        base.OnKeyDown(e);
+    }
+
     private void Ok_Click(object? sender, RoutedEventArgs e) =>
         Settle(this.FindControl<TextBox>("Input")?.Text);
 

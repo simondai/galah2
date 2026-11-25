@@ -140,7 +140,7 @@ internal static class Win32
     public const uint MOD_WIN = 0x0008;
     public const uint MOD_NOREPEAT = 0x4000;
 
-    public const int WM_HOTKEY = 0x0303;
+    public const int WM_HOTKEY = 0x0312;
     public const int WM_GETMINMAXINFO = 0x0024;
 
     // ---- processes ------------------------------------------------------------

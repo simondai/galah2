@@ -71,11 +71,18 @@ public static class PasswordGenerator
         while (i < length)
         {
             var c = pool[RndInt(pool.Length)];
-            if (o.DoubleDigits && c is >= '0' and <= '9' && i + 1 < length && RndInt(100) < DoubleDigitPercent)
+            // "No similar characters" must apply here too: this branch draws its own digit, so
+            // applying the filter only to the pool still produced 11 / 33. Duplicate the digit
+            // that was actually drawn (CHANGELOG: "放大成 dd"), rather than replacing it with a
+            // fresh random one.
+            // Belt and braces: BuildPool already strips confusables from the pool, but keep the
+            // check here too so a future pool change cannot reintroduce 11 / 33 in this branch.
+            if (o.DoubleDigits && c is >= '0' and <= '9'
+                && (!o.NoConfusables || Array.IndexOf(Confusables, c) < 0)
+                && i + 1 < length && RndInt(100) < DoubleDigitPercent)
             {
-                var d = (char)('0' + RndInt(10));
-                buf[i] = d;
-                buf[i + 1] = d;
+                buf[i] = c;
+                buf[i + 1] = c;
                 i += 2;
             }
             else
