@@ -59,11 +59,9 @@ public static class PanelPlacement
                 break;
         }
 
-        // Never let the panel hang off the usable desktop. A window larger than the work area
-        // (tiny RDP session, huge saved size) would make the clamp bounds invert and throw,
-        // so the lower bound is what is left when the fit is impossible.
+        // 仅在“跟随鼠标”模式下保留边缘留白；“记住上次位置”模式下尊重用户手动摆放的贴边位置，只做工作区越界钳位。
         if (scale <= 0) scale = 1.0;
-        var margin = EdgeMargin * scale;   // area/width/height are device pixels
+        var margin = mode == PanelPositions.Mouse ? EdgeMargin * scale : 0.0;
         var minX = Math.Min(area.Left + margin, Math.Max(area.Left, area.Right - width));
         var minY = Math.Min(area.Top + margin, Math.Max(area.Top, area.Bottom - height));
         var maxX = Math.Max(area.Left, area.Right - width - margin);
