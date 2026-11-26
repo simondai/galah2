@@ -19,8 +19,11 @@ public sealed class HotkeyService : IDisposable
     private readonly ManualResetEventSlim _ready = new(false);
     private readonly ManualResetEventSlim _stop = new(false);
     private IntPtr _window;
-    private bool _registered;
+    private readonly HashSet<int> _registeredIds = new();
     private int _disposed;
+
+    public const int MainPanelHotkeyId = 1;
+    public const int ClipboardHotkeyId = 2;
 
     public HotkeyService()
     {
@@ -33,21 +36,27 @@ public sealed class HotkeyService : IDisposable
         _ready.Wait(TimeSpan.FromSeconds(2));
     }
 
-    /// <summary>Raised on the hotkey thread; marshal to the UI thread before touching UI.</summary>
+    /// <summary>Raised on the hotkey thread when the main panel hotkey (id=1) fires.</summary>
     public event Action? Triggered;
 
-    /// <summary>Register (or replace) the global hotkey. Returns false when the OS refuses it.</summary>
-    public bool Register(HotkeySpec spec)
+    /// <summary>Raised on the hotkey thread with the registered hotkey id.</summary>
+    public event Action<int>? TriggeredId;
+
+    /// <summary>Register (or replace) the main global hotkey (id=1). Returns false when the OS refuses it.</summary>
+    public bool Register(HotkeySpec spec) => Register(MainPanelHotkeyId, spec);
+
+    /// <summary>Register (or replace) a global hotkey slot by id. Returns false when the OS refuses it.</summary>
+    public bool Register(int id, HotkeySpec spec)
     {
         if (Volatile.Read(ref _disposed) != 0 || _window == IntPtr.Zero) return false;
         var ok = false;
         using var done = new ManualResetEventSlim(false);
         RunOnLoop(() =>
         {
-            if (_registered) { UnregisterHotKey(_window, 1); _registered = false; }
+            if (_registeredIds.Remove(id)) UnregisterHotKey(_window, id);
             const uint ModNoRepeat = 0x4000;
-            ok = RegisterHotKey(_window, 1, spec.Modifiers | ModNoRepeat, spec.VirtualKey);
-            _registered = ok;
+            ok = RegisterHotKey(_window, id, spec.Modifiers | ModNoRepeat, spec.VirtualKey);
+            if (ok) _registeredIds.Add(id);
             try { done.Set(); } catch (ObjectDisposedException) { }
         });
 
@@ -88,8 +97,9 @@ public sealed class HotkeyService : IDisposable
             DispatchMessage(ref msg);
         }
 
-        // 在创建窗口的同一线程上注销热键并销毁窗口句柄。
-        if (_registered) { UnregisterHotKey(_window, 1); _registered = false; }
+        // 在创建窗口的同一线程上注销所有热键并销毁窗口句柄。
+        foreach (var id in _registeredIds) UnregisterHotKey(_window, id);
+        _registeredIds.Clear();
         DestroyWindow(_window);
         _window = IntPtr.Zero;
     }
@@ -103,7 +113,12 @@ public sealed class HotkeyService : IDisposable
             while (_work.TryDequeue(out var work)) work();
             return IntPtr.Zero;
         }
-        if (msg == WmHotkey && wParam == (IntPtr)1) Triggered?.Invoke();
+        if (msg == WmHotkey)
+        {
+            var id = (int)wParam;
+            if (id == MainPanelHotkeyId) Triggered?.Invoke();
+            TriggeredId?.Invoke(id);
+        }
         return DefWindowProc(hWnd, msg, wParam, lParam);
     }
 

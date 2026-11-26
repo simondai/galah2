@@ -34,6 +34,9 @@ public interface IPanelHost
     /// <summary>Open the RandPass generator (activate it if already open).</summary>
     void ShowRandPass();
 
+    /// <summary>打开剪贴板历史窗口（默认空实现以保持现有探针 FakeHost 兼容）。</summary>
+    void ShowClipboardHistory() { }
+
     /// <summary>Open settings.</summary>
     void ShowSettings();
 
@@ -225,6 +228,7 @@ public sealed class PanelViewModel : ObservableObject
         ShowSettingsCommand = new RelayCommand(() => _host.ShowSettings());
         ShowMaintenanceCommand = new RelayCommand(() => _host.ShowMaintenance());
         ShowRandPassCommand = new RelayCommand(() => _host.ShowRandPass());
+        ShowClipboardHistoryCommand = new RelayCommand(() => _host.ShowClipboardHistory());
         HideCommand = new RelayCommand(() => _host.HidePanel());
         ExitCommand = new RelayCommand(() => ExitRequested?.Invoke());
 
@@ -264,6 +268,7 @@ public sealed class PanelViewModel : ObservableObject
     public ICommand ShowSettingsCommand { get; }
     public ICommand ShowMaintenanceCommand { get; }
     public ICommand ShowRandPassCommand { get; }
+    public ICommand ShowClipboardHistoryCommand { get; }
     public ICommand HideCommand { get; }
     public ICommand ExitCommand { get; }
 

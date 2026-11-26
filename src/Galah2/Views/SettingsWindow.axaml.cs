@@ -8,6 +8,7 @@ namespace Galah2.Views;
 public partial class SettingsWindow : Window
 {
     private TextBox? _hotkeyBox;
+    private TextBox? _clipboardHotkeyBox;
 
     public SettingsWindow()
     {
@@ -18,6 +19,12 @@ public partial class SettingsWindow : Window
             // 用 Tunnel 隧道拦截按键，避免 Alt 组合键被系统菜单或窗口默认快捷键吞掉。
             _hotkeyBox.AddHandler(KeyDownEvent, OnHotkeyBoxKeyDown, RoutingStrategies.Tunnel);
             _hotkeyBox.GotFocus += OnHotkeyBoxGotFocus;
+        }
+        _clipboardHotkeyBox = this.FindControl<TextBox>("ClipboardHotkeyBox");
+        if (_clipboardHotkeyBox is not null)
+        {
+            _clipboardHotkeyBox.AddHandler(KeyDownEvent, OnClipboardHotkeyBoxKeyDown, RoutingStrategies.Tunnel);
+            _clipboardHotkeyBox.GotFocus += OnClipboardHotkeyBoxGotFocus;
         }
     }
 
@@ -35,7 +42,26 @@ public partial class SettingsWindow : Window
             vm.ShowHotkeyRecordingPrompt();
     }
 
-    private void OnHotkeyBoxKeyDown(object? sender, KeyEventArgs e)
+    private void OnClipboardHotkeyBoxGotFocus(object? sender, GotFocusEventArgs e)
+    {
+        if (DataContext is ViewModels.SettingsViewModel vm)
+            vm.ShowClipboardHotkeyRecordingPrompt();
+    }
+
+    private void OnHotkeyBoxKeyDown(object? sender, KeyEventArgs e) =>
+        HandleHotkeyRecord(e,
+            onNeedsModifier: vm => vm.ShowHotkeyNeedsModifier(),
+            onRecorded: (vm, combo) => vm.HotkeyText = combo);
+
+    private void OnClipboardHotkeyBoxKeyDown(object? sender, KeyEventArgs e) =>
+        HandleHotkeyRecord(e,
+            onNeedsModifier: vm => vm.ShowClipboardHotkeyNeedsModifier(),
+            onRecorded: (vm, combo) => vm.ClipboardHotkeyText = combo);
+
+    private void HandleHotkeyRecord(
+        KeyEventArgs e,
+        Action<ViewModels.SettingsViewModel> onNeedsModifier,
+        Action<ViewModels.SettingsViewModel, string> onRecorded)
     {
         // Esc 退出录制焦点，不直接关窗
         if (e.Key == Key.Escape)
@@ -69,13 +95,13 @@ public partial class SettingsWindow : Window
 
         if (parts.Count == 0)
         {
-            vm.ShowHotkeyNeedsModifier();
+            onNeedsModifier(vm);
             e.Handled = true;
             return;
         }
 
         parts.Add(keyName);
-        vm.HotkeyText = string.Join("+", parts);
+        onRecorded(vm, string.Join("+", parts));
         e.Handled = true;
     }
 
@@ -142,6 +168,8 @@ public partial class SettingsWindow : Window
     {
         if (_hotkeyBox is not null)
             _hotkeyBox.GotFocus -= OnHotkeyBoxGotFocus;
+        if (_clipboardHotkeyBox is not null)
+            _clipboardHotkeyBox.GotFocus -= OnClipboardHotkeyBoxGotFocus;
         if (DataContext is ViewModels.SettingsViewModel vm)
             vm.CloseRequested -= Close;
         base.OnClosed(e);

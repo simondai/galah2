@@ -216,6 +216,8 @@ public partial class RandPassWindow : Window
         if (clipboard is null) return;
         try
         {
+            // 通知剪贴板历史服务跳过 RandPass 生成的敏感密码
+            ClipboardHistoryService.SuppressNext(password);
             await clipboard.SetTextAsync(password);
             vm.MarkCopied();
         }

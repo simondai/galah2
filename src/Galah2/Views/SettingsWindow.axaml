@@ -69,16 +69,36 @@
                   Padding="0,0,12,0">
       <StackPanel>
         <TextBlock Classes="section" Text="全局快捷键" Margin="0,0,0,8" />
-        <Grid ColumnDefinitions="110,196">
-          <TextBlock Grid.Column="0" Classes="label" Text="呼出热键" />
-          <TextBox x:Name="HotkeyBox" Grid.Column="1" Text="{Binding HotkeyText, Mode=OneWay}" FontSize="13"
-                   IsReadOnly="True" Cursor="Hand"
-                   Watermark="点击后直接按下组合键"
-                   ToolTip.Tip="点击框内后直接按下想要的新组合键（如 Alt+F1、Ctrl+Shift+G）"
-                   HorizontalAlignment="Stretch" />
-        </Grid>
-        <TextBlock Classes="hint" Text="{Binding HotkeyHint}" Margin="110,6,0,0"
-                   IsVisible="{Binding HotkeyHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <StackPanel Spacing="10">
+          <StackPanel>
+            <Grid ColumnDefinitions="110,196">
+              <TextBlock Grid.Column="0" Classes="label" Text="呼出热键" />
+              <TextBox x:Name="HotkeyBox" Grid.Column="1" Text="{Binding HotkeyText, Mode=OneWay}" FontSize="13"
+                       IsReadOnly="True" Cursor="Hand"
+                       Watermark="点击后直接按下组合键"
+                       ToolTip.Tip="点击框内后直接按下想要的新组合键（如 Alt+F1、Ctrl+Shift+G）"
+                       HorizontalAlignment="Stretch" />
+            </Grid>
+            <TextBlock Classes="hint" Text="{Binding HotkeyHint}" Margin="110,6,0,0"
+                       IsVisible="{Binding HotkeyHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+
+          <StackPanel>
+            <Grid ColumnDefinitions="110,196">
+              <TextBlock Grid.Column="0" Classes="label" Text="剪贴板热键" />
+              <TextBox x:Name="ClipboardHotkeyBox" Grid.Column="1" Text="{Binding ClipboardHotkeyText, Mode=OneWay}" FontSize="13"
+                       IsReadOnly="True" Cursor="Hand"
+                       Watermark="点击后直接按下组合键"
+                       ToolTip.Tip="点击框内后直接按下剪贴板历史呼出热键（默认 Alt+V）"
+                       HorizontalAlignment="Stretch" />
+            </Grid>
+            <TextBlock Classes="hint" Text="{Binding ClipboardHotkeyHint}" Margin="110,6,0,0"
+                       IsVisible="{Binding ClipboardHotkeyHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+
+          <CheckBox IsChecked="{Binding ClipboardAutoPaste, Mode=TwoWay}"
+                    Content="选中剪贴板历史后自动粘贴到原光标处" />
+        </StackPanel>
 
         <Border Classes="divider" />
         <TextBlock Classes="section" Text="外观" />

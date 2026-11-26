@@ -20,14 +20,15 @@ public sealed class TrayService : IDisposable
     /// <summary>The native tray icon (probe hook: the menu rows are asserted through it).</summary>
     public TrayIcon Icon => _icon;
 
-    public TrayService(Stream iconStream, Action onActivate, Action onSettings, Action onRandPass, Action onExit)
+    public TrayService(Stream iconStream, Action onActivate, Action onSettings, Action onRandPass, Action onExit,
+        Action? onClipboard = null)
     {
         _icon = new TrayIcon
         {
             Icon = new WindowIcon(new Bitmap(iconStream)),
             IsVisible = true,
             ToolTipText = "Galah",
-            Menu = BuildMenu(onSettings, onRandPass, onExit)
+            Menu = BuildMenu(onSettings, onRandPass, onClipboard, onExit)
         };
         _icon.Clicked += (_, _) => onActivate();
 
@@ -35,7 +36,7 @@ public sealed class TrayService : IDisposable
             TrayIcon.SetIcons(Application.Current, new TrayIcons { _icon });
     }
 
-    private static NativeMenu BuildMenu(Action onSettings, Action onRandPass, Action onExit)
+    private static NativeMenu BuildMenu(Action onSettings, Action onRandPass, Action? onClipboard, Action onExit)
     {
         var menu = new NativeMenu();
 
@@ -48,6 +49,13 @@ public sealed class TrayService : IDisposable
         var randpass = new NativeMenuItem("RandPass");
         randpass.Click += (_, _) => onRandPass();
         menu.Items.Add(randpass);
+
+        if (onClipboard is not null)
+        {
+            var clipboard = new NativeMenuItem("剪贴板历史");
+            clipboard.Click += (_, _) => onClipboard();
+            menu.Items.Add(clipboard);
+        }
 
         menu.Items.Add(new NativeMenuItemSeparator());
 

@@ -105,6 +105,17 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
     /// <summary>默认全局呼出热键（Alt+F1）。</summary>
     public const string DefaultHotkey = "alt+f1";
 
+    /// <summary>默认剪贴板历史呼出热键（Alt+V）。</summary>
+    public const string DefaultClipboardHotkey = "alt+v";
+
+    /// <summary>剪贴板历史全局呼出热键。</summary>
+    [JsonPropertyName("clipboardHotkey")]
+    public string ClipboardHotkey { get; set; } = DefaultClipboardHotkey;
+
+    /// <summary>选中剪贴板历史条目后是否自动粘贴到刚才的光标处。</summary>
+    [JsonPropertyName("clipboardAutoPaste")]
+    public bool ClipboardAutoPaste { get; set; } = true;
+
     /// <summary>Normalize out-of-range values back to defaults; never throws (settings forward compatibility).</summary>
     public SettingsDocument Sanitized()
     {
@@ -117,6 +128,7 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
         if (Array.IndexOf(PanelPositions.All, s.PanelPlacement) < 0) s.PanelPlacement = PanelPositions.Remember;
         if (Array.IndexOf(PanelMaterials.All, s.PanelMaterial) < 0) s.PanelMaterial = PanelMaterials.None;
         if (string.IsNullOrWhiteSpace(s.Hotkey)) s.Hotkey = DefaultHotkey;
+        if (string.IsNullOrWhiteSpace(s.ClipboardHotkey)) s.ClipboardHotkey = DefaultClipboardHotkey;
         if (string.IsNullOrWhiteSpace(s.Language)) s.Language = "zh-CN";
         if (s.RandPassLength is < PasswordOptions.MinLength or > PasswordOptions.MaxLength) s.RandPassLength = 8;
         if (s.RandPassCount is < PasswordOptions.MinCount or > PasswordOptions.MaxCount) s.RandPassCount = 10;
@@ -130,6 +142,8 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
     {
         Schema = Schema,
         Hotkey = Hotkey,
+        ClipboardHotkey = ClipboardHotkey,
+        ClipboardAutoPaste = ClipboardAutoPaste,
         AutoStart = AutoStart,
         Theme = Theme,
         ClickMode = ClickMode,

@@ -25,6 +25,9 @@ public sealed class SettingsViewModel : ObservableObject
 
     private string _hotkeyText = "";
     private string _hotkeyHint = "";
+    private string _clipboardHotkeyText = "";
+    private string _clipboardHotkeyHint = "";
+    private bool _clipboardAutoPaste = true;
     private string _shortcutMessage = "";
     private string _autoStartMessage = "";
     private int _themeIndex;
@@ -120,6 +123,49 @@ public sealed class SettingsViewModel : ObservableObject
     /// <summary>单按主键未按修饰键时提示，不覆盖当前已生效的热键显示。</summary>
     public void ShowHotkeyNeedsModifier()
         => HotkeyHint = "请同时按住 Ctrl / Alt / Shift / Win 与另一个按键";
+
+    public string ClipboardHotkeyText
+    {
+        get => _clipboardHotkeyText;
+        set
+        {
+            if (!Set(ref _clipboardHotkeyText, value)) return;
+            if (HotkeyParser.TryParse(value, out var spec, out var error) && spec is not null)
+            {
+                ClipboardHotkeyHint = "已生效：" + spec.Text;
+                _store.Current.ClipboardHotkey = spec.Text;
+                Commit();
+                ClipboardHotkeyChanged?.Invoke(spec);
+            }
+            else
+            {
+                ClipboardHotkeyHint = error ?? "格式无效";
+            }
+        }
+    }
+
+    public string ClipboardHotkeyHint
+    {
+        get => _clipboardHotkeyHint;
+        private set => Set(ref _clipboardHotkeyHint, value);
+    }
+
+    public event Action<HotkeySpec>? ClipboardHotkeyChanged;
+
+    public void ReportClipboardHotkeyResult(bool ok, string text)
+        => ClipboardHotkeyHint = ok ? "已生效：" + text : "注册失败（可能被其他程序占用）：" + text;
+
+    public void ShowClipboardHotkeyRecordingPrompt()
+        => ClipboardHotkeyHint = "请直接按下组合键（例如 Alt+V、Ctrl+Shift+V），Esc 取消";
+
+    public void ShowClipboardHotkeyNeedsModifier()
+        => ClipboardHotkeyHint = "请同时按住 Ctrl / Alt / Shift / Win 与另一个按键";
+
+    public bool ClipboardAutoPaste
+    {
+        get => _clipboardAutoPaste;
+        set { if (Set(ref _clipboardAutoPaste, value)) { _store.Current.ClipboardAutoPaste = value; Commit(); } }
+    }
 
     public int ThemeIndex
     {
@@ -331,8 +377,10 @@ public sealed class SettingsViewModel : ObservableObject
     {
         var s = _store.Current;
         _hotkeyText = s.Hotkey;
- 
         HotkeyHint = "当前：" + s.Hotkey;
+        _clipboardHotkeyText = s.ClipboardHotkey;
+        ClipboardHotkeyHint = "当前：" + s.ClipboardHotkey;
+        _clipboardAutoPaste = s.ClipboardAutoPaste;
 
         _themeIndex = s.Theme switch
         {

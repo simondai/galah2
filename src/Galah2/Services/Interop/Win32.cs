@@ -261,4 +261,88 @@ internal static class Win32
     [DllImport("gdi32.dll")]
     public static extern int GetDIBits(IntPtr hdc, IntPtr hbm, uint start, uint cLines,
         IntPtr lpvBits, ref BITMAPINFO lpbmi, uint usage);
+
+    // ---- window state & z-order (for Win+D / Show Desktop detection) ---------
+
+    public const uint GW_HWNDPREV = 3;
+    public const int SW_RESTORE = 9;
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetClassNameW(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
+
+    private const int DwmwaCloaked = 14;
+
+    /// <summary>
+    /// 判断窗口是否被最小化，或被“显示桌面”(WorkerW/Progman) 及其他可见普通窗口压在后面。
+    /// 跳过任务栏/托盘/气泡及 DWM Cloaked 不可见后台窗口，避免点击托盘图标时误判。
+    /// </summary>
+    public static bool IsMinimizedOrObscured(IntPtr hWnd)
+    {
+        if (hWnd == IntPtr.Zero) return false;
+        if (IsIconic(hWnd)) return true;
+        if (!GetWindowRect(hWnd, out var selfRect) || selfRect.Width <= 0 || selfRect.Height <= 0)
+            return true;
+
+        var cls = new System.Text.StringBuilder(128);
+        var cur = GetWindow(hWnd, GW_HWNDPREV);
+        while (cur != IntPtr.Zero)
+        {
+            if (IsWindowVisible(cur) && GetWindowRect(cur, out var r) && r.Width > 0 && r.Height > 0)
+            {
+                // 跳过 Win11 后台挂起/隐藏的 DWM Cloaked 窗口（如 UWP 商店应用、小组件宿主等）
+                if (DwmGetWindowAttribute(cur, DwmwaCloaked, out var cloaked, sizeof(int)) == 0 && cloaked != 0)
+                {
+                    cur = GetWindow(cur, GW_HWNDPREV);
+                    continue;
+                }
+
+                cls.Clear();
+                GetClassNameW(cur, cls, cls.Capacity);
+                var className = cls.ToString();
+
+                // Win11 点击“显示桌面”会把 WorkerW / Progman 提到普通窗口之上
+                if (className is "WorkerW" or "Progman")
+                    return true;
+
+                // 忽略任务栏、托盘溢出区、工具提示等不遮挡主面板的系统壳层窗口
+                if (className is not ("Shell_TrayWnd" or "Shell_SecondaryTrayWnd"
+                    or "NotifyIconOverflowWindow" or "TopLevelWindowForOverflowXamlIsland"
+                    or "TaskListThumbnailWnd" or "tooltips_class32" or "ForegroundStaging"
+                    or "ApplicationManager_DesktopShellWindow"))
+                {
+                    var intersects = r.Left < selfRect.Right && r.Right > selfRect.Left
+                                  && r.Top < selfRect.Bottom && r.Bottom > selfRect.Top;
+                    if (intersects) return true;
+                }
+            }
+            cur = GetWindow(cur, GW_HWNDPREV);
+        }
+        return false;
+    }
 }

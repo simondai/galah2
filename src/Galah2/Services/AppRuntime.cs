@@ -23,9 +23,11 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     private readonly UiStateStore _uiState;
     private readonly TrayService _tray;
     private readonly HotkeyService _hotkey;
+    private readonly ClipboardHistoryService _clipboard;
     private readonly ThemeService _theme = new();
     private readonly ToastService _toast = new();
     private PanelWindow? _panel;
+    private ClipboardHistoryWindow? _clipboardWindow;
     private bool _shuttingDown;
 
     /// <summary>Absolute path of this build, used by autostart and the desktop shortcut.</summary>
@@ -62,23 +64,42 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         _catalog = new CatalogStore(_paths);
         _catalog.Load();
 
+        _clipboard = new ClipboardHistoryService();
+
         _hotkey = new HotkeyService();
-        _hotkey.Triggered += () => Dispatcher.UIThread.Post(Toggle);
+        _hotkey.TriggeredId += id =>
+        {
+            if (id == HotkeyService.MainPanelHotkeyId)
+                Dispatcher.UIThread.Post(Toggle);
+            else if (id == HotkeyService.ClipboardHotkeyId)
+            {
+                // 在切到 UI 线程弹出窗口前立刻抓取当前前台窗口，供自动粘贴归还焦点
+                var target = ClipboardHistoryService.CaptureForegroundWindow();
+                Dispatcher.UIThread.Post(() => ToggleClipboardHistory(target));
+            }
+        };
 
         var iconPath = Path.Combine(_paths.Root, "icons", "galah.ico");
         using Stream iconStream = File.Exists(iconPath)
             ? File.OpenRead(iconPath)
             : OpenEmbeddedIcon();
 
-        _tray = new TrayService(iconStream, Toggle, ShowSettings, ShowRandPass, RequestExit);
+        _tray = new TrayService(iconStream, Toggle, ShowSettings, ShowRandPass, RequestExit,
+            () => ShowClipboardHistory(IntPtr.Zero));
 
         if (HotkeyParser.TryParse(_settings.Current.Hotkey, out var spec, out _) && spec is not null)
         {
-            var registered = _hotkey.Register(spec);
+            var registered = _hotkey.Register(HotkeyService.MainPanelHotkeyId, spec);
             DiagnosticsLog.Line("hotkey", "registered=" + registered + " " + spec.Text);
         }
         else
             DiagnosticsLog.Line("hotkey", "热键解析失败，回退到托盘");
+
+        if (HotkeyParser.TryParse(_settings.Current.ClipboardHotkey, out var clipSpec, out _) && clipSpec is not null)
+        {
+            var registered = _hotkey.Register(HotkeyService.ClipboardHotkeyId, clipSpec);
+            DiagnosticsLog.Line("hotkey", "clipboard registered=" + registered + " " + clipSpec.Text);
+        }
     }
 
     /// <summary>Toggle the panel: create on first use, then show/hide.</summary>
@@ -118,7 +139,29 @@ public sealed class AppRuntime : IDisposable, IPanelHost
 
         if (_panel.IsVisible)
         {
-            HideAndScheduleTrim();
+            var hwnd = _panel.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            var obscured = _panel.WindowState == Avalonia.Controls.WindowState.Minimized
+                || Interop.Win32.IsMinimizedOrObscured(hwnd);
+
+            if (!obscured)
+            {
+                HideAndScheduleTrim();
+                return;
+            }
+
+            // 面板已被“显示桌面”压下、最小化或被其他窗口遮挡：直接还原并拉回最前，不再误隐藏。
+            _idleTrimTimer?.Stop();
+            if (_panel.WindowState == Avalonia.Controls.WindowState.Minimized)
+                _panel.WindowState = Avalonia.Controls.WindowState.Normal;
+            if (hwnd != IntPtr.Zero)
+            {
+                Interop.Win32.ShowWindow(hwnd, Interop.Win32.SW_RESTORE);
+                Interop.Win32.SetForegroundWindow(hwnd);
+            }
+            // 短暂翻转 Topmost 破除 Win11 “显示桌面”桌面层的 Z 序压制，随后立即恢复正常层级。
+            _panel.Topmost = true;
+            _panel.Topmost = false;
+            _panel.Activate();
             return;
         }
 
@@ -126,6 +169,11 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         _viewModel?.Refresh();   // a show always re-projects: the library may have changed
         PlacePanel();
         _panel.Show();
+        if (_panel.WindowState == Avalonia.Controls.WindowState.Minimized)
+            _panel.WindowState = Avalonia.Controls.WindowState.Normal;
+        var showHwnd = _panel.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+        if (showHwnd != IntPtr.Zero)
+            Interop.Win32.SetForegroundWindow(showHwnd);
         _panel.Activate();
     }
 
@@ -200,6 +248,10 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     private void RememberGeometry()
     {
         if (_panel is null) return;
+        // 窗口被最小化（如显示桌面）时系统坐标会变为 -32000，绝不覆盖用户记住的位置。
+        if (_panel.WindowState == Avalonia.Controls.WindowState.Minimized
+            || _panel.Position.X <= -10000 || _panel.Position.Y <= -10000)
+            return;
 
         var window = _uiState.Current.Window;
         window.X = _panel.Position.X;
@@ -255,9 +307,15 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         var vm = new SettingsViewModel(_settings, _paths.Root, ExePath, ApplySettings);
         vm.HotkeyChanged += spec =>
         {
-            var registered = _hotkey.Register(spec);
+            var registered = _hotkey.Register(HotkeyService.MainPanelHotkeyId, spec);
             DiagnosticsLog.Line("hotkey", "registered=" + registered + " " + spec.Text);
             vm.ReportHotkeyResult(registered, spec.Text);
+        };
+        vm.ClipboardHotkeyChanged += spec =>
+        {
+            var registered = _hotkey.Register(HotkeyService.ClipboardHotkeyId, spec);
+            DiagnosticsLog.Line("hotkey", "clipboard registered=" + registered + " " + spec.Text);
+            vm.ReportClipboardHotkeyResult(registered, spec.Text);
         };
 
         _settingsWindow = new SettingsWindow { DataContext = vm };
@@ -347,6 +405,38 @@ public sealed class AppRuntime : IDisposable, IPanelHost
 
     void IPanelHost.Confirm(string title, string message, Action<bool> onAnswer) =>
         ConfirmWindow.Ask(_panel, title, message, onAnswer);
+
+    void IPanelHost.ShowClipboardHistory() => ShowClipboardHistory(IntPtr.Zero);
+
+    private void ToggleClipboardHistory(IntPtr targetWindow)
+    {
+        if (_clipboardWindow is { IsVisible: true })
+        {
+            _clipboardWindow.Close();
+            return;
+        }
+        ShowClipboardHistory(targetWindow);
+    }
+
+    private void ShowClipboardHistory(IntPtr targetWindow)
+    {
+        if (_clipboardWindow is not null)
+        {
+            if (_clipboardWindow.DataContext is ClipboardHistoryViewModel existingVm)
+                existingVm.PrepareForShow(targetWindow);
+            _clipboardWindow.Activate();
+            return;
+        }
+
+        var vm = new ClipboardHistoryViewModel(_clipboard, () => _settings.Current.ClipboardAutoPaste);
+        vm.PrepareForShow(targetWindow);
+        _clipboardWindow = new ClipboardHistoryWindow { DataContext = vm };
+        _clipboardWindow.Closed += (_, _) => _clipboardWindow = null;
+        _clipboardWindow.Show();
+        var hwnd = _clipboardWindow.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+        if (hwnd != IntPtr.Zero) Interop.Win32.SetForegroundWindow(hwnd);
+        _clipboardWindow.Activate();
+    }
 
     void IPanelHost.ShowMaintenance()
     {
@@ -617,9 +707,11 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         _randPassGeometry?.Cancel();
         _tray.Dispose();
         _hotkey.Dispose();
+        _clipboard.Dispose();
         _theme.Dispose();
         _toast.Dispose();
         _settingsWindow?.Close();
+        _clipboardWindow?.Close();
         _randPassWindow?.Close();
         _panel?.Close();
     }
