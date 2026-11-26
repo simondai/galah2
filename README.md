@@ -49,7 +49,7 @@ powershell -ExecutionPolicy Bypass -File tools/publish-aot.ps1
 
 `artifact/GalahData/` 是程序运行时生成的用户数据，不进发布包；`tools/release.ps1 -Version <版本>`
 会把 4 个文件打成 `dist/Galah2-v<版本>-win-x64.zip`，CI 在打 tag 时另出
-`Galah2-windows-x64.zip`。绿色版怎么用、为什么不是单文件、CI 曾经怎么把包做坏，
+`Galah2-v<版本>-windows-x64.zip`。绿色版怎么用、为什么不是单文件、CI 曾经怎么把包做坏，
 以及两条发布路径的差异，都写在 **[PORTABLE.md](PORTABLE.md)**。
 
 ## 功能状态

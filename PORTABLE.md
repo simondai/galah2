@@ -26,7 +26,7 @@ powershell -ExecutionPolicy Bypass -File tools/publish-aot.ps1
 发布完自动删掉 pdb，最后打印产物清单。
 
 CI 的产物同样叫 `artifact/`，作为 GitHub Actions 的 artifact 上传；打 tag 时压成
-`Galah2-windows-x64.zip` 挂到 Release（`-Path artifact/*` 四个文件平铺，release notes 由
+`Galah2-v<版本>-windows-x64.zip` 挂到 Release（`-Path artifact/*` 四个文件平铺，release notes 由
 GitHub 自动生成）。
 
 另有一条**本地发布路径** `tools/release.ps1`：产出 `dist/Galah2-v<Version>-win-x64.zip`
