@@ -1,53 +1,55 @@
 namespace Galah2.Services.CatalogSources;
 
 /// <summary>
-/// Aggregates the picker's sources behind one call so the UI never knows about individual
-/// feeds, and tests can assert the whole picker surface at once.
+/// 聚合「添加快捷方式」的全部 6 个数据源，对外统一枚举与中文标签。
 /// </summary>
 public sealed class CatalogSourceService
 {
     private readonly ICatalogSource[] _sources;
 
-    /// <summary>Build the service with the default source set.</summary>
+    /// <summary>Build the service with the default 6-category source set.</summary>
     public CatalogSourceService()
     {
         var installed = new InstalledAppSource();
         _sources =
         [
-            new SystemToolsSource(),
-            new SettingsPageSource(),
             new ShellFolderSource(),
-            // InstalledAppSource is not an ICatalogSource (it caches); wrapped here:
+            new SystemToolsSource(),
             new InstalledAppSourceAdapter(installed),
+            new StoreAppSource(),
+            new QuickActionSource(),
+            new SettingsPageSource(),
         ];
         Installed = installed;
     }
 
-    /// <summary>The installed-app feed (exposed for cache reset after add/remove cycles).</summary>
+    /// <summary>The desktop-app feed (exposed for cache reset after add/remove cycles).</summary>
     public InstalledAppSource Installed { get; }
 
     /// <summary>Categories in display order.</summary>
     public IReadOnlyList<SeedCategory> Categories { get; } =
     [
-        SeedCategory.SystemTools,
-        SeedCategory.SettingsPages,
         SeedCategory.ShellFolders,
+        SeedCategory.SystemTools,
         SeedCategory.InstalledApps,
+        SeedCategory.StoreApps,
+        SeedCategory.QuickActions,
+        SeedCategory.SettingsPages,
     ];
 
     /// <summary>Chinese label of a category (picker tab text).</summary>
-    /// <param name="category">Category to label.</param>
     public static string LabelOf(SeedCategory category) => category switch
     {
-        SeedCategory.SystemTools => "系统工具",
-        SeedCategory.SettingsPages => "设置项",
         SeedCategory.ShellFolders => "标准文件夹",
-        SeedCategory.InstalledApps => "已安装应用",
+        SeedCategory.SystemTools => "系统应用",
+        SeedCategory.InstalledApps => "桌面应用",
+        SeedCategory.StoreApps => "商店应用",
+        SeedCategory.QuickActions => "快捷操作",
+        SeedCategory.SettingsPages => "设置项",
         _ => category.ToString(),
     };
 
     /// <summary>Enumerate one category. Never throws; an unavailable source yields nothing.</summary>
-    /// <param name="category">Category to fill.</param>
     public IReadOnlyList<CatalogSeed> Enumerate(SeedCategory category)
     {
         foreach (var source in _sources)
@@ -55,8 +57,6 @@ public sealed class CatalogSourceService
             if (source.Category != category) continue;
             try
             {
-                // One storage convention for the whole picker: paths are persisted in forward-slash
-                // form (PathNorm), protocol URIs are left exactly as authored.
                 return source.Enumerate().Select(Normalize).ToList();
             }
             catch (Exception)
@@ -67,15 +67,24 @@ public sealed class CatalogSourceService
         return Array.Empty<CatalogSeed>();
     }
 
-    /// <summary>Applies the stored-path convention to one seed.</summary>
-    /// <param name="seed">Seed as produced by a source.</param>
     private static CatalogSeed Normalize(CatalogSeed seed)
     {
-        if (seed.Kind == Models.ItemKinds.Protocol) return seed;
-        return seed with { Target = Persistence.PathNorm.ToStored(seed.Target) };
+        var iconOverride = string.IsNullOrWhiteSpace(seed.IconOverride)
+            ? null
+            : seed.IconOverride.StartsWith("avares://", StringComparison.OrdinalIgnoreCase)
+                ? seed.IconOverride
+                : Persistence.PathNorm.ToStored(seed.IconOverride);
+
+        if (seed.Kind == Models.ItemKinds.Protocol)
+            return seed with { IconOverride = iconOverride };
+
+        return seed with
+        {
+            Target = Persistence.PathNorm.ToStored(seed.Target),
+            IconOverride = iconOverride,
+        };
     }
 
-    /// <summary>Wraps the caching installed-app source in the common interface.</summary>
     private sealed class InstalledAppSourceAdapter(InstalledAppSource inner) : ICatalogSource
     {
         public SeedCategory Category => inner.Category;

@@ -242,4 +242,23 @@ internal static class Win32
 
     [DllImport("gdi32.dll")]
     public static extern bool DeleteDC(IntPtr hdc);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct BITMAP
+    {
+        public int bmType;
+        public int bmWidth;
+        public int bmHeight;
+        public int bmWidthBytes;
+        public ushort bmPlanes;
+        public ushort bmBitsPixel;
+        public IntPtr bmBits;
+    }
+
+    [DllImport("gdi32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetObjectW(IntPtr hgdiobj, int cbBuffer, out BITMAP lpvObject);
+
+    [DllImport("gdi32.dll")]
+    public static extern int GetDIBits(IntPtr hdc, IntPtr hbm, uint start, uint cLines,
+        IntPtr lpvBits, ref BITMAPINFO lpbmi, uint usage);
 }

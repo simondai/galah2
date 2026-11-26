@@ -102,8 +102,8 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
     [JsonPropertyName("randPassFormat")]
     public string RandPassFormat { get; set; } = PasswordFormats.FourStarFour;
 
-    /// <summary>Documented default hotkey (design §1.1 S1 — deliberately not the research subject's value).</summary>
-    public const string DefaultHotkey = "alt+space";
+    /// <summary>默认全局呼出热键（Alt+F1）。</summary>
+    public const string DefaultHotkey = "alt+f1";
 
     /// <summary>Normalize out-of-range values back to defaults; never throws (settings forward compatibility).</summary>
     public SettingsDocument Sanitized()

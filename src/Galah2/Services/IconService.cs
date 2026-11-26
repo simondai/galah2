@@ -56,11 +56,14 @@ public static class IconService
             // 按至少 128px 高清像素提取与缓存，高 DPI 屏下由 Skia HighQuality 下采样，彻底消除锯齿发糊。
             var pixelSize = Math.Max(128, size * 2);
 
-            var cached = LoadCached(storedSource, index, pixelSize);
+            // 所有 ms-settings:* 子页面共享同一个 Windows 原生设置齿轮图标，归一化缓存键避免重复写 52 份相同 PNG。
+            var cacheSource = IsMsSettingsUri(storedSource) ? "ms-settings:" : storedSource;
+
+            var cached = LoadCached(cacheSource, index, pixelSize);
             if (cached is not null) return cached;
 
             var bitmap = Extract(storedSource, index, pixelSize);
-            if (bitmap is not null) CacheToFile(bitmap, storedSource, index, pixelSize);
+            if (bitmap is not null) CacheToFile(bitmap, cacheSource, index, pixelSize);
             return bitmap;
         });
 
@@ -87,6 +90,10 @@ public static class IconService
     /// <summary>Best-effort extraction with a graceful chain of fallbacks.</summary>
     private static Bitmap? Extract(string storedSource, int index, int size)
     {
+        // 内嵌 Avalonia 资源（如 avares://Galah2/Assets/actions/shutdown.png）直接从程序集解码。
+        if (storedSource.StartsWith("avares://", StringComparison.OrdinalIgnoreCase))
+            return DecodeAvaloniaAsset(storedSource);
+
         var osPath = PathNorm.ToOs(storedSource);
 
         // An image override is decoded directly: no shell round trip needed.
@@ -94,8 +101,23 @@ public static class IconService
         if (IsDirectImageFile(osPath) && File.Exists(osPath))
             return DecodeImage(osPath, size);
 
+        // Windows 设置页协议（ms-settings:*）统一提取系统原生高清设置齿轮图标。
+        if (IsMsSettingsUri(storedSource))
+            return ExtractSettingsAppIcon(size);
+
+        // 商店应用（shell:AppsFolder\<AUMID>）通过 IShellItemImageFactory 提取原生 128px 高清图标。
+        if (IsAppsFolderUri(storedSource))
+            return ExtractAppsFolderIcon(storedSource, size);
+
         if (!File.Exists(osPath))
             return ExtractShellIcon(osPath, size);   // protocols, URLs and missing paths
+
+        // .lnk 快捷方式优先解析其图标来源或目标程序走高清 128px 提取，避免 32px 放大发糊。
+        if (osPath.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase))
+        {
+            var lnkBmp = ExtractLinkHighResIcon(osPath, size);
+            if (lnkBmp is not null) return lnkBmp;
+        }
 
         // 优先提取高清大图（.exe / .dll / .ico / .cpl 等均内嵌 128~256px 资源）。
         var highRes = ExtractHighResIcon(osPath, index, size);
@@ -117,6 +139,136 @@ public static class IconService
         }
 
         return ExtractShellIcon(osPath, size);
+    }
+
+    private static bool IsMsSettingsUri(string source) =>
+        source.TrimStart().StartsWith("ms-settings:", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAppsFolderUri(string source) =>
+        source.TrimStart().StartsWith("shell:AppsFolder\\", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>通过 IShellItemImageFactory 提取商店应用的高清 HBITMAP 并转为 Avalonia Bitmap。</summary>
+    private static Bitmap? ExtractAppsFolderIcon(string parsingName, int size)
+    {
+        var hBitmap = ShellAppsFolder.ExtractShellItemBitmap(parsingName, size);
+        if (hBitmap == IntPtr.Zero) return null;
+        try { return FromHBitmap(hBitmap); }
+        finally { Win32.DeleteObject(hBitmap); }
+    }
+
+    /// <summary>解析 .lnk 快捷方式的自定义图标或目标可执行文件，按高清像素提取。</summary>
+    private static Bitmap? ExtractLinkHighResIcon(string osLnkPath, int size)
+    {
+        try
+        {
+            var info = LinkResolver.Resolve(osLnkPath);
+            if (!info.Ok) return null;
+
+            if (!string.IsNullOrWhiteSpace(info.IconSource))
+            {
+                var iconPath = Environment.ExpandEnvironmentVariables(PathNorm.ToOs(info.IconSource));
+                if (File.Exists(iconPath))
+                {
+                    if (IsDirectImageFile(iconPath)) return DecodeImage(iconPath, size);
+                    var fromIcon = ExtractHighResIcon(iconPath, info.IconIndex, size);
+                    if (fromIcon is not null) return fromIcon;
+                }
+            }
+
+            var targetPath = Environment.ExpandEnvironmentVariables(PathNorm.ToOs(info.Target));
+            if (File.Exists(targetPath))
+            {
+                var fromTarget = ExtractHighResIcon(targetPath, 0, size);
+                if (fromTarget is not null) return fromTarget;
+            }
+        }
+        catch (Exception) { }
+        return null;
+    }
+
+    /// <summary>将 GDI HBITMAP（如 IShellItemImageFactory 返回的 32 位位图）转换为 Avalonia WriteableBitmap。</summary>
+    private static unsafe Bitmap? FromHBitmap(IntPtr hBitmap)
+    {
+        if (hBitmap == IntPtr.Zero) return null;
+        if (Win32.GetObjectW(hBitmap, Marshal.SizeOf<Win32.BITMAP>(), out var bm) == 0) return null;
+        if (bm.bmWidth <= 0 || bm.bmHeight <= 0) return null;
+
+        var width = bm.bmWidth;
+        var height = bm.bmHeight;
+        var screenDc = Win32.GetDC(IntPtr.Zero);
+        if (screenDc == IntPtr.Zero) return null;
+
+        try
+        {
+            var info = new Win32.BITMAPINFO
+            {
+                bmiHeader = new Win32.BITMAPINFOHEADER
+                {
+                    biSize = (uint)Marshal.SizeOf<Win32.BITMAPINFOHEADER>(),
+                    biWidth = width,
+                    biHeight = -height, // top-down
+                    biPlanes = 1,
+                    biBitCount = 32,
+                    biCompression = DibRgbColors,
+                },
+                bmiColors = 0,
+            };
+
+            var totalBytes = width * height * 4;
+            var pixels = new byte[totalBytes];
+            fixed (byte* p = pixels)
+            {
+                var lines = Win32.GetDIBits(screenDc, hBitmap, 0, (uint)height, (IntPtr)p, ref info, DibRgbColors);
+                if (lines == 0) return null;
+
+                // 若 32 位位图不含有效 Alpha（极少数旧图标），统一设为不透明避免隐形
+                if (!HasAnyAlpha(p, totalBytes))
+                {
+                    for (var i = 3; i < totalBytes; i += 4) p[i] = 255;
+                }
+
+                var bitmap = new WriteableBitmap(
+                    new PixelSize(width, height),
+                    new Vector(96, 96),
+                    PixelFormat.Bgra8888,
+                    AlphaFormat.Premul);
+
+                using (var buffer = bitmap.Lock())
+                {
+                    var rowBytes = width * 4;
+                    var dst = (byte*)buffer.Address;
+                    for (var y = 0; y < height; y++)
+                    {
+                        Buffer.MemoryCopy(p + y * rowBytes, dst + y * buffer.RowBytes, rowBytes, rowBytes);
+                    }
+                }
+                return bitmap;
+            }
+        }
+        catch (Exception) { return null; }
+        finally { Win32.ReleaseDC(IntPtr.Zero, screenDc); }
+    }
+
+    /// <summary>提取 Windows 原生「设置」应用的高清齿轮图标。</summary>
+    private static Bitmap? ExtractSettingsAppIcon(int size)
+    {
+        var winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        if (string.IsNullOrEmpty(winDir)) return null;
+
+        var panelDir = Path.Combine(winDir, "ImmersiveControlPanel");
+        var imagesDir = Path.Combine(panelDir, "images");
+        foreach (var fileName in new[] { "logo.scale-400.png", "logo.scale-200.png", "logo.png" })
+        {
+            var path = Path.Combine(imagesDir, fileName);
+            if (!File.Exists(path)) continue;
+            var decoded = DecodeImage(path, size);
+            if (decoded is not null) return decoded;
+        }
+
+        var exePath = Path.Combine(panelDir, "SystemSettings.exe");
+        return File.Exists(exePath)
+            ? ExtractHighResIcon(exePath, 0, size) ?? ExtractShellIcon(exePath, size)
+            : null;
     }
 
     private static bool IsDirectImageFile(string path)
@@ -148,6 +300,16 @@ public static class IconService
 
         try { return FromIconHandle(handles[0], size); }
         finally { Win32.DestroyIcon(handles[0]); }
+    }
+
+    private static Bitmap? DecodeAvaloniaAsset(string avaresUri)
+    {
+        try
+        {
+            using var stream = AssetLoader.Open(new Uri(avaresUri));
+            return new Bitmap(stream);
+        }
+        catch (Exception) { return null; }
     }
 
     private static Bitmap? DecodeImage(string osPath, int size)
@@ -404,13 +566,19 @@ public static class IconService
     private static void CacheToFile(Bitmap bitmap, string storedSource, int index, int size)
     {
         var path = CachePath(storedSource, index, size);
-        if (string.IsNullOrEmpty(path)) return;
+        if (string.IsNullOrEmpty(path) || File.Exists(path)) return;
+        var tmp = path + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            bitmap.Save(path);
+            bitmap.Save(tmp);
+            File.Move(tmp, path, overwrite: true);
         }
-        catch (Exception) { /* derived data: a cache miss next time is not a failure */ }
+        catch (Exception)
+        {
+            try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+            /* derived data: a cache miss next time is not a failure */
+        }
     }
 
     [DllImport("user32.dll", SetLastError = true)]

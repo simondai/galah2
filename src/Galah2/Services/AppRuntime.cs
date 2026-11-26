@@ -294,6 +294,22 @@ public sealed class AppRuntime : IDisposable, IPanelHost
 
     bool IPanelHost.Launch(CatalogItem item)
     {
+        // 不可逆的内置快捷操作（关机 / 重启 / 清空回收站）执行前先弹二次确认，防误触。
+        if (item.Kind == ItemKinds.Protocol
+            && QuickActionService.TryGetConfirmation(item.Target, out var title, out var message))
+        {
+            var snapshot = LaunchRequest.From(item);
+            var itemName = item.Name;
+            ConfirmWindow.Ask(_panel, title, message, confirmed =>
+            {
+                if (!confirmed) return;
+                var confirmedResult = LauncherService.Launch(snapshot);
+                if (confirmedResult.Status != LaunchStatus.Ok)
+                    DiagnosticsLog.Line("launch", itemName + ": " + confirmedResult.Message);
+            });
+            return false;
+        }
+
         var result = LauncherService.Launch(LaunchRequest.From(item));
         if (result.Status != LaunchStatus.Ok)
             DiagnosticsLog.Line("launch", item.Name + ": " + result.Message);

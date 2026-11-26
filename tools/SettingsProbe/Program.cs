@@ -166,8 +166,8 @@ internal static class Program
         // combo; the settings page now says so instead of showing a hint that does nothing.
         using (var hotkey = new HotkeyService())
         {
-            var osTookIt = hotkey.Register(new HotkeySpec(0x1 /*MOD_ALT*/, 0x20 /*VK_SPACE*/, "alt+space"));
-            Check("alt+space registers with the OS", osTookIt);
+            var osTookIt = hotkey.Register(new HotkeySpec(0x1 /*MOD_ALT*/, 0x70 /*VK_F1*/, SettingsDocument.DefaultHotkey));
+            Check("alt+f1 registers with the OS", osTookIt);
         }
 
         // ---- RandPass section: Clone round-trip + Sanitized clamping (spec 2026-11-24-randpass) ----

@@ -6,12 +6,8 @@ using Microsoft.Win32;
 namespace Galah2.Services.CatalogSources;
 
 /// <summary>
-/// Installed applications from the uninstall registry (Sprint 1 / ROADMAP B5). The uninstall
-/// hive is Windows' own inventory, so no directory crawling is needed. Only entries whose
-/// DisplayIcon resolves to a real .exe are offered - pointing a tile at the *uninstaller*
-/// (the usual fallback) would be a footgun, so those entries are dropped instead.
-/// Results are cached for the process lifetime: the scan costs ~100 ms and the inventory
-/// does not change while the picker is open.
+/// 桌面应用：以 Windows 开始菜单（公共 + 当前用户）中的 <c>.lnk</c> 快捷方式为主，
+/// 补充卸载注册表中未在开始菜单建快捷方式的桌面软件，过滤掉卸载器、帮助文档等噪音项。
 /// </summary>
 public sealed class InstalledAppSource
 {
@@ -21,7 +17,14 @@ public sealed class InstalledAppSource
     /// <summary>Hard cap so a bloated machine cannot flood the picker.</summary>
     public const int MaxEntries = 400;
 
-    private static readonly string[] NoisePrefixes =
+    private static readonly string[] NoiseNameKeywords =
+    [
+        "uninstall", "卸载", "remove ", "repair ", "readme", "自述", "帮助", "manual",
+        "documentation", "release notes", "changelog", "license", "website", "官网",
+        "官方网站", "在线帮助", "访问网站", "update", "更新程序", "检查更新",
+    ];
+
+    private static readonly string[] RegistryNoisePrefixes =
     [
         "KB", "Microsoft Visual C++", "Microsoft .NET", ".NET Runtime", "ASP.NET",
         "Update for", "Security Update", "Microsoft Edge WebView2", "Windows Software",
@@ -33,7 +36,7 @@ public sealed class InstalledAppSource
     private static List<CatalogSeed>? _cache;
     private static readonly object Gate = new();
 
-    /// <summary>Enumerate installed apps (cached).</summary>
+    /// <summary>Enumerate desktop apps (cached).</summary>
     public IEnumerable<CatalogSeed> Enumerate()
     {
         lock (Gate)
@@ -52,8 +55,89 @@ public sealed class InstalledAppSource
 
     private static List<CatalogSeed> Scan()
     {
-        var byPath = new Dictionary<string, CatalogSeed>(StringComparer.OrdinalIgnoreCase);
+        var byName = new Dictionary<string, CatalogSeed>(StringComparer.OrdinalIgnoreCase);
+        var seenTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // 1. 优先扫描开始菜单（当前用户 + 公共），拿到最完整的桌面应用与开发工具入口
+        foreach (var root in GetStartMenuProgramDirs())
+        {
+            ScanStartMenuDir(root, byName, seenTargets);
+        }
+
+        // 2. 用卸载注册表补充未建开始菜单快捷方式的桌面应用
+        ScanUninstallRegistry(byName, seenTargets);
+
+        return byName.Values
+            .OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase)
+            .Take(MaxEntries)
+            .ToList();
+    }
+
+    private static IEnumerable<string> GetStartMenuProgramDirs()
+    {
+        var dirs = new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.Programs),
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms),
+        };
+        return dirs.Where(d => !string.IsNullOrWhiteSpace(d) && Directory.Exists(d))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static void ScanStartMenuDir(
+        string rootDir,
+        Dictionary<string, CatalogSeed> byName,
+        HashSet<string> seenTargets)
+    {
+        IEnumerable<string> links;
+        try
+        {
+            links = Directory.EnumerateFiles(rootDir, "*.lnk", SearchOption.AllDirectories);
+        }
+        catch (Exception) { return; }
+
+        foreach (var lnk in links)
+        {
+            try
+            {
+                // 跳过“启动”文件夹和“管理工具”（管理工具已归入“系统应用”）
+                var rel = Path.GetRelativePath(rootDir, lnk);
+                if (rel.StartsWith("Startup\\", StringComparison.OrdinalIgnoreCase)
+                    || rel.StartsWith("StartUp\\", StringComparison.OrdinalIgnoreCase)
+                    || rel.StartsWith("Administrative Tools\\", StringComparison.OrdinalIgnoreCase)
+                    || rel.StartsWith("Windows Administrative Tools\\", StringComparison.OrdinalIgnoreCase)
+                    || rel.StartsWith("System Tools\\", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var name = Path.GetFileNameWithoutExtension(lnk).Trim();
+                if (name.Length < 2 || IsNoiseName(name)) continue;
+
+                var resolved = LinkResolver.Resolve(lnk);
+                if (resolved.Ok)
+                {
+                    var targetFile = Path.GetFileName(resolved.Target);
+                    if (IsNoiseExecutable(targetFile)) continue;
+                    // 若带参数的命令行工具（如 Git Bash、Developer PowerShell），按 lnk 自身去重，不误杀同 exe 不同参数的入口
+                    var dedupKey = string.IsNullOrWhiteSpace(resolved.Arguments)
+                        ? PathNorm.ToStored(resolved.Target)
+                        : PathNorm.ToStored(lnk);
+                    if (!seenTargets.Add(dedupKey)) continue;
+                }
+
+                if (byName.ContainsKey(name)) continue;
+
+                // 直接保存 .lnk 路径，既保留原始参数/工作目录，又由 IconService 解析高清图标
+                var storedLnk = PathNorm.ToStored(lnk);
+                byName[name] = new CatalogSeed(SeedCategory.InstalledApps, name, ItemKinds.App, storedLnk, Note: "桌面应用");
+            }
+            catch (Exception) { }
+        }
+    }
+
+    private static void ScanUninstallRegistry(
+        Dictionary<string, CatalogSeed> byName,
+        HashSet<string> seenTargets)
+    {
         foreach (var (hive, view, label) in new[]
         {
             (RegistryHive.LocalMachine, RegistryView.Registry64, "machine"),
@@ -64,60 +148,66 @@ public sealed class InstalledAppSource
             try
             {
                 using var baseKey = RegistryKey.OpenBaseKey(hive, view);
-                using var root = baseKey.OpenSubKey(
-                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall");
+                using var root = baseKey.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall");
                 if (root is null) continue;
-                foreach (var name in root.GetSubKeyNames())
+                foreach (var keyName in root.GetSubKeyNames())
                 {
                     try
                     {
-                        using var app = root.OpenSubKey(name);
-                        CollectOne(app, byPath, label, SeedCategory.InstalledApps);
+                        using var app = root.OpenSubKey(keyName);
+                        CollectRegistryOne(app, byName, seenTargets, label);
                     }
-                    catch (Exception)
-                    {
-                        // A single unreadable key never aborts the scan.
-                    }
+                    catch (Exception) { }
                 }
             }
-            catch (Exception)
-            {
-                // A hive view this Windows edition does not expose is skipped.
-            }
+            catch (Exception) { }
         }
-
-        return byPath.Values
-            .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
-            .Take(MaxEntries)
-            .ToList();
     }
 
-    private static void CollectOne(RegistryKey? app, Dictionary<string, CatalogSeed> byPath, string hiveLabel, SeedCategory category)
+    private static void CollectRegistryOne(
+        RegistryKey? app,
+        Dictionary<string, CatalogSeed> byName,
+        HashSet<string> seenTargets,
+        string hiveLabel)
     {
         if (app is null) return;
         var display = app.GetValue("DisplayName") as string;
         if (string.IsNullOrWhiteSpace(display)) return;
         display = display.Trim();
-        if (display.Length < 2) return;
-        foreach (var noise in NoisePrefixes)
+        if (display.Length < 2 || IsNoiseName(display)) return;
+
+        foreach (var noise in RegistryNoisePrefixes)
             if (display.StartsWith(noise, StringComparison.OrdinalIgnoreCase)) return;
 
-        // System components mark themselves; they are never launch targets a user wants.
         var systemComponent = app.GetValue("SystemComponent");
         if (systemComponent is int scoped && scoped != 0) return;
 
         var exe = ResolveExe(app);
         if (exe is null) return;
+        if (IsNoiseExecutable(Path.GetFileName(exe))) return;
+        if (!seenTargets.Add(exe)) return;
+        if (byName.ContainsKey(display)) return;
 
         var publisher = app.GetValue("Publisher") as string;
         var note = string.IsNullOrWhiteSpace(publisher) ? hiveLabel : publisher!.Trim();
-        byPath[exe] = new CatalogSeed(category, display, ItemKinds.App, exe, Note: note);
+        byName[display] = new CatalogSeed(SeedCategory.InstalledApps, display, ItemKinds.App, exe, Note: note);
     }
 
-    /// <summary>
-    /// Best exe for the tile: DisplayIcon when it points at a real .exe (the app's own binary,
-    /// which is also where its icon lives). Never falls back to UninstallString.
-    /// </summary>
+    private static bool IsNoiseName(string name)
+    {
+        foreach (var kw in NoiseNameKeywords)
+            if (name.Contains(kw, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
+    private static bool IsNoiseExecutable(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName)) return false;
+        return fileName.StartsWith("unins", StringComparison.OrdinalIgnoreCase)
+            || fileName.Contains("uninstall", StringComparison.OrdinalIgnoreCase)
+            || fileName.Equals("msiexec.exe", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string? ResolveExe(RegistryKey app)
     {
         var icon = app.GetValue("DisplayIcon") as string;

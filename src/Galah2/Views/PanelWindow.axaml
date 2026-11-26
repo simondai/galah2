@@ -87,49 +87,46 @@
         </Grid>
       </Border>
 
-      <!-- ===== category strip: a top row, or a left rail =====
+      <!-- ===== category strip: a top row (auto-wrap), or a left rail (scrollable) =====
            Two instances rather than one control with a switched DockPanel.Dock: Dock is applied
            once at layout time, so flipping it on a live control would not re-dock reliably. -->
-      <StackPanel Orientation="Horizontal" Margin="14,10,14,6"
-                  DockPanel.Dock="Top" IsVisible="{Binding !IsVerticalTabs}">
-        <ItemsControl ItemsSource="{Binding Tabs}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal" Spacing="6" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:TabViewModel">
-              <!-- A drop target: dragging a tile onto a category moves the item there.
-                   FontSize follows the 分类名字号 setting (default 12 = the global Button size).
-                   Right-click: rename + delete (delete only while the category is empty).
-                   ContextMenu, not MenuFlyout: flyout items are not in the logical tree, so the
-                   $parent command path dies and MenuItem greys the row out. A ContextMenu is the
-                   logical child of its button, so $parent[Button] resolves on every open. -->
-              <Button Classes="chip" Content="{Binding Name}" Tag="{Binding}"
-                      FontSize="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).ChipFontSize}"
-                      Classes.active="{Binding IsActive}"
-                      DragDrop.AllowDrop="True"
-                      DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
-                      Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
-                      CommandParameter="{Binding}">
-                <!-- Same menu as the horizontal strip (see its comment). -->
-                <Button.ContextMenu>
-                  <ContextMenu>
-                    <MenuItem Header="重命名分类" Command="{Binding RenameCommand}" />
-                    <MenuItem Header="删除分类" Command="{Binding DeleteCommand}"
-                              IsEnabled="{Binding HasNoEntries}" />
-                  </ContextMenu>
-                </Button.ContextMenu>
-              </Button>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <!-- New-category chip: the + that 1.x sat at the end of the tab row. -->
-        <Button Classes="newtab" Command="{Binding NewTabCommand}"
+      <Grid x:Name="HorizontalTabStrip" ColumnDefinitions="*,Auto" Margin="14,10,14,4"
+            DockPanel.Dock="Top" IsVisible="{Binding !IsVerticalTabs}">
+        <ScrollViewer Grid.Column="0" MaxHeight="132"
+                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <ItemsControl ItemsSource="{Binding Tabs}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:TabViewModel">
+                <Button Classes="chip" Content="{Binding Name}" Tag="{Binding}"
+                        Margin="0,0,6,6" ToolTip.Tip="{Binding Name}"
+                        FontSize="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).ChipFontSize}"
+                        Classes.active="{Binding IsActive}"
+                        DragDrop.AllowDrop="True"
+                        DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
+                        Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
+                        CommandParameter="{Binding}">
+                  <Button.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="重命名分类" Command="{Binding RenameCommand}" />
+                      <MenuItem Header="删除分类" Command="{Binding DeleteCommand}"
+                                IsEnabled="{Binding HasNoEntries}" />
+                    </ContextMenu>
+                  </Button.ContextMenu>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+        <!-- New-category chip: pinned at top-right so wrapping never hides it. -->
+        <Button Grid.Column="1" Classes="newtab" Command="{Binding NewTabCommand}"
                 ToolTip.Tip="新建分类" AutomationProperties.Name="新建分类"
-                Width="28" Height="28" MinWidth="0" Padding="0" Margin="4,1,0,2"
-                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Width="28" Height="28" MinWidth="0" Padding="0" Margin="4,1,0,6"
+                HorizontalAlignment="Right" VerticalAlignment="Top"
                 Background="Transparent" BorderThickness="0" Cursor="Hand">
           <Button.Template>
             <ControlTemplate TargetType="Button">
@@ -142,50 +139,15 @@
             </ControlTemplate>
           </Button.Template>
         </Button>
-      </StackPanel>
+      </Grid>
 
-        <StackPanel Orientation="Vertical" Margin="10,10,8,10" Width="96"
-                  DockPanel.Dock="Left" IsVisible="{Binding IsVerticalTabs}">
-        <ItemsControl ItemsSource="{Binding Tabs}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <!-- Spacing raised 4 → 8 (2026-11-24): the vertical rail rows felt cramped. -->
-              <StackPanel Orientation="Vertical" Spacing="8" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:TabViewModel">
-              <!-- Same right-click menu as the horizontal strip (rename + delete-while-empty). -->
-              <Button Classes="chip" Content="{Binding Name}" Tag="{Binding}"
-                      FontSize="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).ChipFontSize}"
-                      Classes.active="{Binding IsActive}"
-                      HorizontalAlignment="Left"
-                      DragDrop.AllowDrop="True"
-                      DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
-                      Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
-                      CommandParameter="{Binding}">
-                <!-- The rows bind to the CHIP'S OWN TabViewModel (rename/delete commands wired by
-                     the PanelViewModel in Refresh). A ContextMenu can only reach what it inherits
-                     from its host control: $parent paths die at the popup boundary, and
-                     XAML-attached Opening handlers never fire on a ContextMenu - both proven in
-                     the 2026-11-24 grey-menu round, where this exact menu shipped grey while
-                     every in-process probe passed (they never exercised the real open path). -->
-                <Button.ContextMenu>
-                  <ContextMenu>
-                    <MenuItem Header="重命名分类" Command="{Binding RenameCommand}" />
-                    <MenuItem Header="删除分类" Command="{Binding DeleteCommand}"
-                              IsEnabled="{Binding HasNoEntries}" />
-                  </ContextMenu>
-                </Button.ContextMenu>
-              </Button>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <!-- New-category chip: same + as the horizontal strip, hung below the left rail. -->
-        <Button Classes="newtab" Command="{Binding NewTabCommand}"
+      <DockPanel x:Name="VerticalTabStrip" Margin="10,10,6,10" Width="112"
+                 DockPanel.Dock="Left" IsVisible="{Binding IsVerticalTabs}">
+        <!-- New-category chip: pinned at bottom of the left rail so many categories never clip it. -->
+        <Button DockPanel.Dock="Bottom" Classes="newtab" Command="{Binding NewTabCommand}"
                 ToolTip.Tip="新建分类" AutomationProperties.Name="新建分类"
-                Width="28" Height="28" MinWidth="0" Padding="0" Margin="11,6,0,4"
-                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Width="28" Height="28" MinWidth="0" Padding="0" Margin="11,6,0,2"
+                HorizontalAlignment="Left" VerticalAlignment="Bottom"
                 Background="Transparent" BorderThickness="0" Cursor="Hand">
           <Button.Template>
             <ControlTemplate TargetType="Button">
@@ -198,7 +160,39 @@
             </ControlTemplate>
           </Button.Template>
         </Button>
-      </StackPanel>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      Padding="0,0,4,0">
+          <ItemsControl ItemsSource="{Binding Tabs}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Vertical" Spacing="4" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:TabViewModel">
+                <Button Classes="chip rail" Tag="{Binding}"
+                        ToolTip.Tip="{Binding Name}"
+                        FontSize="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).ChipFontSize}"
+                        Classes.active="{Binding IsActive}"
+                        DragDrop.AllowDrop="True"
+                        DragDrop.DragOver="TabChip_DragOver" DragDrop.Drop="TabChip_Drop"
+                        Command="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).SelectTabCommand}"
+                        CommandParameter="{Binding}">
+                  <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                  <Button.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="重命名分类" Command="{Binding RenameCommand}" />
+                      <MenuItem Header="删除分类" Command="{Binding DeleteCommand}"
+                                IsEnabled="{Binding HasNoEntries}" />
+                    </ContextMenu>
+                  </Button.ContextMenu>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
 
       <!-- ===== toast: transient news, auto-dismisses ===== -->
       <Border DockPanel.Dock="Bottom" Margin="10,0,10,10" Padding="12,8" CornerRadius="8"

@@ -84,6 +84,8 @@ public static class LauncherService
                 // correct launcher; CreateProcess cannot start a URI. Allowlist enforced upstream.
                 if (!ProtocolSafety.IsAllowed(request.Target, out _))
                     return LaunchResult.Fail(LaunchStatus.Error, "该协议不在允许列表内");
+                if (QuickActionService.IsQuickAction(request.Target))
+                    return QuickActionService.Execute(request.Target);
                 return ShellOpen(request.Target, null, null, false);
 
             case ItemKinds.Folder:

@@ -71,7 +71,10 @@
         <TextBlock Classes="section" Text="全局快捷键" Margin="0,0,0,8" />
         <Grid ColumnDefinitions="110,196">
           <TextBlock Grid.Column="0" Classes="label" Text="呼出热键" />
-          <TextBox Grid.Column="1" Text="{Binding HotkeyText, Mode=TwoWay}" FontSize="13"
+          <TextBox x:Name="HotkeyBox" Grid.Column="1" Text="{Binding HotkeyText, Mode=OneWay}" FontSize="13"
+                   IsReadOnly="True" Cursor="Hand"
+                   Watermark="点击后直接按下组合键"
+                   ToolTip.Tip="点击框内后直接按下想要的新组合键（如 Alt+F1、Ctrl+Shift+G）"
                    HorizontalAlignment="Stretch" />
         </Grid>
         <TextBlock Classes="hint" Text="{Binding HotkeyHint}" Margin="110,6,0,0"
@@ -150,6 +153,17 @@
                                  TextWrapping="Wrap" Margin="0,2,0,0" />
           </StackPanel>
         </StackPanel>
+
+        <Border Classes="divider" />
+        <Button Content="访问项目主页 · github.com/simondai/galah2"
+                Click="OpenGitHub_Click"
+                HorizontalAlignment="Center"
+                Background="Transparent" BorderThickness="0"
+                Padding="8,4" Margin="0,2,0,4"
+                FontSize="11.5"
+                Foreground="{DynamicResource AccentSurfaceBrush}"
+                Cursor="Hand"
+                ToolTip.Tip="https://github.com/simondai/galah2" />
       </StackPanel>
     </ScrollViewer>
     </DockPanel>

@@ -113,6 +113,14 @@ public sealed class SettingsViewModel : ObservableObject
     public void ReportHotkeyResult(bool ok, string text)
         => HotkeyHint = ok ? "已生效：" + text : "注册失败（可能被其他程序占用）：" + text;
 
+    /// <summary>热键框获得焦点时提示用户直接按下组合键。</summary>
+    public void ShowHotkeyRecordingPrompt()
+        => HotkeyHint = "请直接按下组合键（例如 Alt+F1、Ctrl+Shift+G），Esc 取消";
+
+    /// <summary>单按主键未按修饰键时提示，不覆盖当前已生效的热键显示。</summary>
+    public void ShowHotkeyNeedsModifier()
+        => HotkeyHint = "请同时按住 Ctrl / Alt / Shift / Win 与另一个按键";
+
     public int ThemeIndex
     {
         get => _themeIndex;

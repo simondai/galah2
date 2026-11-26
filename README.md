@@ -1,18 +1,19 @@
 # Galah 2.0
 
-Windows 桌面启动器（launcher），以作者家的宠物凤头鹦鹉命名。绿色免安装，数据就在 exe 旁边。
+Windows 桌面启动器（launcher），以作者家的宠物凤头鹦鹉命名。**100% 原生编译、无 Electron、无 WebView**，绿色免安装，数据就在 exe 旁边。
 
 用 **Avalonia 11 + NativeAOT** 重写；1.x 是 WPF 版本，在另一个仓库 [simondai/galah](https://github.com/simondai/galah)。
 
-![平台](https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-Windows-blue) ![产物](https://img.shields.io/badge/%E4%BA%A7%E7%89%A9-43.6%20MB-success) ![运行时](https://img.shields.io/badge/%E8%BF%90%E8%A1%8C%E6%97%B6-%E6%97%A0%E9%9C%80%E5%AE%89%E8%A3%85-success)
+![平台](https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-Windows-blue) ![架构](https://img.shields.io/badge/100%25%20%E5%8E%9F%E7%94%9F-%E6%97%A0%20Electron%20%2F%20%E6%97%A0%20WebView-brightgreen) ![产物](https://img.shields.io/badge/%E4%BA%A7%E7%89%A9-43.9%20MB-success) ![运行时](https://img.shields.io/badge/%E8%BF%90%E8%A1%8C%E6%97%B6-%E6%97%A0%E9%9C%80%E5%AE%89%E8%A3%85-success)
 
 ## 它是什么
 
-把常用的程序、文件、文件夹、网址、系统设置页收进一个面板：分类页签 + 图标磁贴网格，
-单击/双击启动，托盘常驻后台，全局热键（Alt+Space）随时唤出。
+把常用的程序、文件、文件夹、网址、商店应用、快捷操作与系统设置页收进一个面板：分类页签 + 图标磁贴网格，
+单击/双击启动，托盘常驻后台，全局热键（默认 `Alt+F1`，支持自定义按键录制）随时唤出。
 所有数据（分类、条目、设置、窗口状态）都落在 exe 同目录的 `GalahData/` 文件夹，随文件夹一起搬走。
 
-- **绿色免安装**：4 个文件共约 43.6 MB（本次实测 45,701,776 B），原生编译，不装 .NET 运行时、不写注册表、不留后台服务
+- **100% 原生、无 Electron、无 WebView**：直接通过 NativeAOT 编译为 Windows x64 原生机器码，由 Skia 直接绘制界面；不内嵌任何浏览器内核，不依赖 WebView2，不装 .NET 运行时
+- **绿色免安装**：4 个文件共约 43.9 MB，不写注册表、不留后台服务，拷走文件夹即可运行
 - **默认不联网**：没有任何自动网络行为；唯一的联网操作是你在编辑网址条目时手动点"获取网站图标"，且只访问该站点本身
 - **持久可靠**：写盘原子替换 + 双备份轮换（`.bak.1`/`.bak.2`），字段级 `null` 归一、设置全字段校正、损坏自动隔离，一次用户动作一次写盘
 - **内置 RandPass**：面板标题栏、☰ 菜单、托盘菜单三个入口打开同一生成器，参数持久化，双击结果即复制
@@ -25,20 +26,24 @@ Windows 桌面启动器（launcher），以作者家的宠物凤头鹦鹉命名�
 
 ## 界面预览
 
-| 主面板（横向布局） | 主面板（竖向布局） |
+| 主面板（浅色 · 横向布局） | 主面板（深色 · 竖向布局） |
 |---|---|
-| ![主面板横向布局](docs/images/1.png) | ![主面板竖向布局](docs/images/2.png) |
+| ![主面板浅色横向布局](docs/images/1.png) | ![主面板深色竖向布局](docs/images/2.png) |
 
-| 添加快捷方式 | 设置 | RandPass 密码生成 |
+| 添加快捷方式 · 标准文件夹（深色） | 添加快捷方式 · 商店应用 | 添加快捷方式 · 快捷操作 |
 |---|---|---|
-| ![添加快捷方式](docs/images/3.png) | ![设置](docs/images/4.png) | ![RandPass](docs/images/5.png) |
+| ![添加快捷方式标准文件夹](docs/images/3.png) | ![添加快捷方式商店应用](docs/images/4.png) | ![添加快捷方式快捷操作](docs/images/5.png) |
+
+| 设置 | RandPass 密码生成 |
+|---|---|
+| ![设置](docs/images/6.png) | ![RandPass](docs/images/7.png) |
 
 ---
 
 ## 快速开始
 
 拿到产物后，直接双击 `artifact/Galah2.exe` 即可。启动后驻留托盘（不弹面板），
-按 **Alt+Space** 或点托盘图标唤出。
+按 **Alt+F1** 或点托盘图标唤出。
 
 ## 产物与发布
 
@@ -68,7 +73,7 @@ powershell -ExecutionPolicy Bypass -File tools/publish-aot.ps1
 | 图标提取 + PNG 缓存（含 .msc） | 可用，8 调用点 / 12 条 PASS |
 | 设置（主题、图标尺寸、布局、材质、点击方式、面板位置、热键、自启、快捷方式、分类名字号、添加占位磁贴、滚轮/数字键开关） | 可用，27 调用点 / 28 条 PASS |
 | 开机自启（写 HKCU Run，启动时再断言） | 可用 |
-| 添加选择器（4 个来源、搜索、多选、列表带图标） | 可用 |
+| 添加选择器（6 大分类：标准文件夹、系统应用、桌面应用、商店应用、快捷操作、设置项；网格图标多选） | 可用 |
 | 编辑对话框（带提交校验门） | 可用 |
 | 库维护：扫描、清失效、去重、排序、重建图标缓存 | 可用 |
 | 整库导出与导入 | 可用 |

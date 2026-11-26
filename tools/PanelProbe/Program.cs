@@ -606,7 +606,7 @@ internal static class Program
         Check("both strips carry the new-category chip", chips.Count == 2,
             chips.Count + " chip(s)");
         var horizontalChip = chips.FirstOrDefault();
-        var hStrip = horizontalChip?.GetVisualParent<StackPanel>();
+        var hStrip = horizontalChip?.GetVisualParent<Panel>();
         Check("chip sits on the visible strip", hStrip?.IsVisible == true,
             $"strip visible={hStrip?.IsVisible}");
 
@@ -622,7 +622,7 @@ internal static class Program
 
         vm.ApplyLayout(new SettingsDocument { TabPosition = TabPositions.Left });
         var verticalChip = chips.LastOrDefault();
-        var vStrip = verticalChip?.GetVisualParent<StackPanel>();
+        var vStrip = verticalChip?.GetVisualParent<Panel>();
         Check("chip follows the vertical rail",
             hStrip?.IsVisible == false && vStrip?.IsVisible == true,
             $"hStrip={hStrip?.IsVisible} vStrip={vStrip?.IsVisible}");

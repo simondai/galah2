@@ -63,6 +63,14 @@
     <Setter Property="Foreground" Value="{DynamicResource TextStrongBrush}" />
   </Style>
 
+  <!-- 竖向侧边栏分类项：整行铺满 + 6px 柔和圆角矩形，左对齐更规整 -->
+  <Style Selector="Button.chip.rail">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="10,7" />
+  </Style>
+
   <!-- New-category chip: a 28x28 circle that sits at the end of the category strip, the
        1.x button-icon-circular grammar. The glyph is TextPrimary; the circle is a light
        overlay that deepens on hover and shrinks on press. -->

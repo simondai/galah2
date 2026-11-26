@@ -1,19 +1,25 @@
 namespace Galah2.Services.CatalogSources;
 
-/// <summary>Picker categories, in display order (Sprint 1: four sources; store apps deferred).</summary>
+/// <summary>Picker categories, in display order.</summary>
 public enum SeedCategory
 {
+    /// <summary>Standard shell folders, system virtual folders and local drives.</summary>
+    ShellFolders,
+
     /// <summary>Windows built-in tools and Control Panel applets.</summary>
     SystemTools,
 
+    /// <summary>Desktop applications discovered from Start Menu shortcuts and uninstall registry.</summary>
+    InstalledApps,
+
+    /// <summary>Microsoft Store (UWP / MSIX) applications from shell:AppsFolder.</summary>
+    StoreApps,
+
+    /// <summary>Built-in quick system actions (shutdown, lock, clear clipboard, etc.).</summary>
+    QuickActions,
+
     /// <summary>Settings pages (ms-settings: protocol links).</summary>
     SettingsPages,
-
-    /// <summary>Standard shell folders (Documents, Downloads, ...).</summary>
-    ShellFolders,
-
-    /// <summary>Applications registered in the uninstall registry.</summary>
-    InstalledApps,
 }
 
 /// <summary>
@@ -26,13 +32,15 @@ public enum SeedCategory
 /// <param name="Target">Absolute path or allowed protocol URI.</param>
 /// <param name="Args">Command line arguments (nullable).</param>
 /// <param name="Note">Secondary line shown under the name (nullable).</param>
+/// <param name="IconOverride">Optional explicit icon source ("path,index" or image file) when target itself carries no icon.</param>
 public sealed record CatalogSeed(
     SeedCategory Category,
     string Name,
     string Kind,
     string Target,
     string? Args = null,
-    string? Note = null);
+    string? Note = null,
+    string? IconOverride = null);
 
 /// <summary>A source enumerates picker candidates of one category. Implementations must be side-effect free.</summary>
 public interface ICatalogSource

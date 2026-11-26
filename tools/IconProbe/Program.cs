@@ -80,10 +80,55 @@ internal static class Program
         Check("icon override", overrideBmp is not null,
             overrideBmp is null ? "null" : overrideBmp.PixelSize.Width + "x" + overrideBmp.PixelSize.Height);
 
-        // Degradation: a protocol target is not a file, and a missing path is not a crash.
+        // Windows Settings protocol: resolves to native Settings gear icon.
+        var settingsItem = new CatalogItem
+        {
+            Id = "settings", Name = "bluetooth", Kind = ItemKinds.Protocol, Target = "ms-settings:bluetooth"
+        };
+        var settingsBmp = IconService.GetAsync(settingsItem).GetAwaiter().GetResult();
+        Check("ms-settings icon", settingsBmp is not null,
+            settingsBmp is null ? "null" : settingsBmp.PixelSize.Width + "x" + settingsBmp.PixelSize.Height);
+
+        // Catalog sources: all 6 categories enumerate cleanly, and StoreApps yields real UWP apps with icons.
+        var sourceService = new Galah2.Services.CatalogSources.CatalogSourceService();
+        Check("6 picker categories", sourceService.Categories.Count == 6, sourceService.Categories.Count + " tabs");
+        var storeApps = sourceService.Enumerate(Galah2.Services.CatalogSources.SeedCategory.StoreApps);
+        Check("store apps enumerated", storeApps.Count > 0, storeApps.Count + " app(s)");
+        if (storeApps.Count > 0)
+        {
+            var first = storeApps[0];
+            var storeBmp = IconService.GetAsync(new CatalogItem
+            {
+                Id = "uwp", Name = first.Name, Kind = first.Kind, Target = first.Target
+            }).GetAwaiter().GetResult();
+            Check("store app icon", storeBmp is not null,
+                storeBmp is null ? "null (" + first.Name + ")" : first.Name + " " + storeBmp.PixelSize.Width + "x" + storeBmp.PixelSize.Height);
+        }
+
+        var folders = sourceService.Enumerate(Galah2.Services.CatalogSources.SeedCategory.ShellFolders);
+        Check("shell folders & drives", folders.Count >= 10, folders.Count + " item(s)");
+        var tools = sourceService.Enumerate(Galah2.Services.CatalogSources.SeedCategory.SystemTools);
+        Check("system tools", tools.Count >= 15, tools.Count + " item(s)");
+        var desktopApps = sourceService.Enumerate(Galah2.Services.CatalogSources.SeedCategory.InstalledApps);
+        Check("desktop apps", desktopApps.Count > 0, desktopApps.Count + " item(s)");
+        var quickActions = sourceService.Enumerate(Galah2.Services.CatalogSources.SeedCategory.QuickActions);
+        Check("quick actions", quickActions.Count == 9, quickActions.Count + " action(s)");
+        if (quickActions.Count > 0)
+        {
+            var qa = quickActions[0];
+            var qaBmp = IconService.GetAsync(new CatalogItem
+            {
+                Id = "qa", Name = qa.Name, Kind = qa.Kind, Target = qa.Target,
+                Icon = new IconReference { Mode = IconModes.Override, OverrideSource = qa.IconOverride }
+            }).GetAwaiter().GetResult();
+            Check("quick action icon", qaBmp is not null,
+                qaBmp is null ? "null" : qa.Name + " " + qaBmp.PixelSize.Width + "x" + qaBmp.PixelSize.Height);
+        }
+
+        // Degradation: an unknown protocol target is not a file, and a missing path is not a crash.
         foreach (var (label, kind, target) in new[]
                  {
-                     ("protocol degrades", ItemKinds.Protocol, "ms-settings:"),
+                     ("protocol degrades", ItemKinds.Protocol, "unknown-proto:test"),
                      ("missing path degrades", ItemKinds.App, Path.Combine(root, "nope.exe")),
                      ("empty target degrades", ItemKinds.File, ""),
                  })

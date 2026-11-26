@@ -18,6 +18,7 @@ public static class ProtocolSafety
         "ms-about",         // Edge's about page (replaces "about", intentionally removed)
         "windowsdefender",  // Defender UI
         "ms-edge",          // Edge entry points
+        "galah-action",     // Built-in quick system actions
     ];
 
     private const int MaxRestLength = 2048;

@@ -22,6 +22,7 @@ public sealed class SeedViewModel : ObservableObject
         Initial = string.IsNullOrWhiteSpace(seed.Name) ? "?" : seed.Name[..1].ToUpperInvariant();
         // A name that cannot be searched is useless in a long list.
         SearchKey = (seed.Name + " " + seed.Target).ToLowerInvariant();
+        ToggleCheckedCommand = new RelayCommand(() => IsChecked = !IsChecked);
 
         // The icon arrives a moment later; the row shows a letter tile until then.
         _ = LoadIconAsync(seed);
@@ -32,6 +33,7 @@ public sealed class SeedViewModel : ObservableObject
     public string Note { get; }
     public string SearchKey { get; }
     public string Initial { get; }
+    public ICommand ToggleCheckedCommand { get; }
 
     public Bitmap? Icon
     {
@@ -52,8 +54,11 @@ public sealed class SeedViewModel : ObservableObject
                 Kind = seed.Kind,
                 Target = seed.Target,
                 Args = seed.Args,
+                Icon = string.IsNullOrWhiteSpace(seed.IconOverride)
+                    ? new IconReference()
+                    : new IconReference { Mode = IconModes.Override, OverrideSource = seed.IconOverride },
             };
-            var bitmap = await IconService.GetAsync(item, 32).ConfigureAwait(true);
+            var bitmap = await IconService.GetAsync(item, 40).ConfigureAwait(true);
             if (bitmap is not null) Icon = bitmap;
         }
         catch (Exception) { }   // an icon is decoration: never break the list
@@ -250,6 +255,9 @@ public sealed class AddPickerViewModel : ObservableObject
             Kind = seed.Kind,
             Target = seed.Target,
             Args = seed.Args,
+            Icon = string.IsNullOrWhiteSpace(seed.IconOverride)
+                ? new IconReference()
+                : new IconReference { Mode = IconModes.Override, OverrideSource = seed.IconOverride },
         }).ToList();
 
         // One commit, not one per item: 1.x's "一次动作一次写" rule, so an interrupted add can

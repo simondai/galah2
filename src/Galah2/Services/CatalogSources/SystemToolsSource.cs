@@ -1,14 +1,10 @@
 using Galah2.Models;
-using Microsoft.Win32;
 
 namespace Galah2.Services.CatalogSources;
 
 /// <summary>
-/// Built-in Windows tools (Sprint 1 / ROADMAP B1). Two feeds, both resolved to real executables so
-/// launch/validation behave like any app item: (a) a curated table of system binaries and Control
-/// Panel applets, (b) the App Paths registry key, which is the machine's own list of launchable
-/// programs. Names in (a) are Galah's own descriptions. Entries whose exe is missing on this
-/// Windows edition are dropped (the table spans versions deliberately).
+/// 纯净的 Windows 系统应用与管理工具（不再混入 App Paths 第三方软件）。
+/// 在不同 Windows 版本上不存在的项会自动跳过。
 /// </summary>
 public sealed class SystemToolsSource : ICatalogSource
 {
@@ -18,37 +14,41 @@ public sealed class SystemToolsSource : ICatalogSource
     private static readonly string Sys32 = Environment.GetFolderPath(Environment.SpecialFolder.System);
     private static readonly string WinDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
 
-    // (display name, exe path relative to System32 or Windows, args, note)
-    private static readonly (string Name, string Exe, string? Args, string? Note)[] Tools =
+    // (显示名称, 相对路径, 参数, 说明, 可选图标覆盖)
+    private static readonly (string Name, string Exe, string? Args, string? Note, string? Icon)[] Tools =
     [
-        ("任务管理器", "Taskmgr.exe", null, "系统监视与进程管理"),
-        ("设备管理器", "devmgmt.msc", null, "硬件与驱动"),
-        ("服务", "services.msc", null, "系统服务管理"),
-        ("注册表编辑器", "regedit.exe", null, "高级用户工具"),
-        ("组件服务", "comexp.msc", null, "COM+ 与 DCOM"),
-        ("本地安全策略", "secpol.msc", null, "仅专业版/企业版"),
-        ("磁盘管理", "diskmgmt.msc", null, "分区与卷"),
-        ("事件查看器", "eventvwr.msc", null, "系统日志"),
-        ("性能监视器", "perfmon.msc", null, "性能计数器"),
-        ("资源监视器", "resmon.exe", null, "CPU/磁盘/网络占用"),
-        ("计划任务", "taskschd.msc", null, "定时任务"),
-        ("控制面板", "control.exe", null, "经典控制面板"),
-        ("网络和共享中心", "control.exe", "/name Microsoft.NetworkAndSharingCenter", null),
-        ("网络连接", "ncpa.cpl", null, "适配器与代理"),
-        ("电源选项", "control.exe", "powercfg.cpl", null),
-        ("系统属性", "control.exe", "sysdm.cpl", null),
-        ("程序和功能", "appwiz.cpl", null, "已安装程序"),
-        ("日期和时间", "timedate.cpl", null, "经典设置"),
-        ("区域设置", "intl.cpl", null, "格式与位置"),
-        ("鼠标属性", "main.cpl", null, "指针与按钮"),
-        ("声音设置", "mmsys.cpl", null, "播放/录制设备"),
-        ("轻松访问中心", "control.exe", "/name Microsoft.EaseOfAccessCenter", "辅助功能"),
-        ("DirectX 诊断工具", "dxdiag.exe", null, "多媒体诊断"),
-        ("系统信息", "msinfo32.exe", null, "硬件与软件摘要"),
-        ("系统还原", "rstrui.exe", null, "还原点"),
-        ("命令提示符", "cmd.exe", null, "经典终端"),
-        ("PowerShell", @"WindowsPowerShell\v1.0\powershell.exe", null, null),
-        ("运行对话框", "explorer.exe", "shell:::{2559a1f3-21d7-11d4-bdaf-00104216072f}", null),
+        ("本地安全策略", "secpol.msc", null, "仅专业版/企业版", null),
+        ("步骤记录器", "psr.exe", null, "操作步骤录制", null),
+        ("磁盘清理", "cleanmgr.exe", null, "清理系统垃圾", null),
+        ("磁盘管理", "diskmgmt.msc", null, "分区与卷管理", null),
+        ("打印管理", "printmanagement.msc", null, "打印机队列管理", null),
+        ("服务", "services.msc", null, "系统服务管理", null),
+        ("高级安全 Windows 防火墙", "wf.msc", null, "入站与出站规则", null),
+        ("恢复驱动器", "RecoveryDrive.exe", null, "创建恢复介质", null),
+        ("计算机管理", "compmgmt.msc", null, "系统综合管理", null),
+        ("控制面板", "control.exe", null, "经典控制面板", null),
+        ("命令提示符", "cmd.exe", null, "经典命令行", null),
+        ("PowerShell", @"WindowsPowerShell\v1.0\powershell.exe", null, "Windows PowerShell", null),
+        ("任务管理器", "Taskmgr.exe", null, "进程与性能监控", null),
+        ("任务计划程序", "taskschd.msc", null, "定时任务管理", null),
+        ("设备管理器", "devmgmt.msc", null, "硬件与驱动程序", null),
+        ("事件查看器", "eventvwr.msc", null, "系统运行日志", null),
+        ("碎片整理和优化驱动器", "dfrgui.exe", null, "磁盘优化", null),
+        ("系统配置", "msconfig.exe", null, "引导与启动项配置", null),
+        ("系统信息", "msinfo32.exe", null, "硬件与系统摘要", null),
+        ("系统还原", "rstrui.exe", null, "还原系统状态", null),
+        ("性能监视器", "perfmon.msc", null, "性能计数器", null),
+        ("远程桌面连接", "mstsc.exe", null, "RDP 远程连接", null),
+        ("运行", "explorer.exe", "shell:::{2559a1f3-21d7-11d4-bdaf-00104216072f}", "快速运行对话框", "shell32.dll,-25"),
+        ("注册表编辑器", "regedit.exe", null, "高级配置工具", null),
+        ("资源监视器", "resmon.exe", null, "CPU/磁盘/网络实时监控", null),
+        ("字符映射表", "charmap.exe", null, "特殊符号选择", null),
+        ("组件服务", "comexp.msc", null, "COM+ 与 DCOM", null),
+        ("DirectX 诊断工具", "dxdiag.exe", null, "显卡与多媒体诊断", null),
+        ("iSCSI 发起程序", "iscsicpl.exe", null, "iSCSI 存储连接", null),
+        ("ODBC 数据源 (64 位)", "odbcad32.exe", null, "64 位数据库连接", null),
+        ("ODBC 数据源 (32 位)", @"..\SysWOW64\odbcad32.exe", null, "32 位数据库连接", null),
+        ("Windows 内存诊断", "mdsched.exe", null, "内存条检测", null),
     ];
 
     /// <inheritdoc />
@@ -56,64 +56,28 @@ public sealed class SystemToolsSource : ICatalogSource
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var (name, exe, args, note) in Tools)
+        foreach (var (name, exe, args, note, iconSpec) in Tools)
         {
-            // 先查 System32，再查 Windows 目录（regedit.exe、explorer.exe 位于 Windows 根目录）。
-            var path = Path.Combine(Sys32, exe);
+            var path = Path.GetFullPath(Path.Combine(Sys32, exe));
             if (!File.Exists(path)) path = Path.Combine(WinDir, exe);
             if (!File.Exists(path)) continue;
             if (!seen.Add(path + "|" + (args ?? ""))) continue;
 
             var kind = exe.EndsWith(".cpl", StringComparison.OrdinalIgnoreCase) ||
                        exe.EndsWith(".msc", StringComparison.OrdinalIgnoreCase)
-                ? ItemKinds.File          // ShellExecute-openable control applet
+                ? ItemKinds.File
                 : ItemKinds.App;
-            yield return new CatalogSeed(Category, name, kind, path, args, note);
-        }
 
-        foreach (var seed in EnumerateAppPaths(seen))
-            yield return seed;
-    }
+            string? iconOverride = null;
+            if (!string.IsNullOrWhiteSpace(iconSpec))
+            {
+                var comma = iconSpec.LastIndexOf(',');
+                var file = comma > 0 ? iconSpec[..comma] : iconSpec;
+                var idx = comma > 0 ? iconSpec[comma..] : "";
+                iconOverride = Path.Combine(Sys32, file) + idx;
+            }
 
-    /// <summary>App Paths registry: the machine's own registered executables.</summary>
-    /// <param name="seen">Dedup key set shared with the curated table.</param>
-    private List<CatalogSeed> EnumerateAppPaths(HashSet<string> seen)
-    {
-        var results = new List<CatalogSeed>();
-        foreach (var hive in new[] { RegistryHive.LocalMachine, RegistryHive.CurrentUser })
-        {
-            try
-            {
-                using var baseKey = RegistryKey.OpenBaseKey(hive, RegistryView.Registry64);
-                using var key = baseKey.OpenSubKey(
-                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths");
-                if (key is null) continue;
-                var batch = new List<CatalogSeed>();
-                foreach (var name in key.GetSubKeyNames())
-                {
-                    try
-                    {
-                        using var app = key.OpenSubKey(name);
-                        var value = app?.GetValue(null) as string;
-                        if (string.IsNullOrWhiteSpace(value)) continue;
-                        var path = Environment.ExpandEnvironmentVariables(value.Trim().Trim('"'));
-                        if (!File.Exists(path)) continue;
-                        var display = Path.GetFileNameWithoutExtension(name);
-                        if (!seen.Add(path + "|")) continue;
-                        batch.Add(new CatalogSeed(Category, display, ItemKinds.App, path, Note: "系统注册程序"));
-                    }
-                    catch (Exception)
-                    {
-                        // A malformed App Paths value is a registry quirk, not a user error.
-                    }
-                }
-                results.AddRange(batch);
-            }
-            catch (Exception)
-            {
-                // An unreadable hive is skipped; the curated table already carries the essentials.
-            }
+            yield return new CatalogSeed(Category, name, kind, path, args, note, iconOverride);
         }
-        return results;
     }
 }
