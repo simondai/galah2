@@ -53,7 +53,8 @@
           <Border Grid.Column="0" Width="56" Height="56" CornerRadius="10" HorizontalAlignment="Left"
                   Background="{DynamicResource ElevatedBrush}"
                   BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1">
-            <Image Source="{Binding IconPreview}" Width="44" Height="44" Stretch="Uniform" />
+            <Image Source="{Binding IconPreview}" Width="44" Height="44" Stretch="Uniform"
+                   RenderOptions.BitmapInterpolationMode="HighQuality" />
           </Border>
           <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
             <TextBlock Classes="label" Text="图标" Margin="0" />

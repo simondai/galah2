@@ -235,6 +235,11 @@ internal static class Win32
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     public static extern uint ExtractIconExW(string file, int index, IntPtr[]? large, IntPtr[]? small, uint nIcons);
 
+    /// <summary>按指定高清像素尺寸（如 128/256）直接提取可执行文件/图标资源中的大图，避免 32px 放大发糊。</summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern uint PrivateExtractIconsW(string lpszFile, int nIconIndex, int cxIcon, int cyIcon,
+        IntPtr[] phicon, uint[] piconid, uint nIcons, uint flags);
+
     [DllImport("gdi32.dll")]
     public static extern bool DeleteDC(IntPtr hdc);
 }

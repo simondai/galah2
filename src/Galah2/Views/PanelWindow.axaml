@@ -304,6 +304,7 @@
                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <Image Source="{Binding Icon}"
+                           RenderOptions.BitmapInterpolationMode="HighQuality"
                            Width="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).IconEdge}"
                            Height="{Binding $parent[ItemsControl].((vm:PanelViewModel)DataContext).IconEdge}"
                            IsVisible="{Binding HasIcon}" />

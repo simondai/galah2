@@ -52,11 +52,14 @@ public static class IconService
         {
             if (string.IsNullOrWhiteSpace(storedSource)) return null;
 
-            var cached = LoadCached(storedSource, index, size);
+            // 按至少 128px 高清像素提取与缓存，高 DPI 屏下由 Skia HighQuality 下采样，彻底消除锯齿发糊。
+            var pixelSize = Math.Max(128, size * 2);
+
+            var cached = LoadCached(storedSource, index, pixelSize);
             if (cached is not null) return cached;
 
-            var bitmap = Extract(storedSource, index, size);
-            if (bitmap is not null) CacheToFile(bitmap, storedSource, index, size);
+            var bitmap = Extract(storedSource, index, pixelSize);
+            if (bitmap is not null) CacheToFile(bitmap, storedSource, index, pixelSize);
             return bitmap;
         });
 
@@ -86,11 +89,16 @@ public static class IconService
         var osPath = PathNorm.ToOs(storedSource);
 
         // An image override is decoded directly: no shell round trip needed.
-        if (IsImageFile(osPath) && File.Exists(osPath))
+        // 注意 .ico 走高清图标提取路径以拿到 256/128px 层，其他图片直接解码。
+        if (IsDirectImageFile(osPath) && File.Exists(osPath))
             return DecodeImage(osPath, size);
 
         if (!File.Exists(osPath))
             return ExtractShellIcon(osPath, size);   // protocols, URLs and missing paths
+
+        // 优先提取高清大图（.exe / .dll / .ico / .cpl 等均内嵌 128~256px 资源）。
+        var highRes = ExtractHighResIcon(osPath, index, size);
+        if (highRes is not null) return highRes;
 
         if (index > 0)
         {
@@ -110,16 +118,35 @@ public static class IconService
         return ExtractShellIcon(osPath, size);
     }
 
-    private static bool IsImageFile(string path)
+    private static bool IsDirectImageFile(string path)
     {
         var ext = Path.GetExtension(path);
         return ext.Equals(".png", StringComparison.OrdinalIgnoreCase)
-            || ext.Equals(".ico", StringComparison.OrdinalIgnoreCase)
             || ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
             || ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase)
             || ext.Equals(".bmp", StringComparison.OrdinalIgnoreCase)
             || ext.Equals(".gif", StringComparison.OrdinalIgnoreCase)
             || ext.Equals(".webp", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>通过 user32!PrivateExtractIconsW 按高清像素提取资源图标（避免 32px 放大发糊）。</summary>
+    private static Bitmap? ExtractHighResIcon(string osPath, int index, int size)
+    {
+        var ext = Path.GetExtension(osPath);
+        if (!ext.Equals(".exe", StringComparison.OrdinalIgnoreCase)
+            && !ext.Equals(".dll", StringComparison.OrdinalIgnoreCase)
+            && !ext.Equals(".ico", StringComparison.OrdinalIgnoreCase)
+            && !ext.Equals(".cpl", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var handles = new IntPtr[1];
+        var ids = new uint[1];
+        var extracted = Win32.PrivateExtractIconsW(osPath, index, size, size, handles, ids, 1, 0);
+        if (extracted == 0 || extracted == uint.MaxValue || handles[0] == IntPtr.Zero)
+            return null;
+
+        try { return FromIconHandle(handles[0], size); }
+        finally { Win32.DestroyIcon(handles[0]); }
     }
 
     private static Bitmap? DecodeImage(string osPath, int size)
@@ -178,7 +205,8 @@ public static class IconService
         done.Dispose();
         if (handle == IntPtr.Zero) return null;
 
-        try { return FromIconHandle(handle, size); }
+        // 回退路径拿到的 HICON 为 32px，1:1 绘制避免 GDI 暴力放大，交由界面 Skia HighQuality 平滑缩放。
+        try { return FromIconHandle(handle, IconSize); }
         finally { Win32.DestroyIcon(handle); }
     }
 
@@ -193,7 +221,7 @@ public static class IconService
         var ok = Win32.SHGetFileInfoW(osPath, 0, ref info, structSize, flags);
         if (ok == IntPtr.Zero || info.hIcon == IntPtr.Zero) return null;
 
-        try { return FromIconHandle(info.hIcon, size); }
+        try { return FromIconHandle(info.hIcon, IconSize); }
         finally { Win32.DestroyIcon(info.hIcon); }
     }
 
@@ -208,7 +236,7 @@ public static class IconService
         var handle = large[0] != IntPtr.Zero ? large[0] : small[0];
         if (handle == IntPtr.Zero) return null;
 
-        try { return FromIconHandle(handle, size); }
+        try { return FromIconHandle(handle, IconSize); }
         finally
         {
             if (large[0] != IntPtr.Zero) Win32.DestroyIcon(large[0]);
@@ -297,8 +325,8 @@ public static class IconService
     private static string CachePath(string storedSource, int index, int size)
     {
         if (_paths is null) return "";
-        // The salt keeps stale generations (including any 1.x-era entry) from being served.
-        var key = "v2|" + storedSource + "|" + index + "|" + size;
+        // 升级缓存盐值至 v3，自动淘汰旧的 32px 低清糊图缓存。
+        var key = "v3|" + storedSource + "|" + index + "|" + size;
         var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(key)))[..24];
         return Path.Combine(_paths.IconsDirectory, hash + ".png");
