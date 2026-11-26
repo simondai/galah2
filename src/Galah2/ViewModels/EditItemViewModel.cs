@@ -41,6 +41,7 @@ public sealed class EditItemViewModel : ObservableObject
     private bool _suggestKind;
     private Bitmap? _iconPreview;
     private bool _isFetchingIcon;
+    private int _previewVersion;
 
     public EditItemViewModel(CatalogStore catalog, string? tabId, CatalogItem? existing,
         IPanelHost host, AppDataPaths paths)
@@ -49,14 +50,23 @@ public sealed class EditItemViewModel : ObservableObject
         _tabId = tabId;
         _host = host;
         _paths = paths;
-        _isNew = existing is null;
+        // Id 为空或 "draft" 均视为新建，但保留调用方传入的初始 Kind（如菜单点“添加文件夹/网址”）。
+        _isNew = existing is null || string.IsNullOrEmpty(existing.Id) || existing.Id == "draft";
         _draft = existing?.Clone() ?? new CatalogItem
         {
             Id = "draft",
             Kind = ItemKinds.App,
         };
 
-        Title = _isNew ? "添加快捷方式" : "编辑快捷方式";
+        Title = _isNew
+            ? _draft.Kind switch
+            {
+                ItemKinds.File => "添加文件",
+                ItemKinds.Folder => "添加文件夹",
+                ItemKinds.Url => "添加网址",
+                _ => "添加快捷方式",
+            }
+            : "编辑快捷方式";
         BrowseTargetCommand = new RelayCommand(BrowseTarget);
         BrowseWorkdirCommand = new RelayCommand(BrowseWorkdir);
         PickIconCommand = new RelayCommand(PickIcon);
@@ -106,7 +116,7 @@ public sealed class EditItemViewModel : ObservableObject
             var suggested = KindInference.Suggest(value, _draft.Kind);
             SuggestKind = suggested != _draft.Kind;
             if (_isNew && string.IsNullOrWhiteSpace(_name))
-                Name = KindInference.DeriveName(_draft.Kind, value);
+                Name = KindInference.DeriveName(suggested, value);
             Revalidate();
             _ = RefreshPreviewAsync();
         }
@@ -211,14 +221,22 @@ public sealed class EditItemViewModel : ObservableObject
 
     private async Task RefreshPreviewAsync()
     {
+        var version = Interlocked.Increment(ref _previewVersion);
         try
         {
             var draft = BuildDraft();
-            IconPreview = string.IsNullOrWhiteSpace(draft.Target)
+            var bitmap = string.IsNullOrWhiteSpace(draft.Target)
                 ? null
                 : await IconService.GetAsync(draft, 32).ConfigureAwait(true);
+            // 仅在没有更新的预览请求时回写，避免慢返回的老请求覆盖新结果。
+            if (version == Volatile.Read(ref _previewVersion))
+                IconPreview = bitmap;
         }
-        catch (Exception) { IconPreview = null; }
+        catch (Exception)
+        {
+            if (version == Volatile.Read(ref _previewVersion))
+                IconPreview = null;
+        }
     }
 
     /// <summary>Pick the target file or folder; the kind follows what was picked.</summary>
@@ -298,19 +316,12 @@ public sealed class EditItemViewModel : ObservableObject
                 return;
             }
 
-            await FetchIconAsync();
-        }
-        finally { IsFetchingIcon = false; }
-    }
-
-    private async Task FetchIconAsync()
-    {
-        IsFetchingIcon = true;
-        try
-        {
-            var draft = BuildDraft();
             var bitmap = await IconService.GetAsync(draft, 64).ConfigureAwait(true);
             IconPreview = bitmap;
+        }
+        catch (Exception)
+        {
+            Toast?.Show("获取图标失败");
         }
         finally { IsFetchingIcon = false; }
     }

@@ -121,12 +121,28 @@ public sealed class ItemViewModel : ObservableObject
     public ICommand AddFolderCommand { get; set; } = new RelayCommand(() => { });
     public ICommand AddUrlCommand { get; set; } = new RelayCommand(() => { });
 
+    private bool _disposed;
+
+    /// <summary>释放不再显示的图标位图，避免旧 Skia 像素缓冲滞留内存。</summary>
+    public void DisposeIcon()
+    {
+        _disposed = true;
+        var old = _icon;
+        if (old is null) return;
+        _icon = null;
+        Raise(nameof(Icon));
+        Raise(nameof(HasIcon));
+        old.Dispose();
+    }
+
     private async Task LoadIconAsync(CatalogItem item, int iconEdge)
     {
         try
         {
             var bitmap = await IconService.GetAsync(item, iconEdge).ConfigureAwait(true);
-            if (bitmap is not null) Icon = bitmap;
+            if (bitmap is null) return;
+            if (_disposed) { bitmap.Dispose(); return; }
+            Icon = bitmap;
         }
         catch (Exception) { }
     }
@@ -193,11 +209,6 @@ public sealed class PanelViewModel : ObservableObject
         Toast = toast;
 
         SelectTabCommand = new RelayCommand(p => { if (p is TabViewModel t) SelectTab(t); });
-        LaunchCommand = new RelayCommand(p => { if (p is ItemViewModel i) LaunchTile(i); });
-        EditItemCommand = new RelayCommand(p => EditItem(p as ItemViewModel));
-        DeleteItemCommand = new RelayCommand(p => DeleteItem(p as ItemViewModel));
-        MoveItemLeftCommand = new RelayCommand(p => MoveItem(p as ItemViewModel, -1));
-        MoveItemRightCommand = new RelayCommand(p => MoveItem(p as ItemViewModel, +1));
         AddPickerCommand = new RelayCommand(() => GuardTab(t => _host.ShowAddPicker(t.Id)));
         AddFileCommand = new RelayCommand(() => GuardTab(t => AddSingle(t.Id, ItemKinds.File)));
         AddFolderCommand = new RelayCommand(() => GuardTab(t => AddSingle(t.Id, ItemKinds.Folder)));
@@ -229,11 +240,6 @@ public sealed class PanelViewModel : ObservableObject
     public ObservableCollection<ItemViewModel> Items { get; } = new();
 
     public ICommand SelectTabCommand { get; }
-    public ICommand LaunchCommand { get; }
-    public ICommand EditItemCommand { get; }
-    public ICommand DeleteItemCommand { get; }
-    public ICommand MoveItemLeftCommand { get; }
-    public ICommand MoveItemRightCommand { get; }
     public ICommand AddPickerCommand { get; }
     public ICommand AddFileCommand { get; }
     public ICommand AddFolderCommand { get; }
@@ -275,6 +281,25 @@ public sealed class PanelViewModel : ObservableObject
 
     /// <summary>Product name shown in the panel corner (never the active category).</summary>
     public string AppTitle => "Galah";
+
+    /// <summary>当前程序版本号（来自 csproj 的 Version，如 v2.1.0）。</summary>
+    public string AppVersion { get; } = ReadAppVersion();
+
+    private static string ReadAppVersion()
+    {
+        var asm = typeof(PanelViewModel).Assembly;
+        var info = System.Reflection.CustomAttributeExtensions
+            .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(asm)
+            ?.InformationalVersion;
+        if (!string.IsNullOrWhiteSpace(info))
+        {
+            var plus = info.IndexOf('+');
+            var clean = plus >= 0 ? info[..plus] : info;
+            return "v" + clean.TrimStart('v', 'V');
+        }
+        var ver = asm.GetName().Version;
+        return ver is null ? "" : $"v{ver.Major}.{ver.Minor}.{ver.Build}";
+    }
 
     public string ActiveTabName => _selectedTab?.Name ?? "";
 
@@ -352,7 +377,12 @@ public sealed class PanelViewModel : ObservableObject
 
     /// <summary>Live icon-size change: rebuild tiles so each asks for the new edge length.</summary>
     public void ApplyIconSize(string? size) =>
-        ApplyLayout(new SettingsDocument { IconSize = size ?? IconSizes.Medium, TabPosition = IsVerticalTabs ? TabPositions.Left : TabPositions.Top });
+        ApplyLayout(new SettingsDocument
+        {
+            IconSize = size ?? IconSizes.Medium,
+            TabPosition = IsVerticalTabs ? TabPositions.Left : TabPositions.Top,
+            TabFontSize = _chipFontSize,
+        });
     /// <summary>Cycle categories with the wheel or Ctrl+number (1.x's tab navigation).</summary>
     public void SwitchTabRelative(int delta)
     {
@@ -374,13 +404,19 @@ public sealed class PanelViewModel : ObservableObject
         return true;
     }
 
+    private void ClearItems()
+    {
+        foreach (var item in Items) item.DisposeIcon();
+        Items.Clear();
+    }
+
     public void SelectTab(TabViewModel? tab)
     {
         if (tab is null)
         {
             foreach (var t in Tabs) t.IsActive = false;
             SelectedTab = null;
-            Items.Clear();
+            ClearItems();
             return;
         }
 
@@ -389,7 +425,7 @@ public sealed class PanelViewModel : ObservableObject
         SelectedItem = null;
         Raise(nameof(ActiveTabName));
 
-        Items.Clear();
+        ClearItems();
         var source = _catalog.Current.FindTab(tab.Id);
         if (source is not null)
         {
@@ -679,9 +715,8 @@ public sealed class PanelViewModel : ObservableObject
         var preview = ImportService.FromFilePaths(paths);
         if (preview.Items.Count == 0)
         {
-            SaveProblem = preview.Skipped.Count > 0
-                ? "拖入的内容无法识别：" + string.Join("、", preview.Skipped.Take(3))
-                : "";
+            if (preview.Skipped.Count > 0)
+                Toast.Show("拖入的内容无法识别：" + string.Join("、", preview.Skipped.Take(3)));
             return 0;
         }
 

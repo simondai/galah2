@@ -11,9 +11,10 @@ GalahData/
 # probe scratch output
 **/TestResults/
 
-# IDE
+# IDE / local agent backups
 .vs/
 .idea/
+.workbuddy/
 *.user
 *.suo
 

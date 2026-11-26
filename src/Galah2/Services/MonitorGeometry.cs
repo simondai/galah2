@@ -39,20 +39,24 @@ public static class MonitorGeometry
     public const double DefaultHeight = 460;
 
     private static readonly Win32.MonitorEnumProc CollectMonitor = OnMonitor;
+    private static readonly object EnumGate = new();
     private static List<WorkArea>? _collecting;
 
     /// <summary>All monitor work areas (device pixels). Never empty on a desktop session.</summary>
     public static IReadOnlyList<WorkArea> EnumerateWorkAreas()
     {
         var areas = new List<WorkArea>();
-        _collecting = areas;
-        try
+        lock (EnumGate)
         {
-            Win32.EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, CollectMonitor, IntPtr.Zero);
-        }
-        finally
-        {
-            _collecting = null;
+            _collecting = areas;
+            try
+            {
+                Win32.EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, CollectMonitor, IntPtr.Zero);
+            }
+            finally
+            {
+                _collecting = null;
+            }
         }
         if (areas.Count == 0)
         {

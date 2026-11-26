@@ -10,9 +10,7 @@
         ShowInTaskbar="False"
         CanResize="True"
         MinWidth="420" MinHeight="300">
-  <!-- Semi-transparent so the Mica backdrop shows through. An opaque fill makes the material
-       request pointless; the first screenshot check showed three different corner colours only
-       because the DWM tint bled past the rounded corners. -->
+  <!-- Rounded panel surface; ApplyMaterial switches between PanelFillOpaqueBrush and PanelFillBrush. -->
   <Border x:Name="RootBorder"
           Background="{DynamicResource PanelFillBrush}" CornerRadius="10"
           BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1">
@@ -30,6 +28,8 @@
             <TextBlock Text="{Binding AppTitle}" FontSize="13" FontWeight="SemiBold"
                        Foreground="{DynamicResource TextStrongBrush}" />
             <TextBlock Text="· 启动器" FontSize="11" Margin="6,1,0,0" VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextFaintBrush}" />
+            <TextBlock Text="{Binding AppVersion}" FontSize="11" Margin="6,1,0,0" VerticalAlignment="Center"
                        Foreground="{DynamicResource TextFaintBrush}" />
           </StackPanel>
 

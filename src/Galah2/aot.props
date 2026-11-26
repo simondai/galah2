@@ -7,7 +7,6 @@
     vtables by hand: AOT keeps the runtime's built-in COM wrappers out of the binary.
   -->
   <PropertyGroup Condition="'$(PublishAot)' == 'true'">
-    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
     <InvariantGlobalization>false</InvariantGlobalization>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
     <IlcOptimizationPreference>Size</IlcOptimizationPreference>

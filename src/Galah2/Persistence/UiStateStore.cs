@@ -43,15 +43,18 @@ public sealed class UiStateStore
         // has already left the quarantine chain. Normalize here, before touching any member.
         if (doc.Window is null) doc.Window = new WindowState();
         if (doc.RandPassWindow is null) doc.RandPassWindow = new WindowState { Width = 580, Height = 540 };
-        foreach (var state in new[] { doc.Window, doc.RandPassWindow })
-        {
-            state.SanitizePosition();   // a hand-edited NaN/Infinity coordinate is treated as "never positioned"
-            if (!double.IsFinite(state.Width) || state.Width < 200) state.Width = 720;
-            if (!double.IsFinite(state.Height) || state.Height < 160) state.Height = 460;
-        }
+        NormalizeWindow(doc.Window, defaultWidth: 720, defaultHeight: 460);
+        NormalizeWindow(doc.RandPassWindow, defaultWidth: 580, defaultHeight: 540);
         Current = doc;
         _lastSaveError = null;
         return outcome;
+    }
+
+    private static void NormalizeWindow(WindowState state, double defaultWidth, double defaultHeight)
+    {
+        state.SanitizePosition();   // a hand-edited NaN/Infinity coordinate is treated as "never positioned"
+        if (!double.IsFinite(state.Width) || state.Width < 200) state.Width = defaultWidth;
+        if (!double.IsFinite(state.Height) || state.Height < 160) state.Height = defaultHeight;
     }
 
     /// <summary>Commit a visibility change immediately (spec §1: 可见性变化即写).</summary>

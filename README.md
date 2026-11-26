@@ -118,8 +118,7 @@ dotnet publish src/Galah2 -c Release -r win-x64 -p:PublishAot=true -o artifact
 
 ## 验收
 
-`tools/` 下共 **12 个探针**，全部可独立运行。`Galah2.sln` 收录主项目与 **10 个探针项目**；
-`DragArmProbe` / `PasswordProbe` 需按项目路径单独运行（CI 已补上这两步）。
+`tools/` 下共 **12 个探针**，全部已收录在 `Galah2.sln` 中，均可独立运行。
 
 ```bash
 dotnet run --project tools/ComProbe         -c Release   # COM 往返（11）
@@ -157,7 +156,7 @@ powershell -ExecutionPolicy Bypass -File tools/perf/measure.ps1
 ## 目录结构
 
 ```
-Galah2.sln                         主项目 + 10 个探针项目（另 2 个探针按项目路径单独跑）
+Galah2.sln                         主项目 + 12 个探针项目
 .github/workflows/build2.yml      CI：构建、12 个探针、AOT 发布、绿色版校验
 src/Galah2/
   App.axaml / App.axaml.cs        应用入口与资源

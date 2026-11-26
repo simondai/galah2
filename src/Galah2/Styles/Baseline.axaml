@@ -18,9 +18,10 @@
   <Style Selector="Button">
     <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     <Setter Property="Background" Value="{DynamicResource ElevatedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource HairlineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="14" />
-    <Setter Property="Padding" Value="10,4" />
-    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="12,5" />
     <Setter Property="FontSize" Value="12" />
   </Style>
 
@@ -30,17 +31,6 @@
 
   <Style Selector="Button:pressed /template/ ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource PressedBrush}" />
-  </Style>
-
-  <!-- Primary action: the inverted pill 1.0 used for "save". -->
-  <Style Selector="Button.primary">
-    <Setter Property="Background" Value="{DynamicResource AccentSurfaceBrush}" />
-    <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}" />
-  </Style>
-
-  <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource AccentSurfaceBrush}" />
-    <Setter Property="Opacity" Value="0.88" />
   </Style>
 
   <Style Selector="CheckBox">
@@ -63,6 +53,8 @@
 
   <Style Selector="Button.chip">
     <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="10,4" />
     <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
   </Style>
 
@@ -86,6 +78,7 @@
 
   <Style Selector="Button.tile">
     <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
     <Setter Property="CornerRadius" Value="8" />
     <Setter Property="Padding" Value="6" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />

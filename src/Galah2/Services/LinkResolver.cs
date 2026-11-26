@@ -24,11 +24,8 @@ public sealed record ShellLinkInfo(
 public static class LinkResolver
 {
     private const uint SlrNoUi = 0x00000001;
-    private const int StgmRead = 0x00000000;
-    private const int StgmReadWrite = 0x00000002;
 
-    /// <summary>
-    /// Resolve a .lnk into target / arguments / working directory / icon location, following the
+    /// <summary>Resolve a .lnk into target / arguments / working directory / icon location.</summary>
     public static ShellLinkInfo Resolve(string lnkPath, IntPtr owner = default)
     {
         if (string.IsNullOrWhiteSpace(lnkPath))

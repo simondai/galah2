@@ -66,7 +66,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         _hotkey.Triggered += () => Dispatcher.UIThread.Post(Toggle);
 
         var iconPath = Path.Combine(_paths.Root, "icons", "galah.ico");
-        Stream iconStream = File.Exists(iconPath)
+        using Stream iconStream = File.Exists(iconPath)
             ? File.OpenRead(iconPath)
             : OpenEmbeddedIcon();
 
@@ -102,7 +102,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
                 if (_shuttingDown) return;
                 e.Cancel = true;
                 RememberGeometry();   // capture before hiding
-                _panel.Hide();
+                HideAndScheduleTrim();
             };
 
             // Restore the size from last time, and remember it as the user resizes.
@@ -118,14 +118,37 @@ public sealed class AppRuntime : IDisposable, IPanelHost
 
         if (_panel.IsVisible)
         {
-            _panel.Hide();
+            HideAndScheduleTrim();
             return;
         }
 
+        _idleTrimTimer?.Stop();
         _viewModel?.Refresh();   // a show always re-projects: the library may have changed
         PlacePanel();
         _panel.Show();
         _panel.Activate();
+    }
+
+    private DispatcherTimer? _idleTrimTimer;
+
+    /// <summary>隐藏面板并在 5 秒后整理闲置物理内存；若期间再次呼出则取消，不影响高频切换。</summary>
+    private void HideAndScheduleTrim()
+    {
+        _panel?.Hide();
+        if (_idleTrimTimer is null)
+        {
+            _idleTrimTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+            _idleTrimTimer.Tick += (_, _) =>
+            {
+                _idleTrimTimer.Stop();
+                if (_shuttingDown || (_panel?.IsVisible ?? false)) return;
+                GC.Collect(2, GCCollectionMode.Optimized, blocking: false);
+                Interop.Win32.SetProcessWorkingSetSize(
+                    Interop.Win32.GetCurrentProcess(), (IntPtr)(-1), (IntPtr)(-1));
+            };
+        }
+        _idleTrimTimer.Stop();
+        _idleTrimTimer.Start();
     }
 
     /// <summary>
@@ -152,6 +175,9 @@ public sealed class AppRuntime : IDisposable, IPanelHost
             _timer.Stop();
             _timer.Start();
         }
+
+        /// <summary>Cancel any pending debounced commit without writing (app shutdown).</summary>
+        public void Cancel() => _timer.Stop();
 
         /// <summary>Drop the pending commit and write now (the window is closing).</summary>
         public void CommitNow()
@@ -206,20 +232,14 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         // Width/Height (the DIP properties), not Bounds: on the very first Show the window has
         // never been laid out, so Bounds is 0x0 and the center/mouse maths degenerates to
         // "top-left at the screen centre" - the first summon of a fresh install landed there.
-        var scale = _panel.RenderScaling;
+        // 在窗口首次创建原生句柄前，RenderScaling 可能仍为默认 1.0，此时回退到系统 DPI 缩放，
+        // 与 PlaceRandPassWindow 保持同一套单位换算口径。
+        var scale = _panel.RenderScaling > 1.0 ? _panel.RenderScaling : MonitorGeometry.SystemScale();
         var (x, y) = PanelPlacement.Resolve(
             _settings.Current.PanelPlacement, remembered, cursor, area,
             _panel.Width * scale, _panel.Height * scale, scale);
 
         _panel.Position = new Avalonia.PixelPoint((int)x, (int)y);
-    }
-
-    private bool Launch(string itemId)
-    {
-        var found = _catalog.Current.FindItem(itemId);
-        if (found is null) return false;
-        var result = LauncherService.Launch(LaunchRequest.From(found.Value.Item));
-        return result.Status == LaunchStatus.Ok;
     }
 
     /// <summary>Settings is a single reusable window: opening it twice must not stack copies.
@@ -270,7 +290,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     // The panel never touches a window or a dialog directly: it asks the shell. That keeps the
     // view model testable and gives every dialog one owner.
 
-    void IPanelHost.HidePanel() => _panel?.Hide();
+    void IPanelHost.HidePanel() => HideAndScheduleTrim();
 
     bool IPanelHost.Launch(CatalogItem item)
     {
@@ -284,11 +304,7 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     {
         var vm = new AddPickerViewModel(_catalog, tabId);
         var window = new AddPickerWindow { DataContext = vm };
-        vm.CloseRequested += () =>
-        {
-            window.Close();
-            _viewModel?.Refresh();   // the picker commits in one action, so one re-project
-        };
+        window.Closed += (_, _) => _viewModel?.Refresh();
         ShowOwned(window);
     }
 
@@ -299,17 +315,13 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     /// </summary>
     CatalogItem? IPanelHost.ShowEditItem(string tabId, CatalogItem? existing)
     {
-        var isNew = existing is null || existing.Id is "draft";
-        var vm = new EditItemViewModel(_catalog, tabId, isNew ? null : existing, this, _paths)
+        // 保留草稿里带入的初始 Kind（如菜单点“添加文件夹/网址”），不再因 Id=="draft" 丢弃。
+        var vm = new EditItemViewModel(_catalog, tabId, existing, this, _paths)
         {
             Toast = _toast,
         };
         var window = new EditItemWindow { DataContext = vm };
-        vm.CloseRequested += () =>
-        {
-            window.Close();
-            if (vm.Completed) _viewModel?.Refresh();
-        };
+        window.Closed += (_, _) => { if (vm.Completed) _viewModel?.Refresh(); };
         ShowOwned(window);
         return null;
     }
@@ -346,7 +358,6 @@ public sealed class AppRuntime : IDisposable, IPanelHost
             }
         };
         var window = new MaintenanceWindow { DataContext = vm };
-        vm.CloseRequested += window.Close;
         vm.CatalogChanged += () => _viewModel?.Refresh();
         ShowOwned(window);
     }
@@ -559,8 +570,10 @@ public sealed class AppRuntime : IDisposable, IPanelHost
     /// </summary>
     private void ShowOwned(Window window)
     {
-        Window? owner = _panel is not null ? _panel : _settingsWindow;
-        if (owner is not null && owner.IsVisible) window.Show(owner);
+        Window? owner = _panel is { IsVisible: true } ? _panel
+            : _settingsWindow is { IsVisible: true } ? _settingsWindow
+            : null;
+        if (owner is not null) window.Show(owner);
         else window.Show();
     }
 
@@ -583,10 +596,15 @@ public sealed class AppRuntime : IDisposable, IPanelHost
         // runtime a second time. Enter the teardown only once.
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
         _shuttingDown = true;      // let the panel close for real on the way out
+        _idleTrimTimer?.Stop();
+        _panelGeometry?.Cancel();
+        _randPassGeometry?.Cancel();
         _tray.Dispose();
         _hotkey.Dispose();
         _theme.Dispose();
         _toast.Dispose();
+        _settingsWindow?.Close();
+        _randPassWindow?.Close();
         _panel?.Close();
     }
 }

@@ -44,7 +44,11 @@ public partial class App : Application
             Avalonia.Threading.Dispatcher.UIThread.Post(() => _runtime?.Toggle());
 
         // The tray icon and the hotkey sink hold OS handles; release them with the lifetime.
-        desktop.Exit += (_, _) => _runtime?.Dispose();
+        desktop.Exit += (_, _) =>
+        {
+            _runtime?.Dispose();
+            _instance?.Dispose();
+        };
 
         base.OnFrameworkInitializationCompleted();
     }

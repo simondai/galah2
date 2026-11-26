@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using Avalonia.Threading;
 
 namespace Galah2.Services;
 
@@ -19,8 +18,9 @@ public sealed class HotkeyService : IDisposable
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _ready = new(false);
     private readonly ManualResetEventSlim _stop = new(false);
-    private uint _window;
+    private IntPtr _window;
     private bool _registered;
+    private int _disposed;
 
     public HotkeyService()
     {
@@ -39,35 +39,30 @@ public sealed class HotkeyService : IDisposable
     /// <summary>Register (or replace) the global hotkey. Returns false when the OS refuses it.</summary>
     public bool Register(HotkeySpec spec)
     {
+        if (Volatile.Read(ref _disposed) != 0 || _window == IntPtr.Zero) return false;
         var ok = false;
-        var done = new ManualResetEventSlim(false);
+        using var done = new ManualResetEventSlim(false);
         RunOnLoop(() =>
         {
-            if (_registered) { UnregisterHotKey((IntPtr)_window, 1); _registered = false; }
-            // MOD_NOREPEAT: without it, holding the keys past the autorepeat delay fires
-            // WM_HOTKEY again and again, and an even number of toggles hides the panel the
-            // user just asked for (reported as "release the keys and it goes away").
+            if (_registered) { UnregisterHotKey(_window, 1); _registered = false; }
             const uint ModNoRepeat = 0x4000;
-            ok = RegisterHotKey((IntPtr)_window, 1, spec.Modifiers | ModNoRepeat, spec.VirtualKey);
+            ok = RegisterHotKey(_window, 1, spec.Modifiers | ModNoRepeat, spec.VirtualKey);
             _registered = ok;
-            done.Set();
+            try { done.Set(); } catch (ObjectDisposedException) { }
         });
 
-        // Wait for the window thread to actually run the registration. Fire-and-forget here is how
-        // the old code lied: Register returned before the OS call happened, and callers (settings
-        // page, probes) always saw false. The 1408 investigation traced every REFUSED to this race.
         done.Wait(TimeSpan.FromSeconds(2));
         return ok;
     }
 
     private readonly System.Collections.Concurrent.ConcurrentQueue<Action> _work = new();
-    private const int WmRunWork = 0x0400 + 1;   // WM_APP + 1: private to this window class
+    private const int WmRunWork = 0x0400 + 1;   // WM_USER + 1: private to this window class
 
     private void RunOnLoop(Action action)
     {
         if (Thread.CurrentThread.ManagedThreadId == _thread.ManagedThreadId) { action(); return; }
         _work.Enqueue(action);
-        PostMessage((IntPtr)_window, WmRunWork, IntPtr.Zero, IntPtr.Zero);
+        PostMessage(_window, WmRunWork, IntPtr.Zero, IntPtr.Zero);
     }
 
     private void MessageLoop()
@@ -81,10 +76,10 @@ public sealed class HotkeyService : IDisposable
         };
         RegisterClassEx(ref cls);
 
-        _window = (uint)CreateWindowEx(0, "Galah2HotkeySink", "", 0, 0, 0, 0, 0,
+        _window = CreateWindowEx(0, "Galah2HotkeySink", "", 0, 0, 0, 0, 0,
             (IntPtr)HwndMessage, IntPtr.Zero, cls.hInstance, IntPtr.Zero);
         _ready.Set();
-        if (_window == 0) return;
+        if (_window == IntPtr.Zero) return;
 
         while (!_stop.IsSet)
         {
@@ -92,6 +87,11 @@ public sealed class HotkeyService : IDisposable
             TranslateMessage(ref msg);
             DispatchMessage(ref msg);
         }
+
+        // 在创建窗口的同一线程上注销热键并销毁窗口句柄。
+        if (_registered) { UnregisterHotKey(_window, 1); _registered = false; }
+        DestroyWindow(_window);
+        _window = IntPtr.Zero;
     }
 
     private readonly WndProc _wndProc;
@@ -109,9 +109,12 @@ public sealed class HotkeyService : IDisposable
 
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
         _stop.Set();
-        if (_window != 0) PostMessage((IntPtr)_window, 0x0012 /*WM_QUIT*/, IntPtr.Zero, IntPtr.Zero);
+        if (_window != IntPtr.Zero) PostMessage(_window, 0x0012 /*WM_QUIT*/, IntPtr.Zero, IntPtr.Zero);
         _thread.Join(1000);
+        _ready.Dispose();
+        _stop.Dispose();
     }
 
     private delegate IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
@@ -153,6 +156,7 @@ public sealed class HotkeyService : IDisposable
         uint style, int x, int y, int width, int height, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
 
     [DllImport("user32.dll")] private static extern IntPtr DefWindowProc(IntPtr h, uint m, IntPtr w, IntPtr l);
+    [DllImport("user32.dll")] private static extern bool DestroyWindow(IntPtr h);
     [DllImport("user32.dll")] private static extern bool RegisterHotKey(IntPtr h, int id, uint mods, uint vk);
     [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr h, int id);
     [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);

@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Galah2.Services.Interop;
@@ -97,7 +96,7 @@ internal static class ShellLinkCom
         public string GetArguments() =>
             ReadBuffer(buf => Call(SlotGetArguments, buf, (IntPtr)MaxPath, default, default, default));
 
-        /// <summary>Icon path and its index; the index arrives through an out param, not the buffer.
+        /// <summary>Icon path and its index; the index arrives through an out param, not the buffer.</summary>
         public unsafe (string Path, int Index) GetIconLocation()
         {
             var charBytes = MaxPath * 2;

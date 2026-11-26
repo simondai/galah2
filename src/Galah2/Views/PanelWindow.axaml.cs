@@ -15,6 +15,7 @@ public partial class PanelWindow : Window
     private Point _dragOriginScreen;
     private PixelPoint _dragWindowOrigin;
     private bool _dragging;
+    private bool _openedWired;
 
     // Arming: the origin fields above are persistent, and a release can land on another HWND
     // (the ☰ MenuFlyout popup) that the panel never sees. Without explicit arming, the next
@@ -30,46 +31,35 @@ public partial class PanelWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        // Keyboard navigation: Escape hides, arrows move the category, Ctrl+1..9 selects one.
-        //
-        // Registered on the TUNNEL route deliberately: Avalonia's KeyboardNavigationHandler
-        // watches KeyDown on the window (bubble) and marks arrows and Tab handled for focus
-        // movement, so a bubble-registered handler here would never see those keys - the same
-        // 1.x PreviewKeyDown semantics, rebuilt. The other keys fall through untouched.
-        AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
-        AddHandler(PointerPressedEvent, Window_PointerPressedTunnel, RoutingStrategies.Tunnel);
 
-        // Wheel: switch category, but only when the tile list cannot scroll any further.
-        // The handler is attached with handledEventsToo so it runs AFTER the presenter's own
-        // scroll handling: while the list can still scroll, the event arrives already handled
-        // and this does nothing; at an edge it arrives unhandled and the gesture becomes a tab
-        // change - 1.x's PreviewMouseWheel semantics, rebuilt for Avalonia's tunnel order.
-        // (FindControl, not the x:Name field: the named fields are not populated at ctor time
-        // in this setup - the same reason ApplyMaterial looks up RootBorder this way.)
-        if (this.FindControl<ScrollViewer>("TileScroll") is { } tileScroll)
-            tileScroll.AddHandler(PointerWheelChangedEvent, OnWheel, RoutingStrategies.Bubble,
-                handledEventsToo: true);
+        // 面板隐藏后再次 Show() 时 OnOpened 可能再次触发，事件处理器只绑定一次，避免累积重复触发。
+        if (!_openedWired)
+        {
+            _openedWired = true;
+
+            AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+            AddHandler(PointerPressedEvent, Window_PointerPressedTunnel, RoutingStrategies.Tunnel);
+
+            if (this.FindControl<ScrollViewer>("TileScroll") is { } tileScroll)
+                tileScroll.AddHandler(PointerWheelChangedEvent, OnWheel, RoutingStrategies.Bubble,
+                    handledEventsToo: true);
+
+            Deactivated += (_, _) =>
+            {
+                _arm.Deactivated();
+                if (DataContext is PanelViewModel { HideOnBlur: true }) Hide();
+            };
+
+            DragDrop.SetAllowDrop(this, true);
+            AddHandler(DragDrop.DragOverEvent, OnDragOver);
+            AddHandler(DragDrop.DropEvent, OnDrop);
+        }
 
         // Material follows the user's choice; the level is recorded because the compositor can
         // downgrade the request, and a panel that quietly fell back would look like a bug.
         ApplyMaterial();
         DiagnosticsLog.Line("material",
             "requested=" + RequestedMaterial + " actual=" + ActualTransparencyLevel);
-
-        // Hide when focus leaves, if the user asked for it. Worth knowing: a frameless panel can
-        // deactivate when its own context menu opens, so this is opt-in and never the default.
-        Deactivated += (_, _) =>
-        {
-            // A flyout or dialog taking activation ends any in-flight press, even though the
-            // release event will arrive on the popup and never here.
-            _arm.Deactivated();
-            if (DataContext is PanelViewModel { HideOnBlur: true }) Hide();
-        };
-
-        // Dropping files or a URL onto the panel adds them to the active category.
-        DragDrop.SetAllowDrop(this, true);
-        AddHandler(DragDrop.DragOverEvent, OnDragOver);
-        AddHandler(DragDrop.DropEvent, OnDrop);
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
@@ -84,12 +74,12 @@ public partial class PanelWindow : Window
                 return;
 
             case Key.Left:
-                vm.MoveTabLeftCommand.Execute(null);
+                vm.SwitchTabRelative(-1);
                 e.Handled = true;
                 return;
 
             case Key.Right:
-                vm.MoveTabRightCommand.Execute(null);
+                vm.SwitchTabRelative(1);
                 e.Handled = true;
                 return;
 
@@ -363,6 +353,8 @@ public partial class PanelWindow : Window
     // Avalonia 11 has no diagonal resize cursors, so corners share one; the 6 px corner zones
     // are too small for the difference to matter in practice.
     private static readonly Cursor CornerCursor = new(StandardCursorType.SizeAll);
+    private static readonly Cursor NorthSouthCursor = new(StandardCursorType.SizeNorthSouth);
+    private static readonly Cursor WestEastCursor = new(StandardCursorType.SizeWestEast);
 
     public const double ResizeBorder = 6;
     public const int EdgeN = 1, EdgeS = 2, EdgeE = 4, EdgeW = 8;
@@ -403,11 +395,6 @@ public partial class PanelWindow : Window
         // exactly right: neither is draggable.
         var point = e.GetPosition(this);
         var hit = DragButtonFrom(e.Source);
-        DiagnosticsLog.Line("drag", "press source=" + (e.Source?.GetType().Name ?? "null")
-            + " hit=" + (hit is null ? "none"
-                : hit.Tag is ItemViewModel it ? "tile:" + it.Id
-                : hit.Tag is TabViewModel tt ? "tab:" + tt.Id
-                : "other"));
         switch (hit)
         {
             case Button { Tag: ItemViewModel { IsAddTile: false } tile }:
@@ -465,8 +452,8 @@ public partial class PanelWindow : Window
             // Avalonia 11 has no diagonal resize cursors, so corners share one; the 6 px corner
             // zones are too small for the difference to matter in practice.
             var e when (e & (EdgeN | EdgeS)) != 0 && (e & (EdgeE | EdgeW)) != 0 => CornerCursor,
-            var e when (e & (EdgeN | EdgeS)) != 0 => new Cursor(StandardCursorType.SizeNorthSouth),
-            var e when (e & (EdgeE | EdgeW)) != 0 => new Cursor(StandardCursorType.SizeWestEast),
+            var e when (e & (EdgeN | EdgeS)) != 0 => NorthSouthCursor,
+            var e when (e & (EdgeE | EdgeW)) != 0 => WestEastCursor,
             _ => null,
         };
     }
@@ -583,23 +570,24 @@ public partial class PanelWindow : Window
         var y = (double)_resizeWindowOrigin.Y;
         var w = _resizeOriginalSize.Width * scale;
         var h = _resizeOriginalSize.Height * scale;
+        // 先记录拖动前的右边界/下边界，防止缩到最小尺寸后继续拖动导致整窗漂移。
+        var rightEdge = x + w;
+        var bottomEdge = y + h;
 
         if ((_resizeEdges & EdgeE) != 0) w += dx;
         if ((_resizeEdges & EdgeS) != 0) h += dy;
-        if ((_resizeEdges & EdgeW) != 0) { x += dx; w -= dx; }
-        if ((_resizeEdges & EdgeN) != 0) { y += dy; h -= dy; }
+        if ((_resizeEdges & EdgeW) != 0) w -= dx;
+        if ((_resizeEdges & EdgeN) != 0) h -= dy;
 
         var minW = MinWidth * scale;
         var minH = MinHeight * scale;
         if (w < minW) w = minW;
         if (h < minH) h = minH;
 
-        // Keep the whole window inside the work area it mostly sits on. When the min size or the
-        // screen stops a west/north resize, re-derive the position so the opposite edge stays
-        // where the user left it — not pinned to the work-area border.
+        if ((_resizeEdges & EdgeW) != 0) x = rightEdge - w;
+        if ((_resizeEdges & EdgeN) != 0) y = bottomEdge - h;
+
         var area = BestArea(x, y, w, h);
-        var rightEdge = x + w;
-        var bottomEdge = y + h;
         if (w > area.Width) w = area.Width;
         if (h > area.Height) h = area.Height;
         if ((_resizeEdges & EdgeW) != 0) x = rightEdge - w;

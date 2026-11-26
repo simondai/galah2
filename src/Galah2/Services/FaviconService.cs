@@ -64,10 +64,10 @@ public static class FaviconService
                 var bytes = await TryDownloadAsync(http, probe, timeout.Token).ConfigureAwait(false);
                 if (bytes is null) continue;
 
-                if (!IsProbablyImage(bytes, out var reason))
+                if (!IsProbablyImage(bytes, out var ext, out var reason))
                     return new FaviconResult(false, null, reason);
 
-                var stored = Save(bytes, itemId, paths);
+                var stored = Save(bytes, ext, itemId, paths);
                 return stored is null
                     ? new FaviconResult(false, null, "图标保存失败")
                     : new FaviconResult(true, stored, "已获取图标");
@@ -128,15 +128,16 @@ public static class FaviconService
         }
     }
 
-    private static string? Save(byte[] bytes, string itemId, AppDataPaths paths)
+    private static string? Save(byte[] bytes, string ext, string itemId, AppDataPaths paths)
     {
         try
         {
             Directory.CreateDirectory(paths.IconOverrideDirectory);
-            var key = IconService.ContentHash(Convert.ToHexString(bytes));
+            // 直接对原始字节算 SHA-256，避免先转成 2 倍大小的 Hex 字符串再 UTF-8 编码。
+            var key = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant()[..12];
             var safe = new string(itemId.Where(c => char.IsLetterOrDigit(c) || c is '-' or '_').ToArray());
             if (safe.Length == 0) safe = "item";
-            var file = Path.Combine(paths.IconOverrideDirectory, $"web-{safe}-{key[..12]}.png");
+            var file = Path.Combine(paths.IconOverrideDirectory, $"web-{safe}-{key}{ext}");
             if (!File.Exists(file)) File.WriteAllBytes(file, bytes);
             return PathNorm.ToStored(file);
         }
@@ -149,8 +150,9 @@ public static class FaviconService
     /// <summary>
     /// Magic-number gate so a friendly 404 page served with status 200 never becomes an icon.
     /// </summary>
-    private static bool IsProbablyImage(byte[] bytes, out string reason)
+    private static bool IsProbablyImage(byte[] bytes, out string extension, out string reason)
     {
+        extension = ".png";
         reason = "";
         if (bytes.Length < 12)
         {
@@ -158,12 +160,12 @@ public static class FaviconService
             return false;
         }
 
-        if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) return true;   // PNG
-        if (bytes[0] == 0xFF && bytes[1] == 0xD8) return true;                                          // JPEG
-        if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46) return true;                       // GIF
-        if (bytes[0] == 0 && bytes[1] == 0 && bytes[2] == 1 && bytes[3] == 0) return true;               // ICO
+        if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) { extension = ".png"; return true; }
+        if (bytes[0] == 0xFF && bytes[1] == 0xD8) { extension = ".jpg"; return true; }
+        if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46) { extension = ".gif"; return true; }
+        if (bytes[0] == 0 && bytes[1] == 0 && bytes[2] == 1 && bytes[3] == 0) { extension = ".ico"; return true; }
         if (bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46
-            && bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50) return true; // WebP
+            && bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50) { extension = ".webp"; return true; }
 
         reason = "返回的不是图片（可能是网页）";
         return false;

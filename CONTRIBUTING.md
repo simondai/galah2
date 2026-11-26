@@ -37,7 +37,7 @@
 dotnet build Galah2.sln -c Release
 dotnet run --project tools/ComProbe         -c Release   # 11
 dotnet run --project tools/IconProbe        -c Release   # 8 调用点 / 12 行
-dotnet run --project tools/SettingsProbe    -c Release   # 27 调用点 / 29 行
+dotnet run --project tools/SettingsProbe    -c Release   # 27 调用点 / 28 行
 dotnet run --project tools/PanelProbe       -c Release   # 126
 dotnet run --project tools/DialogProbe      -c Release   # 60
 dotnet run --project tools/GeometryProbe    -c Release   # 14
@@ -68,7 +68,7 @@ powershell -ExecutionPolicy Bypass -File tools/publish-aot.ps1
 ```
 `artifact/` 整个目录就是交付物。发布说明要写：本次改了什么、怎么验、怎么回滚。
 
-回滚方式：1.x 在 `main` 分支完整可用；2.0 出问题时用户可退回上一版 `artifact/`（整个目录替换）。
+回滚方式：1.x 在独立仓库 `simondai/galah` 的 `main` 分支完整可用；2.0 出问题时用户可退回上一版 `artifact/`（整个目录替换）。
 
 ### 9. 验证与维护
 发布后记录实际表现（内存、体积、启动）。发现的问题进入下一轮第 1 步，而不是就地打补丁。

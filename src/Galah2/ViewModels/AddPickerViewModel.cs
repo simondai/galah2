@@ -108,10 +108,10 @@ public sealed class AddPickerViewModel : ObservableObject
     private readonly CatalogStore _catalog;
     private readonly string _tabId;
     private readonly CatalogSourceService _sources = new();
+    private readonly Dictionary<SeedCategory, IReadOnlyList<CatalogSeed>> _cachedSeeds = new();
     private SeedCategoryViewModel? _selected;
     private string _filter = "";
     private bool _isBusy;
-    private int _totalSeeds;
 
     public AddPickerViewModel(CatalogStore catalog, string tabId)
     {
@@ -170,12 +170,12 @@ public sealed class AddPickerViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            // Enumerate every category once so the chip counts are real numbers, not guesses.
+            // 后台一次性枚举并缓存，切换分类时直接复用，不再在 UI 线程重复同步扫描。
             foreach (var category in Categories)
             {
                 var seeds = await Task.Run(() => _sources.Enumerate(category.Category)).ConfigureAwait(true);
+                _cachedSeeds[category.Category] = seeds;
                 category.Count = seeds.Count;
-                _totalSeeds += seeds.Count;
             }
 
             SelectCategory(Categories.FirstOrDefault());
@@ -191,7 +191,12 @@ public sealed class AddPickerViewModel : ObservableObject
         _selected = category;
 
         AllSeeds.Clear();
-        foreach (var seed in _sources.Enumerate(category.Category))
+        if (!_cachedSeeds.TryGetValue(category.Category, out var seeds))
+        {
+            seeds = _sources.Enumerate(category.Category);
+            _cachedSeeds[category.Category] = seeds;
+        }
+        foreach (var seed in seeds)
         {
             var vm = new SeedViewModel(seed);
             vm.Changed += OnSeedChanged;

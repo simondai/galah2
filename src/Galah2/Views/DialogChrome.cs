@@ -29,4 +29,13 @@ public static class DialogChrome
     {
         if (sender is Window window) window.Close();
     }
+
+    /// <summary>Borderless dialogs have no OS Escape dismissal; close on Escape consistently.</summary>
+    public static bool HandleEscape(Window window, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return false;
+        window.Close();
+        e.Handled = true;
+        return true;
+    }
 }

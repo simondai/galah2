@@ -36,6 +36,8 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _hideOnLaunch;
     private bool _hideOnBlur;
     private bool _autoStart;
+    private bool _gpuAcceleration;
+    private string _gpuAccelerationMessage = "";
     private bool _wheelSwitchTab;
     private bool _numberKeysSwitchTab;
 
@@ -264,6 +266,25 @@ public sealed class SettingsViewModel : ObservableObject
         private set => Set(ref _autoStartMessage, value);
     }
 
+    /// <summary>启用 GPU 硬件加速（重启后生效；默认关闭以大幅降低内存占用）。</summary>
+    public bool GpuAcceleration
+    {
+        get => _gpuAcceleration;
+        set
+        {
+            if (!Set(ref _gpuAcceleration, value)) return;
+            _store.Current.GpuAcceleration = value;
+            Commit();
+            GpuAccelerationMessage = "已保存，重启 Galah 后生效";
+        }
+    }
+
+    public string GpuAccelerationMessage
+    {
+        get => _gpuAccelerationMessage;
+        private set => Set(ref _gpuAccelerationMessage, value);
+    }
+
     public bool WheelSwitchTab
     {
         get => _wheelSwitchTab;
@@ -336,6 +357,8 @@ public sealed class SettingsViewModel : ObservableObject
         _hideOnLaunch = s.HideOnLaunch;
         _hideOnBlur = s.HideOnBlur;
         _showAddTile = s.ShowAddTile;
+        _gpuAcceleration = s.GpuAcceleration;
+        _gpuAccelerationMessage = "";
         _wheelSwitchTab = s.WheelSwitchTab;
         _numberKeysSwitchTab = s.NumberKeysSwitchTab;
 
@@ -349,9 +372,9 @@ public sealed class SettingsViewModel : ObservableObject
                      nameof(HotkeyText), nameof(HotkeyHint), nameof(ThemeIndex),
                      nameof(IconSizeIndex), nameof(TabFontSizeIndex), nameof(TabPositionIndex), nameof(ClickModeIndex),
                      nameof(MaterialIndex), nameof(PlacementIndex),
-                     nameof(HideOnLaunch), nameof(HideOnBlur), nameof(AutoStart),
-                     nameof(AutoStartMessage), nameof(WheelSwitchTab),
-                     nameof(NumberKeysSwitchTab), nameof(DataFolder), nameof(ShortcutMessage)
+                     nameof(HideOnLaunch), nameof(HideOnBlur), nameof(ShowAddTile), nameof(AutoStart),
+                     nameof(AutoStartMessage), nameof(GpuAcceleration), nameof(GpuAccelerationMessage),
+                     nameof(WheelSwitchTab), nameof(NumberKeysSwitchTab), nameof(DataFolder), nameof(ShortcutMessage)
                  })
             Raise(name);
     }

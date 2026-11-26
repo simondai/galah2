@@ -1,5 +1,4 @@
 using Galah2.Models;
-using Galah2.Persistence;
 using Microsoft.Win32;
 
 namespace Galah2.Services.CatalogSources;
@@ -17,8 +16,9 @@ public sealed class SystemToolsSource : ICatalogSource
     public SeedCategory Category => SeedCategory.SystemTools;
 
     private static readonly string Sys32 = Environment.GetFolderPath(Environment.SpecialFolder.System);
+    private static readonly string WinDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
 
-    // (display name, exe path relative to System32, args, note)
+    // (display name, exe path relative to System32 or Windows, args, note)
     private static readonly (string Name, string Exe, string? Args, string? Note)[] Tools =
     [
         ("任务管理器", "Taskmgr.exe", null, "系统监视与进程管理"),
@@ -33,18 +33,16 @@ public sealed class SystemToolsSource : ICatalogSource
         ("资源监视器", "resmon.exe", null, "CPU/磁盘/网络占用"),
         ("计划任务", "taskschd.msc", null, "定时任务"),
         ("控制面板", "control.exe", null, "经典控制面板"),
-        ("网络和共享中心", "control.exe", "netsharingcenter", null),
+        ("网络和共享中心", "control.exe", "/name Microsoft.NetworkAndSharingCenter", null),
         ("网络连接", "ncpa.cpl", null, "适配器与代理"),
         ("电源选项", "control.exe", "powercfg.cpl", null),
         ("系统属性", "control.exe", "sysdm.cpl", null),
         ("程序和功能", "appwiz.cpl", null, "已安装程序"),
         ("日期和时间", "timedate.cpl", null, "经典设置"),
         ("区域设置", "intl.cpl", null, "格式与位置"),
-        ("键盘属性", "input.dll?ShowKeyboardProperties", null, "经典设置"),
         ("鼠标属性", "main.cpl", null, "指针与按钮"),
         ("声音设置", "mmsys.cpl", null, "播放/录制设备"),
-        ("Windows 更新", "usoclient.exe", "StartUpdatePage", null),
-        ("有效访问中心", "easeaccess.cpl", null, "辅助功能"),
+        ("轻松访问中心", "control.exe", "/name Microsoft.EaseOfAccessCenter", "辅助功能"),
         ("DirectX 诊断工具", "dxdiag.exe", null, "多媒体诊断"),
         ("系统信息", "msinfo32.exe", null, "硬件与软件摘要"),
         ("系统还原", "rstrui.exe", null, "还原点"),
@@ -60,9 +58,9 @@ public sealed class SystemToolsSource : ICatalogSource
 
         foreach (var (name, exe, args, note) in Tools)
         {
-            // .cpl/.msc applets and shell::: GUIDs need ShellExecute, not CreateProcess; they are
-            // modelled as protocol/file items below so the launcher picks the right verb.
+            // 先查 System32，再查 Windows 目录（regedit.exe、explorer.exe 位于 Windows 根目录）。
             var path = Path.Combine(Sys32, exe);
+            if (!File.Exists(path)) path = Path.Combine(WinDir, exe);
             if (!File.Exists(path)) continue;
             if (!seen.Add(path + "|" + (args ?? ""))) continue;
 

@@ -70,8 +70,11 @@ public static class MigrationService
     {
         var dir = ExportDirectory(paths);
         Directory.CreateDirectory(dir);
-        var file = Path.Combine(dir, "galah-export-" +
-            DateTime.Now.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture) + ".json");
+        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+        var file = Path.Combine(dir, $"galah-export-{stamp}.json");
+        var suffix = 1;
+        while (File.Exists(file))
+            file = Path.Combine(dir, $"galah-export-{stamp}-{suffix++}.json");
 
         var bundle = new MigrationBundle
         {
@@ -131,16 +134,15 @@ public static class MigrationService
     {
         var dropped = 0;
         var added = 0;
+        var clean = Sanitize(bundle.Catalog, out dropped);
 
         if (replace)
         {
-            var clean = Sanitize(bundle.Catalog, out dropped);
             catalogStore.ReplaceWith(clean);
             added = clean.Tabs.Sum(t => t.Items.Count);
         }
         else
         {
-            var clean = Sanitize(bundle.Catalog, out dropped);
             foreach (var tab in clean.TabsInOrder())
             {
                 var existing = catalogStore.Current.Tabs.FirstOrDefault(
@@ -148,11 +150,6 @@ public static class MigrationService
                 if (existing is null)
                 {
                     var created = catalogStore.AddTab(tab.Name);
-                    foreach (var item in tab.Items)
-                    {
-                        item.Id = Ids.NewItemId();   // never reuse ids from another library
-                        item.Order = 0;
-                    }
                     catalogStore.AddItems(created.Id, tab.Items);
                     added += tab.Items.Count;
                 }
@@ -160,7 +157,6 @@ public static class MigrationService
                 {
                     var fresh = tab.Items
                         .Where(i => !existing.Items.Any(e => Same(e, i)))
-                        .Select(i => { i.Id = Ids.NewItemId(); i.Order = 0; return i; })
                         .ToList();
                     if (fresh.Count > 0)
                     {
@@ -171,17 +167,44 @@ public static class MigrationService
             }
         }
 
-        // Import replaces the whole settings snapshot. Nine explicit assignments used to drop
-        // TabFontSize / PanelMaterial / PanelPlacement / the wheel+number-key switches / ShowAddTile
-        // and every RandPass preference without telling the user.
-        var incoming = bundle.Settings.Sanitized();
+        // Import replaces the whole settings snapshot (null-safe when a hand-edited bundle omits it).
+        var incoming = (bundle.Settings ?? new SettingsDocument()).Sanitized();
         settingsStore.Replace(incoming);
-        return new ImportOutcome(bundle.Catalog.Tabs.Count, added, dropped, replace);
+        return new ImportOutcome(clean.Tabs.Count, added, dropped, replace);
     }
 
     /// <summary>Reject items the current build cannot represent (forward-safe import).</summary>
-    private static CatalogDocument Sanitize(CatalogDocument source, out int dropped)
+    private static CatalogDocument Sanitize(CatalogDocument? source, out int dropped)
     {
+        if (source is null)
+        {
+            dropped = 0;
+            return new CatalogDocument();
+        }
+
+        // 归一化外部 JSON 中可能出现的字段级 null，避免后续 Clone/遍历空引用崩溃。
+        source.ProfileId ??= "local";
+        source.Tabs ??= new List<CatalogTab>();
+        for (var t = source.Tabs.Count - 1; t >= 0; t--)
+        {
+            var tab = source.Tabs[t];
+            if (tab is null) { source.Tabs.RemoveAt(t); continue; }
+            tab.Id ??= "";
+            tab.Name ??= "";
+            tab.Items ??= new List<CatalogItem>();
+            for (var i = tab.Items.Count - 1; i >= 0; i--)
+            {
+                var item = tab.Items[i];
+                if (item is null) { tab.Items.RemoveAt(i); continue; }
+                item.Id ??= "";
+                item.Kind ??= "";
+                item.Name ??= "";
+                item.Target ??= "";
+                item.Icon ??= new IconReference();
+                item.Icon.Mode ??= IconModes.Auto;
+            }
+        }
+
         var result = source.CloneTabs();
         var count = 0;
         foreach (var tab in result.Tabs)

@@ -12,14 +12,9 @@
         Background="Transparent">
   <Window.Styles>
     <Style Selector="TextBlock.label">
-      <Setter Property="FontSize" Value="12" />
-      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
-      <Setter Property="Margin" Value="0,0,0,4" />
-    </Style>
-    <Style Selector="TextBlock.error">
-      <Setter Property="FontSize" Value="11.5" />
-      <Setter Property="Foreground" Value="{DynamicResource ErrorTextBrush}" />
-      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="Margin" Value="0,0,0,5" />
     </Style>
   </Window.Styles>
 
@@ -29,10 +24,11 @@
           CornerRadius="10" BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1">
     <DockPanel>
       <!-- Custom title bar: title, drag, close (the system bar is gone). -->
-      <Border DockPanel.Dock="Top" Height="34" Background="{DynamicResource ElevatedBrush}"
+      <Border DockPanel.Dock="Top" Height="36" Background="{DynamicResource ElevatedBrush}"
+              BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,0,0,1"
               CornerRadius="10,10,0,0" PointerPressed="TitleBar_Drag">
         <Grid ColumnDefinitions="*,Auto">
-          <TextBlock Grid.Column="0" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="13"
+          <TextBlock Grid.Column="0" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13"
                      FontWeight="SemiBold" Foreground="{DynamicResource TextStrongBrush}"
                      Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" />
           <Button Grid.Column="1" Classes="chip" Content="✕" FontSize="13" Padding="8,0"
@@ -41,25 +37,29 @@
       </Border>
   <DockPanel Margin="20,16,20,16">
     <!-- Actions on the left, dismiss on the right: 1.x's button-order rule. -->
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right"
-                Spacing="8" Margin="0,14,0,0">
-      <Button Content="取消" Command="{Binding CancelCommand}" />
-      <Button Content="保存" Command="{Binding SaveCommand}" IsEnabled="{Binding CanSave}"
-              Background="{DynamicResource AccentSurfaceBrush}" Foreground="{DynamicResource WindowBrush}" />
-    </StackPanel>
+    <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,0"
+            Margin="0,14,0,0" Padding="0,10,0,0">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button Content="取消" Command="{Binding CancelCommand}" />
+        <Button Content="保存" Command="{Binding SaveCommand}" IsEnabled="{Binding CanSave}" BorderThickness="0"
+                Background="{DynamicResource AccentSurfaceBrush}" Foreground="{DynamicResource WindowBrush}" />
+      </StackPanel>
+    </Border>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
       <StackPanel Spacing="12">
-        <Grid ColumnDefinitions="64,*">
-          <Border Grid.Column="0" Width="56" Height="56" CornerRadius="10" Background="{DynamicResource ElevatedBrush}">
-            <Image Source="{Binding IconPreview}" Width="48" Height="48" Stretch="Uniform" />
+        <Grid ColumnDefinitions="68,*">
+          <Border Grid.Column="0" Width="56" Height="56" CornerRadius="10" HorizontalAlignment="Left"
+                  Background="{DynamicResource ElevatedBrush}"
+                  BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1">
+            <Image Source="{Binding IconPreview}" Width="44" Height="44" Stretch="Uniform" />
           </Border>
           <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
-            <TextBlock Classes="label" Text="图标" />
+            <TextBlock Classes="label" Text="图标" Margin="0" />
             <StackPanel Orientation="Horizontal" Spacing="6">
-              <Button Content="选择图片…" Command="{Binding PickIconCommand}" FontSize="11" />
-              <Button Content="从目标抓取" Command="{Binding FetchIconCommand}" FontSize="11" />
-              <Button Content="重置" Command="{Binding ResetIconCommand}" FontSize="11" />
+              <Button Content="选择图片…" Command="{Binding PickIconCommand}" FontSize="11.5" Padding="10,4" />
+              <Button Content="从目标抓取" Command="{Binding FetchIconCommand}" FontSize="11.5" Padding="10,4" />
+              <Button Content="重置" Command="{Binding ResetIconCommand}" FontSize="11.5" Padding="10,4" />
             </StackPanel>
           </StackPanel>
         </Grid>
@@ -74,12 +74,12 @@
           <Grid ColumnDefinitions="*,Auto">
             <TextBox Grid.Column="0" Text="{Binding TargetText, Mode=TwoWay}" FontSize="13" />
             <Button Grid.Column="1" Content="浏览…" Command="{Binding BrowseTargetCommand}"
-                    FontSize="11" Margin="6,0,0,0" />
+                    FontSize="11.5" Margin="8,0,0,0" VerticalAlignment="Center" />
           </Grid>
         </StackPanel>
 
         <StackPanel IsVisible="{Binding SuggestKind}">
-          <Button Command="{Binding ApplySuggestedKindCommand}" FontSize="11"
+          <Button Command="{Binding ApplySuggestedKindCommand}" FontSize="11.5"
                   HorizontalAlignment="Left" Content="看起来是别的类型，改用建议类型" />
         </StackPanel>
 
@@ -93,12 +93,12 @@
           <Grid ColumnDefinitions="*,Auto">
             <TextBox Grid.Column="0" Text="{Binding WorkingDirectory, Mode=TwoWay}" FontSize="13" />
             <Button Grid.Column="1" Content="浏览…" Command="{Binding BrowseWorkdirCommand}"
-                    FontSize="11" Margin="6,0,0,0" />
+                    FontSize="11.5" Margin="8,0,0,0" VerticalAlignment="Center" />
           </Grid>
         </StackPanel>
 
         <CheckBox IsChecked="{Binding RunAsAdmin, Mode=TwoWay}" Content="以管理员身份运行"
-                  FontSize="13" />
+                  FontSize="12.5" Margin="0,2,0,0" />
 
         <TextBlock Classes="error" Text="{Binding ErrorText}" IsVisible="{Binding HasErrors}" />
       </StackPanel>

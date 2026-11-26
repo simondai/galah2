@@ -264,6 +264,7 @@ public sealed class JsonFileStore<T> where T : class, ISchemaBearing, new()
     {
         var dir = Path.GetDirectoryName(_mainPath)!;
         Exception? last = null;
+        var backupsRolled = false;
         for (var attempt = 0; attempt < 4; attempt++)
         {
             try
@@ -278,7 +279,12 @@ public sealed class JsonFileStore<T> where T : class, ISchemaBearing, new()
                         fs.Write(payload, 0, payload.Length);
                         fs.Flush(true);           // fsync before the rename (spec §1 write model)
                     }
-                    RollBackups();
+                    // 每次保存只滚动一次备份，防止重试时反复拷贝把历史 .bak.2 冲掉。
+                    if (!backupsRolled)
+                    {
+                        RollBackups();
+                        backupsRolled = true;
+                    }
                     Install(temp, _mainPath);
                 }
                 finally

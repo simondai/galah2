@@ -27,7 +27,7 @@
       <Color x:Key="PaletteErrorText">#FF8A8A</Color>
       <Color x:Key="PaletteTilePlaceholder">#2A2A2E</Color>
       <Color x:Key="PaletteIconPlate">#2A2A2E</Color>
-      <!-- The panel fill is deliberately translucent so the Mica backdrop shows through. -->
+      <!-- Translucent fill (alpha blended; true Mica is not used on the transparent rounded window). -->
       <Color x:Key="PalettePanelFill">#E8232327</Color>
       <!-- Fully opaque variant: the "不透明" material must actually look solid. -->
       <Color x:Key="PalettePanelFillOpaque">#FF232327</Color>
@@ -58,8 +58,6 @@
   </ResourceDictionary.ThemeDictionaries>
 
   <!-- Brushes over the tokens: styles bind to brushes, not colours. -->
-  <SolidColorBrush x:Key="CanvasBrush" Color="{DynamicResource PaletteCanvas}" />
-  <SolidColorBrush x:Key="ChromeBrush" Color="{DynamicResource PaletteChrome}" />
   <SolidColorBrush x:Key="ElevatedBrush" Color="{DynamicResource PaletteElevated}" />
   <SolidColorBrush x:Key="HoverBrush" Color="{DynamicResource PaletteHover}" />
   <SolidColorBrush x:Key="PressedBrush" Color="{DynamicResource PalettePressed}" />
@@ -70,12 +68,10 @@
   <SolidColorBrush x:Key="TextFaintBrush" Color="{DynamicResource PaletteTextFaint}" />
   <SolidColorBrush x:Key="WindowBrush" Color="{DynamicResource PaletteWindow}" />
   <SolidColorBrush x:Key="AccentSurfaceBrush" Color="{DynamicResource PaletteAccentSurface}" />
-  <SolidColorBrush x:Key="AccentForegroundBrush" Color="{DynamicResource PaletteAccentForeground}" />
   <SolidColorBrush x:Key="DangerSurfaceBrush" Color="{DynamicResource PaletteDangerSurface}" />
   <SolidColorBrush x:Key="DangerTextBrush" Color="{DynamicResource PaletteDangerText}" />
   <SolidColorBrush x:Key="ErrorTextBrush" Color="{DynamicResource PaletteErrorText}" />
   <SolidColorBrush x:Key="TilePlaceholderBrush" Color="{DynamicResource PaletteTilePlaceholder}" />
-  <SolidColorBrush x:Key="IconPlateBrush" Color="{DynamicResource PaletteIconPlate}" />
   <SolidColorBrush x:Key="PanelFillBrush" Color="{DynamicResource PalettePanelFill}" />
   <SolidColorBrush x:Key="PanelFillOpaqueBrush" Color="{DynamicResource PalettePanelFillOpaque}" />
   <!-- Dialog surfaces: the opaque panel fill. Dialogs keep the system title bar (light

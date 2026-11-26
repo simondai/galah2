@@ -18,6 +18,12 @@ public partial class MaintenanceWindow : Window
             vm.CloseRequested += Close;
     }
 
+    protected override void OnKeyDown(Avalonia.Input.KeyEventArgs e)
+    {
+        if (DialogChrome.HandleEscape(this, e)) return;
+        base.OnKeyDown(e);
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         if (DataContext is ViewModels.MaintenanceViewModel vm)

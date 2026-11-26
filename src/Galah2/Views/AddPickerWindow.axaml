@@ -16,10 +16,11 @@
           CornerRadius="10" BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1">
     <DockPanel>
       <!-- Custom title bar: title, drag, close (the system bar is gone). -->
-      <Border DockPanel.Dock="Top" Height="34" Background="{DynamicResource ElevatedBrush}"
+      <Border DockPanel.Dock="Top" Height="36" Background="{DynamicResource ElevatedBrush}"
+              BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,0,0,1"
               CornerRadius="10,10,0,0" PointerPressed="TitleBar_Drag">
         <Grid ColumnDefinitions="*,Auto">
-          <TextBlock Grid.Column="0" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="13"
+          <TextBlock Grid.Column="0" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13"
                      FontWeight="SemiBold" Foreground="{DynamicResource TextStrongBrush}"
                      Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" />
           <Button Grid.Column="1" Classes="chip" Content="✕" FontSize="13" Padding="8,0"
@@ -27,13 +28,15 @@
         </Grid>
       </Border>
   <DockPanel Margin="18,14,18,14">
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right"
-                Spacing="8" Margin="0,12,0,0">
-      <Button Content="取消" Command="{Binding CancelCommand}" />
-      <Button Content="{Binding CommitLabel}" Command="{Binding CommitCommand}"
-              IsEnabled="{Binding HasSelection}"
-              Background="{DynamicResource AccentSurfaceBrush}" Foreground="{DynamicResource WindowBrush}" />
-    </StackPanel>
+    <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,0"
+            Margin="0,12,0,0" Padding="0,10,0,0">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button Content="取消" Command="{Binding CancelCommand}" />
+        <Button Content="{Binding CommitLabel}" Command="{Binding CommitCommand}"
+                IsEnabled="{Binding HasSelection}" BorderThickness="0"
+                Background="{DynamicResource AccentSurfaceBrush}" Foreground="{DynamicResource WindowBrush}" />
+      </StackPanel>
+    </Border>
 
     <!-- category chips -->
     <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Categories}" Margin="0,0,0,10">
@@ -47,60 +50,61 @@
           <Button Content="{Binding Label}"
                   Classes="chip" Classes.active="{Binding IsActive}"
                   Command="{Binding $parent[ItemsControl].((vm:AddPickerViewModel)DataContext).SelectCategoryCommand}"
-                  CommandParameter="{Binding}" Margin="0,0,6,6" />
+                  CommandParameter="{Binding}" Margin="0,0,6,4" />
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
 
     <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
       <TextBox Grid.Column="0" Text="{Binding Filter, Mode=TwoWay}" FontSize="12"
-               Watermark="筛选…" />
+               VerticalAlignment="Center" Watermark="筛选…" />
       <Button Grid.Column="1" Content="全选/全不选" Command="{Binding ToggleAllCommand}"
-              FontSize="11" Margin="6,0,0,0" />
-      <TextBlock Grid.Column="2" Text="{Binding CountLabel}" FontSize="11"
+              FontSize="11.5" Margin="8,0,0,0" VerticalAlignment="Center" />
+      <TextBlock Grid.Column="2" Text="{Binding CountLabel}" FontSize="11.5"
                  Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
     </Grid>
 
-    <Panel>
-      <TextBlock Text="正在枚举…" Foreground="{DynamicResource TextFaintBrush}" FontSize="12"
-                 HorizontalAlignment="Center" VerticalAlignment="Center"
-                 IsVisible="{Binding IsBusy}" />
-      <TextBlock Text="这个分类没有可用项" Foreground="{DynamicResource TextFaintBrush}" FontSize="12"
-                 HorizontalAlignment="Center" VerticalAlignment="Center"
-                 IsVisible="{Binding HasNothing}" />
+    <Border CornerRadius="8" Background="{DynamicResource ElevatedBrush}"
+            BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1" Padding="6,4">
+      <Panel>
+        <TextBlock Text="正在枚举…" Foreground="{DynamicResource TextFaintBrush}" FontSize="12"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   IsVisible="{Binding IsBusy}" />
+        <TextBlock Text="这个分类没有可用项" Foreground="{DynamicResource TextFaintBrush}" FontSize="12"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   IsVisible="{Binding HasNothing}" />
 
-      <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <ItemsControl ItemsSource="{Binding Visible}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:SeedViewModel">
-              <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,2,0,2">
-                <!-- Icon, name, note: the same three-part row 1.x used, so candidates are
-                     recognisable at a glance instead of being a wall of text. -->
-                <StackPanel Orientation="Horizontal" Spacing="10">
-                  <Panel Width="32" Height="32" VerticalAlignment="Center">
-                    <Border CornerRadius="5" Background="{DynamicResource TilePlaceholderBrush}"
-                            IsVisible="{Binding !HasIcon}">
-                      <TextBlock Text="{Binding Initial}" FontSize="13"
-                                 Foreground="{DynamicResource TextPrimaryBrush}"
-                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                    <Image Source="{Binding Icon}" Width="32" Height="32"
-                           IsVisible="{Binding HasIcon}" />
-                  </Panel>
-                  <StackPanel VerticalAlignment="Center" Spacing="1">
-                    <TextBlock Text="{Binding Name}" FontSize="12.5"
-                               TextTrimming="CharacterEllipsis" MaxWidth="330" />
-                    <TextBlock Text="{Binding Note}" FontSize="10.5"
-                               Foreground="{DynamicResource TextFaintBrush}"
-                               TextTrimming="CharacterEllipsis" MaxWidth="330" />
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,10,0">
+          <ItemsControl ItemsSource="{Binding Visible}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:SeedViewModel">
+                <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="4,4,4,4">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Panel Width="32" Height="32" VerticalAlignment="Center">
+                      <Border CornerRadius="6" Background="{DynamicResource TilePlaceholderBrush}"
+                              IsVisible="{Binding !HasIcon}">
+                        <TextBlock Text="{Binding Initial}" FontSize="13"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Border>
+                      <Image Source="{Binding Icon}" Width="32" Height="32"
+                             IsVisible="{Binding HasIcon}" />
+                    </Panel>
+                    <StackPanel VerticalAlignment="Center" Spacing="2">
+                      <TextBlock Text="{Binding Name}" FontSize="12.5"
+                                 TextTrimming="CharacterEllipsis" MaxWidth="320" />
+                      <TextBlock Text="{Binding Note}" FontSize="11"
+                                 Foreground="{DynamicResource TextFaintBrush}"
+                                 TextTrimming="CharacterEllipsis" MaxWidth="320" />
+                    </StackPanel>
                   </StackPanel>
-                </StackPanel>
-              </CheckBox>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </ScrollViewer>
-    </Panel>
+                </CheckBox>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Panel>
+    </Border>
     </DockPanel>
     </DockPanel>
   </Border>

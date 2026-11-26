@@ -55,7 +55,7 @@ public static class HotkeyParser
         ["slash"] = 0xBF, ["dot"] = 0xBE, ["semicolon"] = 0xBA, ["quote"] = 0xDE,
         ["bracketleft"] = 0xDB, ["bracketright"] = 0xDD, ["backslash"] = 0xDC,
         ["grave"] = 0xC0, ["tilde"] = 0xC0, ["capslock"] = 0x14,
-        ["printscreen"] = 0x2C, ["pause"] = 0x13, ["menu"] = 0x07, ["scrolllock"] = 0x91,
+        ["printscreen"] = 0x2C, ["pause"] = 0x13, ["menu"] = 0x5D, ["scrolllock"] = 0x91,
     };
 
     /// <summary>

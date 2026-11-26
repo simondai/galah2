@@ -41,7 +41,6 @@ public sealed class MaintenanceViewModel : ObservableObject
     private readonly AppDataPaths _paths;
     private MaintenancePreview? _preview;
     private string _status = "";
-    private bool _isDirty;
 
     public MaintenanceViewModel(CatalogStore catalog, SettingsStore settings, AppDataPaths paths)
     {
@@ -49,7 +48,7 @@ public sealed class MaintenanceViewModel : ObservableObject
         _settings = settings;
         _paths = paths;
 
-        RescanCommand = new RelayCommand(Rescan);
+        RescanCommand = new RelayCommand(() => Rescan(resetStatus: true));
         RemoveInvalidCommand = new RelayCommand(RemoveInvalid);
         RemoveDuplicatesCommand = new RelayCommand(RemoveDuplicates);
         SortCommand = new RelayCommand(SortAll);
@@ -58,7 +57,7 @@ public sealed class MaintenanceViewModel : ObservableObject
         ImportCommand = new RelayCommand(ImportAsync);
         CloseCommand = new RelayCommand(() => CloseRequested?.Invoke());
 
-        Rescan();
+        Rescan(resetStatus: true);
     }
 
     public event Action? CloseRequested;
@@ -94,7 +93,9 @@ public sealed class MaintenanceViewModel : ObservableObject
     public bool HasUnsorted => UnsortedTabs.Count > 0;
     public bool IsClean => !HasInvalid && !HasDuplicates && !HasUnsorted;
 
-    public void Rescan()
+    public void Rescan() => Rescan(resetStatus: true);
+
+    private void Rescan(bool resetStatus)
     {
         _preview = MaintenanceService.Preview(_catalog.Current);
 
@@ -114,7 +115,7 @@ public sealed class MaintenanceViewModel : ObservableObject
                  })
             Raise(n);
 
-        Status = "扫描完成，尚未改动任何内容";
+        if (resetStatus) Status = "扫描完成，尚未改动任何内容";
     }
 
     private void RemoveInvalid()
@@ -137,7 +138,7 @@ public sealed class MaintenanceViewModel : ObservableObject
     {
         if (_preview is null) return;
         var changed = MaintenanceService.SortAllTabs(_catalog, _preview);
-        Status = changed == 0 ? "所有分类本来就按名称有序" : $"已重排 {changed} 个分类";
+        Status = changed == 0 ? "所有分类本来就按名称有序" : $"已重排 {changed} 个条目";
         AfterCleanup();
     }
 
@@ -145,8 +146,7 @@ public sealed class MaintenanceViewModel : ObservableObject
     {
         var removed = MaintenanceService.ClearIconCache(_paths);
         Status = $"已清除 {removed} 个图标缓存文件，下次显示时会重建";
-        _isDirty = true;
-        Rescan();
+        AfterCleanup();
     }
 
     private void Export()
@@ -185,7 +185,7 @@ public sealed class MaintenanceViewModel : ObservableObject
 
             Status = $"已导入 {outcome.ItemsAdded} 个条目（{outcome.Tabs} 个分类），跳过 {outcome.ItemsDropped} 个";
             CatalogChanged?.Invoke();
-            Rescan();
+            Rescan(resetStatus: false);
         }
         catch (MigrationException ex) { Status = "导入被拒绝：" + ex.Message; }
         catch (Exception ex) { Status = "导入失败：" + ex.Message; }
@@ -193,8 +193,7 @@ public sealed class MaintenanceViewModel : ObservableObject
 
     private void AfterCleanup()
     {
-        _isDirty = true;
-        Rescan();
-        if (_isDirty) CatalogChanged?.Invoke();
+        Rescan(resetStatus: false);
+        CatalogChanged?.Invoke();
     }
 }

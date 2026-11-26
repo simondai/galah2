@@ -35,7 +35,7 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
     [JsonPropertyName("tabPosition")]
     public string TabPosition { get; set; } = TabPositions.Top;
 
-    /// <summary>Category chip label size: "small" | "medium" (default, the shipped 12 DIP) | "large".</summary>
+    /// <summary>Category chip label size: "small" | "medium" (default, 12 DIP) | "large" | "xlarge".</summary>
     [JsonPropertyName("tabFontSize")]
     public string TabFontSize { get; set; } = ChipFontSizes.Medium;
 
@@ -43,7 +43,6 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
     [JsonPropertyName("hideOnLaunch")]
     public bool HideOnLaunch { get; set; } = true;
 
-    /// <summary>Hide the panel when it loses focus. Default OFF (design §2.1 P-3).</summary>
     /// <summary>Panel surface material: opaque (default) or translucent so the desktop shows through.</summary>
     [JsonPropertyName("panelMaterial")]
     public string PanelMaterial { get; set; } = PanelMaterials.None;
@@ -60,6 +59,7 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
     [JsonPropertyName("numberKeysSwitchTab")]
     public bool NumberKeysSwitchTab { get; set; } = true;
 
+    /// <summary>Hide the panel when it loses focus. Default OFF (design §2.1 P-3).</summary>
     [JsonPropertyName("hideOnBlur")]
     public bool HideOnBlur { get; set; }
 
@@ -70,6 +70,10 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
     /// </summary>
     [JsonPropertyName("showAddTile")]
     public bool ShowAddTile { get; set; }
+
+    /// <summary>启用 GPU 硬件加速渲染（默认关闭以大幅降低内存占用；需重启生效）。</summary>
+    [JsonPropertyName("gpuAcceleration")]
+    public bool GpuAcceleration { get; set; }
 
     [JsonPropertyName("language")]
     public string Language { get; set; } = "zh-CN";
@@ -116,6 +120,7 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
         if (string.IsNullOrWhiteSpace(s.Language)) s.Language = "zh-CN";
         if (s.RandPassLength is < PasswordOptions.MinLength or > PasswordOptions.MaxLength) s.RandPassLength = 8;
         if (s.RandPassCount is < PasswordOptions.MinCount or > PasswordOptions.MaxCount) s.RandPassCount = 10;
+        s.RandPassCustomChars ??= PasswordOptions.DefaultCustomChars;
         if (Array.IndexOf(PasswordFormats.All, s.RandPassFormat) < 0) s.RandPassFormat = PasswordFormats.FourStarFour;
         return s;
     }
@@ -138,6 +143,7 @@ public sealed class SettingsDocument : Persistence.ISchemaBearing
         HideOnLaunch = HideOnLaunch,
         HideOnBlur = HideOnBlur,
         ShowAddTile = ShowAddTile,
+        GpuAcceleration = GpuAcceleration,
         Language = Language,
         RandPassLength = RandPassLength,
         RandPassCount = RandPassCount,

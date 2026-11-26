@@ -11,31 +11,37 @@
         Background="Transparent">
   <Window.Styles>
     <Style Selector="TextBlock.section">
-      <Setter Property="FontSize" Value="11" />
-      <Setter Property="Foreground" Value="{DynamicResource TextFaintBrush}" />
-      <Setter Property="Margin" Value="0,14,0,6" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextStrongBrush}" />
+      <Setter Property="Margin" Value="0,12,0,8" />
+    </Style>
+    <Style Selector="Border.divider">
+      <Setter Property="Height" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource HairlineBrush}" />
+      <Setter Property="Opacity" Value="0.6" />
+      <Setter Property="Margin" Value="0,12,0,0" />
     </Style>
     <Style Selector="TextBlock.rowTitle">
       <Setter Property="FontSize" Value="12.5" />
     </Style>
     <Style Selector="TextBlock.rowDetail">
-      <Setter Property="FontSize" Value="10.5" />
+      <Setter Property="FontSize" Value="11" />
       <Setter Property="Foreground" Value="{DynamicResource TextFaintBrush}" />
       <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
   </Window.Styles>
 
-  <!-- Borderless surface: the same rounded RootBorder grammar as PanelWindow - the window
-       itself is transparent, the surface, hairline and corners come from the Border.
-       CanResize stays on, so edges still resize the way the panel does (no OS border). -->
+  <!-- Borderless surface: the same rounded RootBorder grammar as PanelWindow. -->
   <Border x:Name="RootBorder" Background="{DynamicResource DialogSurfaceBrush}"
           CornerRadius="10" BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1">
     <DockPanel>
       <!-- Custom title bar: title, drag, close (the system bar is gone). -->
-      <Border DockPanel.Dock="Top" Height="34" Background="{DynamicResource ElevatedBrush}"
+      <Border DockPanel.Dock="Top" Height="36" Background="{DynamicResource ElevatedBrush}"
+              BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,0,0,1"
               CornerRadius="10,10,0,0" PointerPressed="TitleBar_Drag">
         <Grid ColumnDefinitions="*,Auto">
-          <TextBlock Grid.Column="0" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="13"
+          <TextBlock Grid.Column="0" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13"
                      FontWeight="SemiBold" Foreground="{DynamicResource TextStrongBrush}"
                      Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" />
           <Button Grid.Column="1" Classes="chip" Content="✕" FontSize="13" Padding="8,0"
@@ -43,21 +49,29 @@
         </Grid>
       </Border>
   <DockPanel Margin="18,14,18,14">
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right"
-                Spacing="8" Margin="0,12,0,0">
-      <Button Content="重新扫描" Command="{Binding RescanCommand}" />
-      <Button Content="关闭" Command="{Binding CloseCommand}" Background="{DynamicResource AccentSurfaceBrush}" Foreground="{DynamicResource WindowBrush}" />
-    </StackPanel>
+    <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,0"
+            Margin="0,12,0,0" Padding="0,10,0,0">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button Content="重新扫描" Command="{Binding RescanCommand}" />
+        <Button Content="关闭" Command="{Binding CloseCommand}" BorderThickness="0"
+                Background="{DynamicResource AccentSurfaceBrush}" Foreground="{DynamicResource WindowBrush}" />
+      </StackPanel>
+    </Border>
 
-    <StackPanel DockPanel.Dock="Top" Spacing="4">
-      <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
-      <TextBlock Text="{Binding Status}" FontSize="11" Foreground="{DynamicResource TextFaintBrush}" TextWrapping="Wrap" />
-    </StackPanel>
+    <Border DockPanel.Dock="Top" CornerRadius="8" Background="{DynamicResource ElevatedBrush}"
+            BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1" Padding="12,10">
+      <StackPanel Spacing="4">
+        <TextBlock Text="{Binding Summary}" FontSize="12.5" FontWeight="Medium"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
+        <TextBlock Text="{Binding Status}" FontSize="11.5" Foreground="{DynamicResource TextFaintBrush}"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0" Padding="0,0,10,0">
       <StackPanel>
-        <TextBlock Text="库维护" Classes="section" />
-        <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Text="库维护" Classes="section" Margin="0,6,0,8" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
           <Button Content="清理失效项" Command="{Binding RemoveInvalidCommand}"
                   IsEnabled="{Binding HasInvalid}" />
           <Button Content="移除重复项" Command="{Binding RemoveDuplicatesCommand}"
@@ -67,8 +81,9 @@
           <Button Content="重建图标缓存" Command="{Binding ClearCacheCommand}" />
         </StackPanel>
 
+        <Border Classes="divider" />
         <TextBlock Classes="section" Text="失效项" />
-        <TextBlock Text="没有失效项" FontSize="11" Foreground="{DynamicResource TextFaintBrush}"
+        <TextBlock Text="没有失效项" FontSize="11.5" Foreground="{DynamicResource TextFaintBrush}"
                    IsVisible="{Binding !HasInvalid}" />
         <ItemsControl ItemsSource="{Binding Invalid}">
           <ItemsControl.ItemTemplate>
@@ -81,8 +96,9 @@
           </ItemsControl.ItemTemplate>
         </ItemsControl>
 
+        <Border Classes="divider" />
         <TextBlock Classes="section" Text="重复项" />
-        <TextBlock Text="没有重复项" FontSize="11" Foreground="{DynamicResource TextFaintBrush}"
+        <TextBlock Text="没有重复项" FontSize="11.5" Foreground="{DynamicResource TextFaintBrush}"
                    IsVisible="{Binding !HasDuplicates}" />
         <ItemsControl ItemsSource="{Binding Duplicates}">
           <ItemsControl.ItemTemplate>
@@ -95,8 +111,9 @@
           </ItemsControl.ItemTemplate>
         </ItemsControl>
 
+        <Border Classes="divider" />
         <TextBlock Classes="section" Text="未排序的分类" />
-        <TextBlock Text="所有分类都已按名称排序" FontSize="11" Foreground="{DynamicResource TextFaintBrush}"
+        <TextBlock Text="所有分类都已按名称排序" FontSize="11.5" Foreground="{DynamicResource TextFaintBrush}"
                    IsVisible="{Binding !HasUnsorted}" />
         <ItemsControl ItemsSource="{Binding UnsortedTabs}">
           <ItemsControl.ItemTemplate>
@@ -106,13 +123,14 @@
           </ItemsControl.ItemTemplate>
         </ItemsControl>
 
+        <Border Classes="divider" />
         <TextBlock Classes="section" Text="迁移" />
-        <StackPanel Orientation="Horizontal" Spacing="6">
+        <StackPanel Orientation="Horizontal" Spacing="8">
           <Button Content="导出全部数据…" Command="{Binding ExportCommand}" />
           <Button Content="导入备份…" Command="{Binding ImportCommand}" />
         </StackPanel>
         <TextBlock Text="导出的 json 放在数据目录的 exports 子文件夹里。导入会把备份并入当前内容库，不会删除现有条目。"
-                   FontSize="10.5" Foreground="{DynamicResource TextFaintBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                   FontSize="11" Foreground="{DynamicResource TextFaintBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
       </StackPanel>
     </ScrollViewer>
     </DockPanel>

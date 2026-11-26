@@ -10,16 +10,41 @@
         ShowInTaskbar="False"
         SystemDecorations="None"
         Background="Transparent">
+  <Window.Styles>
+    <!-- 设置页局部排版：拉开分组标题与设置项标签的视觉层级，统一标签垂直居中、下拉框等宽。 -->
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextStrongBrush}" />
+      <Setter Property="Margin" Value="0,12,0,8" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Border.divider">
+      <Setter Property="Height" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource HairlineBrush}" />
+      <Setter Property="Opacity" Value="0.6" />
+      <Setter Property="Margin" Value="0,14,0,2" />
+    </Style>
+  </Window.Styles>
   <!-- Borderless surface: the same rounded RootBorder grammar as PanelWindow - the window
        itself is transparent, the surface, hairline and corners come from the Border. -->
   <Border x:Name="RootBorder" Background="{DynamicResource DialogSurfaceBrush}"
           CornerRadius="10" BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1">
     <DockPanel>
       <!-- Custom title bar: title, drag, close (the system bar is gone). -->
-      <Border DockPanel.Dock="Top" Height="34" Background="{DynamicResource ElevatedBrush}"
+      <Border DockPanel.Dock="Top" Height="36" Background="{DynamicResource ElevatedBrush}"
+              BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,0,0,1"
               CornerRadius="10,10,0,0" PointerPressed="TitleBar_Drag">
         <Grid ColumnDefinitions="*,Auto">
-          <TextBlock Grid.Column="0" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="13"
+          <TextBlock Grid.Column="0" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13"
                      FontWeight="SemiBold" Foreground="{DynamicResource TextStrongBrush}"
                      Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" />
           <Button Grid.Column="1" Classes="chip" Content="✕" FontSize="13" Padding="8,0"
@@ -29,23 +54,29 @@
   <!-- The combos bind ItemsSource to the view model's option arrays, so the label order and the
        index mapping live in one place and cannot drift apart. -->
   <DockPanel Margin="20,16,20,16">
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right"
-                Margin="0,12,0,0">
-      <Button Content="关闭" Command="{Binding CloseCommand}" />
-    </StackPanel>
+    <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,0"
+            Margin="0,12,0,0" Padding="0,10,0,0">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Content="关闭" Command="{Binding CloseCommand}" />
+      </StackPanel>
+    </Border>
 
     <!-- Horizontal scrolling disabled on purpose: with it enabled the content lays out at its
          unbounded desired width, so the star column had no constraint and the combo boxes ran
          under the vertical scrollbar. -->
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                  Padding="0,0,12,0">
       <StackPanel>
-        <TextBlock Classes="section" Text="全局快捷键" />
-        <!-- Same width as the combos: an unconstrained TextBox stretches the full page and runs
-             under the vertical scrollbar. -->
-        <TextBox Text="{Binding HotkeyText, Mode=TwoWay}" FontSize="13"
-                 HorizontalAlignment="Left" Width="196" />
-        <TextBlock Classes="hint" Text="{Binding HotkeyHint}" Margin="0,6,0,0" />
+        <TextBlock Classes="section" Text="全局快捷键" Margin="0,0,0,8" />
+        <Grid ColumnDefinitions="110,196">
+          <TextBlock Grid.Column="0" Classes="label" Text="呼出热键" />
+          <TextBox Grid.Column="1" Text="{Binding HotkeyText, Mode=TwoWay}" FontSize="13"
+                   HorizontalAlignment="Stretch" />
+        </Grid>
+        <TextBlock Classes="hint" Text="{Binding HotkeyHint}" Margin="110,6,0,0"
+                   IsVisible="{Binding HotkeyHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
+        <Border Classes="divider" />
         <TextBlock Classes="section" Text="外观" />
         <StackPanel Spacing="10">
           <Grid ColumnDefinitions="110,196">
@@ -75,6 +106,7 @@
           </Grid>
         </StackPanel>
 
+        <Border Classes="divider" />
         <TextBlock Classes="section" Text="交互" />
         <StackPanel Spacing="10">
           <Grid ColumnDefinitions="110,196">
@@ -87,21 +119,29 @@
             <ComboBox Grid.Column="1" ItemsSource="{Binding PlacementOptions}"
                       SelectedIndex="{Binding PlacementIndex, Mode=TwoWay}" />
           </Grid>
-          <CheckBox IsChecked="{Binding HideOnLaunch, Mode=TwoWay}" Content="启动条目后收起面板" />
-          <CheckBox IsChecked="{Binding HideOnBlur, Mode=TwoWay}" Content="面板失焦时自动收起" />
-          <CheckBox IsChecked="{Binding ShowAddTile, Mode=TwoWay}"
-                    Content="显示“添加”占位磁贴（分类末尾）" />
-          <CheckBox IsChecked="{Binding WheelSwitchTab, Mode=TwoWay}" Content="滚轮切换分类" />
-          <CheckBox IsChecked="{Binding NumberKeysSwitchTab, Mode=TwoWay}" Content="Ctrl+数字切换分类" />
+          <StackPanel Spacing="6" Margin="0,2,0,0">
+            <CheckBox IsChecked="{Binding HideOnLaunch, Mode=TwoWay}" Content="启动条目后收起面板" />
+            <CheckBox IsChecked="{Binding HideOnBlur, Mode=TwoWay}" Content="面板失焦时自动收起" />
+            <CheckBox IsChecked="{Binding ShowAddTile, Mode=TwoWay}"
+                      Content="显示“添加”占位磁贴（分类末尾）" />
+            <CheckBox IsChecked="{Binding WheelSwitchTab, Mode=TwoWay}" Content="滚轮切换分类" />
+            <CheckBox IsChecked="{Binding NumberKeysSwitchTab, Mode=TwoWay}" Content="Ctrl+数字切换分类" />
+          </StackPanel>
         </StackPanel>
 
+        <Border Classes="divider" />
         <TextBlock Classes="section" Text="系统" />
         <StackPanel Spacing="8">
           <CheckBox IsChecked="{Binding AutoStart, Mode=TwoWay}" Content="开机自动启动" />
-          <TextBlock Classes="hint" Text="{Binding AutoStartMessage}" />
+          <TextBlock Classes="hint" Text="{Binding AutoStartMessage}" Margin="26,-4,0,0"
+                     IsVisible="{Binding AutoStartMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          <CheckBox IsChecked="{Binding GpuAcceleration, Mode=TwoWay}" Content="开启 GPU 加速（重启后生效）" />
+          <TextBlock Classes="hint" Text="{Binding GpuAccelerationMessage}" Margin="26,-4,0,0"
+                     IsVisible="{Binding GpuAccelerationMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
           <Button Content="创建桌面快捷方式" Command="{Binding CreateShortcutCommand}"
-                  HorizontalAlignment="Left" />
-          <TextBlock Classes="hint" Text="{Binding ShortcutMessage}" />
+                  HorizontalAlignment="Left" Margin="0,4,0,0" />
+          <TextBlock Classes="hint" Text="{Binding ShortcutMessage}"
+                     IsVisible="{Binding ShortcutMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
           <StackPanel Margin="0,6,0,0">
             <TextBlock Classes="hint" Text="数据目录" />
             <SelectableTextBlock Text="{Binding DataFolder}" FontSize="11"

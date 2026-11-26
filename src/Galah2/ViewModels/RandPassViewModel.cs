@@ -29,7 +29,7 @@ public sealed class RandPassViewModel : ObservableObject
     private bool _useFormat;
     private string _format;
     private string _copyStatus = "";
-    private System.Timers.Timer? _copyTimer;
+    private DispatcherTimer? _copyTimer;
 
     public RandPassViewModel(SettingsStore store)
     {
@@ -132,19 +132,26 @@ public sealed class RandPassViewModel : ObservableObject
             if (Set(ref _copyStatus, value))
             {
                 Raise(nameof(HasCopied));
-                _copyTimer?.Dispose();
-                _copyTimer = value.Length > 0
-                    ? new System.Timers.Timer(1500) { AutoReset = false }
-                    : null;
-                if (_copyTimer is not null)
+                _copyTimer?.Stop();
+                if (value.Length > 0)
                 {
-                    _copyTimer.Elapsed += (_, _) =>
-                        Dispatcher.UIThread.Post(() => CopyStatus = "");
+                    if (_copyTimer is null)
+                    {
+                        _copyTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1500) };
+                        _copyTimer.Tick += (_, _) =>
+                        {
+                            _copyTimer.Stop();
+                            CopyStatus = "";
+                        };
+                    }
                     _copyTimer.Start();
                 }
             }
         }
     }
+
+    /// <summary>Stop any transient feedback timer when the window closes.</summary>
+    public void StopTimers() => _copyTimer?.Stop();
 
     /// <summary>Called by the view after a successful clipboard write.</summary>
     public void MarkCopied() => CopyStatus = "已复制";

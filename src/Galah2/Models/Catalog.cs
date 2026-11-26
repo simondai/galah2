@@ -16,7 +16,7 @@ public static class ItemKinds
     /// <summary>Windows protocol link (ms-settings:, shell:, search-ms:...). Launched via ShellExecute.</summary>
     public const string Protocol = "protocol";
 
-    /// <summary>Returns true when <paramref name="kind"/> is one of the four supported kinds.</summary>
+    /// <summary>Returns true when <paramref name="kind"/> is one of the five supported kinds.</summary>
     public static bool IsKnown(string? kind) =>
         kind is App or File or Folder or Url or Protocol;
 }
@@ -183,9 +183,9 @@ public static class Ids
     {
         var n = Interlocked.Increment(ref _counter);
         var guid = Guid.NewGuid().ToString("N");
-        // Combine the monotonic counter with the random guid so ids stay unique even under a
-        // same-tick burst of inserts; the tail is a fixed 16 hex chars for stable file size.
+        // 取计数器低 8 位十六进制 + 8 位随机 GUID = 固定 16 位十六进制，既防同毫秒碰撞又保持定长。
         var counterHex = n.ToString("x16");
-        return counterHex[..8] + guid[(8 + (int)(n & 7))..(24 + (int)(n & 7))];
+        var offset = (int)(n & 7);
+        return counterHex[8..] + guid[offset..(offset + 8)];
     }
 }

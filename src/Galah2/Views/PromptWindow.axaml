@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="Galah2.Views.PromptWindow"
-        Width="360" Height="204"
+        Width="360" Height="160"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
@@ -13,10 +13,11 @@
           CornerRadius="10" BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1">
     <DockPanel>
       <!-- Custom title bar: title, drag, close (the system bar is gone). -->
-      <Border DockPanel.Dock="Top" Height="34" Background="{DynamicResource ElevatedBrush}"
+      <Border DockPanel.Dock="Top" Height="36" Background="{DynamicResource ElevatedBrush}"
+              BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,0,0,1"
               CornerRadius="10,10,0,0" PointerPressed="TitleBar_Drag">
         <Grid ColumnDefinitions="*,Auto">
-          <TextBlock Grid.Column="0" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="13"
+          <TextBlock Grid.Column="0" Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13"
                      FontWeight="SemiBold" Foreground="{DynamicResource TextStrongBrush}"
                      Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" />
           <Button Grid.Column="1" Classes="chip" Content="✕" FontSize="13" Padding="8,0"
@@ -25,11 +26,12 @@
       </Border>
   <DockPanel Margin="18,14,18,14">
     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right"
-                Spacing="8" Margin="0,14,0,0">
+                Spacing="8" Margin="0,12,0,0">
       <Button Content="取消" Click="Cancel_Click" />
-      <Button Content="确定" Click="Ok_Click" Background="{DynamicResource AccentSurfaceBrush}" Foreground="{DynamicResource WindowBrush}" />
+      <Button Content="确定" Click="Ok_Click" BorderThickness="0"
+              Background="{DynamicResource AccentSurfaceBrush}" Foreground="{DynamicResource WindowBrush}" />
     </StackPanel>
-    <TextBox x:Name="Input" FontSize="13" VerticalAlignment="Top" />
+    <TextBox x:Name="Input" FontSize="13" VerticalAlignment="Center" />
     </DockPanel>
     </DockPanel>
   </Border>

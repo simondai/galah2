@@ -1,5 +1,3 @@
-using System.Runtime.InteropServices;
-
 namespace Galah2.Services;
 
 /// <summary>
@@ -14,7 +12,9 @@ public sealed class SingleInstance : IDisposable
     private readonly Mutex _mutex;
     private readonly EventWaitHandle _signal;
     private readonly CancellationTokenSource _cts = new();
+    private readonly Thread? _thread;
     private bool _primary;
+    private int _disposed;
 
     public SingleInstance()
     {
@@ -23,8 +23,8 @@ public sealed class SingleInstance : IDisposable
 
         if (_primary)
         {
-            var thread = new Thread(WaitLoop) { IsBackground = true, Name = "galah2-ipc" };
-            thread.Start();
+            _thread = new Thread(WaitLoop) { IsBackground = true, Name = "galah2-ipc" };
+            _thread.Start();
         }
     }
 
@@ -58,8 +58,11 @@ public sealed class SingleInstance : IDisposable
 
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
         _cts.Cancel();
+        _thread?.Join(500);
         _signal.Dispose();
+        _cts.Dispose();
         if (_primary)
         {
             try { _mutex.ReleaseMutex(); } catch (ApplicationException) { }

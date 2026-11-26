@@ -139,7 +139,7 @@ dotnet run --project tools/PortableCheck -c Release -- artifact
 
 ### 回滚
 2.0 出问题时：
-1. **退回 1.x**：`main` 分支的 `Galah.exe` 可直接使用，数据格式完全兼容
+1. **退回 1.x**：使用独立仓库 `simondai/galah` 的 `main` 分支产出的 `Galah.exe`，数据格式完全兼容
    （2.0 读写的 `GalahData/` 就是 1.x 的格式）。
 2. **退回上一版 2.0**：保留上一版的整个 `artifact/` 目录，整目录替换即可。
    注意不能只换 exe——四个文件是一套。

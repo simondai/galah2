@@ -1,10 +1,8 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using Avalonia.VisualTree;
 using Galah2.Services;
 using Galah2.Services.Interop;
 using Galah2.ViewModels;
@@ -150,22 +148,23 @@ public partial class RandPassWindow : Window
         var y = (double)_resizeWindowOrigin.Y;
         var w = _resizeOriginalSize.Width * scale;
         var h = _resizeOriginalSize.Height * scale;
+        var rightEdge = x + w;
+        var bottomEdge = y + h;
 
         if ((_resizeEdges & EdgeE) != 0) w += dx;
         if ((_resizeEdges & EdgeS) != 0) h += dy;
-        if ((_resizeEdges & EdgeW) != 0) { x += dx; w -= dx; }
-        if ((_resizeEdges & EdgeN) != 0) { y += dy; h -= dy; }
+        if ((_resizeEdges & EdgeW) != 0) w -= dx;
+        if ((_resizeEdges & EdgeN) != 0) h -= dy;
 
         var minW = MinWidth * scale;
         var minH = MinHeight * scale;
         if (w < minW) w = minW;
         if (h < minH) h = minH;
 
-        // Keep the opposite edge where the user left it when the min size or the screen stops a
-        // west/north resize, instead of pinning the window to the work-area border.
+        if ((_resizeEdges & EdgeW) != 0) x = rightEdge - w;
+        if ((_resizeEdges & EdgeN) != 0) y = bottomEdge - h;
+
         var area = BestArea(x, y, w, h);
-        var rightEdge = x + w;
-        var bottomEdge = y + h;
         if (w > area.Width) w = area.Width;
         if (h > area.Height) h = area.Height;
         if ((_resizeEdges & EdgeW) != 0) x = rightEdge - w;
@@ -226,10 +225,20 @@ public partial class RandPassWindow : Window
         }
     }
 
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (DialogChrome.HandleEscape(this, e)) return;
+        base.OnKeyDown(e);
+    }
+
     /// <summary>Persist the parameter section once, on close (single-commit rule).</summary>
     protected override void OnClosed(EventArgs e)
     {
-        if (DataContext is RandPassViewModel vm) vm.Commit();
+        if (DataContext is RandPassViewModel vm)
+        {
+            vm.StopTimers();
+            vm.Commit();
+        }
         base.OnClosed(e);
     }
 
