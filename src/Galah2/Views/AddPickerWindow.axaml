@@ -9,6 +9,7 @@
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="False"
         SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
         Background="Transparent">
   <!-- Borderless surface: the same rounded RootBorder grammar as PanelWindow - the window
        itself is transparent, the surface, hairline and corners come from the Border. -->

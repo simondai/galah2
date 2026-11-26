@@ -9,6 +9,7 @@
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="False"
         SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
         Background="Transparent">
   <Window.Styles>
     <!-- 设置页局部排版：拉开分组标题与设置项标签的视觉层级，统一标签垂直居中、下拉框等宽。 -->

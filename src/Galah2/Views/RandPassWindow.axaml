@@ -8,6 +8,7 @@
         MinWidth="480" MinHeight="400"
         ShowInTaskbar="False"
         SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
         Background="Transparent">
   <!-- The sixth sibling dialog: borderless surface + custom title bar, same grammar as the
        other five (see DialogChrome). Layout v2 (spec 2026-11-24-randpass §7): the generate

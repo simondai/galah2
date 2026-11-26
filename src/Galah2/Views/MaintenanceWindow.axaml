@@ -8,6 +8,7 @@
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="False"
         SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
         Background="Transparent">
   <Window.Styles>
     <Style Selector="TextBlock.section">
