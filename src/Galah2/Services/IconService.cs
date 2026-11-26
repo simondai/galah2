@@ -25,6 +25,7 @@ public static class IconService
 {
     private const int IconSize = 32;
     private const uint DibRgbColors = 0;
+    private const uint DiMask = 0x0001;
     private const uint DiNormal = 0x0003;
     private const uint ShgfiIcon = 0x000000100;
 
@@ -285,6 +286,13 @@ public static class IconService
             if (!DrawIconEx(memDc, 0, 0, hIcon, size, size, 0, IntPtr.Zero, DiNormal))
                 return null;
 
+            // 传统老图标（4/8/24位，如 PuTTY）不含 32 位 Alpha 通道，GDI 绘制后会把所有 Alpha 写成 0 导致整图隐形。
+            // 仅在整张图全为 0 Alpha 时，才用 DI_MASK 还原真实不透明区域，现代带 Alpha 图标零额外开销。
+            var totalBytes = size * size * 4;
+            var src = (byte*)bits;
+            if (!HasAnyAlpha(src, totalBytes))
+                RestoreLegacyAlpha(memDc, hIcon, size, ref info, src, totalBytes);
+
             var bitmap = new WriteableBitmap(
                 new PixelSize(size, size),
                 new Vector(96, 96),
@@ -294,7 +302,6 @@ public static class IconService
             using (var buffer = bitmap.Lock())
             {
                 var rowBytes = size * 4;
-                var src = (byte*)bits;
                 var dst = (byte*)buffer.Address;
                 for (var y = 0; y < size; y++)
                 {
@@ -314,6 +321,56 @@ public static class IconService
         }
     }
 
+    /// <summary>检查 BGRA 像素缓冲中是否存在非零 Alpha 通道。</summary>
+    private static unsafe bool HasAnyAlpha(byte* bgra, int totalBytes)
+    {
+        for (var i = 3; i < totalBytes; i += 4)
+        {
+            if (bgra[i] != 0) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 通过绘制图标的 1-bit AND 掩码（DI_MASK）为传统无 Alpha 图标还原透明度：
+    /// 掩码黑色（0）表示不透明本体，设 Alpha=255 并保留纯黑像素；掩码白色表示透明背景，清零整像素。
+    /// </summary>
+    private static unsafe void RestoreLegacyAlpha(
+        IntPtr memDc, IntPtr hIcon, int size, ref Win32.BITMAPINFO info, byte* colorBgra, int totalBytes)
+    {
+        var maskDib = Win32.CreateDIBSection(memDc, ref info, 0, out var maskBits, IntPtr.Zero, 0);
+        if (maskDib == IntPtr.Zero || maskBits == IntPtr.Zero) return;
+
+        var prevMask = Win32.SelectObject(memDc, maskDib);
+        try
+        {
+            if (!DrawIconEx(memDc, 0, 0, hIcon, size, size, 0, IntPtr.Zero, DiMask))
+                return;
+
+            var mask = (byte*)maskBits;
+            for (var i = 0; i < totalBytes; i += 4)
+            {
+                // AND 掩码中 0x000000（黑）= 不透明，0xFFFFFF（白）= 透明
+                if (mask[i] == 0 && mask[i + 1] == 0 && mask[i + 2] == 0)
+                {
+                    colorBgra[i + 3] = 255;
+                }
+                else
+                {
+                    colorBgra[i] = 0;
+                    colorBgra[i + 1] = 0;
+                    colorBgra[i + 2] = 0;
+                    colorBgra[i + 3] = 0;
+                }
+            }
+        }
+        finally
+        {
+            if (prevMask != IntPtr.Zero) Win32.SelectObject(memDc, prevMask);
+            Win32.DeleteObject(maskDib);
+        }
+    }
+
     /// <summary>
     /// Stable short hash of some content, used to name stored files without encoding their origin
     /// in a path. Same algorithm as the icon cache, so the two cannot disagree.
@@ -325,8 +382,8 @@ public static class IconService
     private static string CachePath(string storedSource, int index, int size)
     {
         if (_paths is null) return "";
-        // 升级缓存盐值至 v3，自动淘汰旧的 32px 低清糊图缓存。
-        var key = "v3|" + storedSource + "|" + index + "|" + size;
+        // 升级缓存盐值至 v4，自动重建此前被缓存成全透明的传统老图标。
+        var key = "v4|" + storedSource + "|" + index + "|" + size;
         var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(key)))[..24];
         return Path.Combine(_paths.IconsDirectory, hash + ".png");
